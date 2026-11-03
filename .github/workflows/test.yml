@@ -1,0 +1,17 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lua:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua 5.1
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
+      - name: Syntax check
+        run: luac5.1 -p AssistCompanion/*.lua
+      - name: Run tests
+        run: lua5.1 tests/harness.lua AssistCompanion

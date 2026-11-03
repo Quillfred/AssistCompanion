@@ -1,0 +1,5 @@
+*.zip
+simc/
+nox/
+simout*/
+__pycache__/

@@ -1,0 +1,315 @@
+-- Minimal mock of the WoW API, enough to load Assist Companion and drive its rules.
+local dir = arg[1]
+local now = 100
+local state = { bars = {}, spec = 252, next = nil, rp = 0, known = {}, overrides = {}, plates = {} }
+local printed = {}
+
+-- frames
+local function newFrame()
+  local f = { scripts = {}, shown = false, size = {} }
+  local function tex()
+    local t = { shown = true, size = {} }
+    function t:SetSize(w, h) self.size = { w, h } end
+    function t:SetPoint() end
+    function t:SetTexCoord() end
+    function t:SetColorTexture() end
+    function t:SetDrawLayer() end
+    function t:SetTexture(x) self.texture = x end
+    function t:SetAlpha(a) self.alpha = a end
+    function t:SetVertexColor(r, g, b) self.color = { r, g, b } end
+    function t:SetDesaturated(v) self.desat = v end
+    function t:SetShown(v) self.shown = v and true or false end
+    function t:ClearAllPoints() end
+    function t:Show() self.shown = true end
+    function t:Hide() self.shown = false end
+    return t
+  end
+  local function fs()
+    local s = { text = "" }
+    function s:SetPoint() end
+    function s:SetJustifyH() end
+    function s:SetTextColor() end
+    function s:SetText(x) self.text = x end
+    return s
+  end
+  function f:CreateTexture() return tex() end
+  function f:CreateFontString() return fs() end
+  function f:SetSize() end
+  function f:SetMovable() end
+  function f:SetFrameStrata(x) self.strata = x end
+  function f:SetFrameLevel(x) self.level = x end
+  function f:SetToplevel(x) self.toplevel = x end
+  function f:SetClampedToScreen() end
+  function f:Show() self.shown = true end
+  function f:Hide() self.shown = false end
+  function f:SetShown(v) self.shown = v and true or false end
+  function f:SetScript(n, fn) self.scripts[n] = fn end
+  function f:ClearAllPoints() end
+  function f:SetPoint() end
+  function f:SetScale() end
+  function f:EnableMouse() end
+  function f:SetBackdrop() end
+  function f:SetBackdropColor() end
+  function f:RegisterEvent() end
+  function f:RegisterUnitEvent() end
+  return f
+end
+local frames = {}
+function CreateFrame(_, name) local f = newFrame(); frames[#frames + 1] = f; if name then _G[name] = f end; return f end
+UIParent = {}
+function GetTime() return now end
+function print(...) printed[#printed + 1] = table.concat({ ... }, " ") end
+function wipe(t) for k in pairs(t) do t[k] = nil end return t end
+function CopyTable(t) local c = {} for k, v in pairs(t) do c[k] = type(v) == "table" and CopyTable(v) or v end return c end
+SlashCmdList = {}
+Enum = { PowerType = { RunicPower = 6 } }
+C_SpecializationInfo = {
+  GetSpecialization = function() return 1 end,
+  GetSpecializationInfo = function() return state.spec end,
+}
+C_SpellBook = { IsSpellKnown = function(id) return state.known[id] or false end }
+C_Spell = {
+  GetOverrideSpell = function(id) return state.overrides[id] or id end,
+  GetSpellTexture = function(id) return "icon:" .. id end,
+  GetSpellName = function(id) return "spell" .. id end,
+  IsSpellInRange = function() return state.inRange end,
+}
+C_ActionBar = {
+  FindSpellActionButtons = function(id) return state.bars[id] and { state.bars[id] } or {} end,
+  IsActionInRange = function() return state.barRange end,
+}
+C_AssistedCombat = { GetNextCastSpell = function() return state.next end }
+function UnitPower() return state.rp end
+function UnitPowerMax() return 100 end
+C_NamePlate = { GetNamePlates = function()
+  local t = {} for i = 1, state.plates do t[i] = { namePlateUnitToken = "nameplate" .. i } end return t end }
+function UnitCanAttack() return true end
+function UnitAffectingCombat() return true end
+function UnitIsDead() return false end
+function UnitExists(u)
+  if u == "pet" then return state.pet or false end
+  return state.target ~= false
+end
+
+-- load addon files with a shared namespace
+local ns = {}
+for _, file in ipairs({ "Rules.lua", "Core.lua" }) do
+  local chunk = assert(loadfile(dir .. "/" .. file))
+  chunk("AssistCompanion", ns)
+end
+local display, ob, nf = AssistCompanionFrame, AssistCompanionOpener, AssistCompanionNext
+local driver, events = frames[4], frames[5]
+events.scripts.OnEvent(events, "ADDON_LOADED", "AssistCompanion")
+expect_default_text = AssistCompanionDB.showText
+expect_default_size = AssistCompanionDB.iconSize
+AssistCompanionDB.showText = true -- the rule tests below read the text alert box
+events.scripts.OnEvent(events, "PLAYER_LOGIN")
+
+local function step() now = now + 0.2; driver.scripts.OnUpdate(driver, 0.2) end
+local function cast(id) events.scripts.OnEvent(events, "UNIT_SPELLCAST_SUCCEEDED", "player", "guid", id) end
+local function seen() return display.shown and display.icon.shown and display.icon.texture or "nothing",
+  display.text.text, display.icon.size[1] end
+
+local pass, fail = 0, 0
+local function expect(label, want, got)
+  if want == got then pass = pass + 1; print(("PASS  %s"):format(label))
+  else fail = fail + 1; print(("FAIL  %s: wanted %s, got %s"):format(label, tostring(want), tostring(got))) end
+end
+
+expect("Display: strata is TOOLTIP", "TOOLTIP", display.strata)
+expect("Display: frame level is high", 9000, display.level)
+
+-- UNHOLY -----------------------------------------------------------------
+state.spec = 252; state.known = { [207317] = true }
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+-- Blightfall loop: DT button is Blightfall and the highlight says Outbreak
+state.overrides = { [1233448] = 1271967 }; state.next = 77575; state.rp = 30; step()
+expect("Unholy: Outbreak loop -> Blightfall icon", "icon:1271967", (seen()))
+-- after pressing Blightfall the button reverts; Outbreak suggestion is now legit
+state.overrides = {}; step()
+expect("Unholy: real Outbreak -> no alert", "nothing", (seen()))
+-- RP cap, single target, highlight wants Scourge Strike
+state.next = 55090; state.rp = 90; state.plates = 1; step()
+expect("Unholy: 90 RP + Scourge, 1 target -> Death Coil", "icon:47541", (seen()))
+-- RP cap at 5 targets -> Epidemic
+state.plates = 5; step()
+expect("Unholy: 90 RP + Scourge, 5 targets -> Epidemic", "icon:207317", (seen()))
+-- Clawing Shadows replacing Scourge Strike counts as a rune spender
+state.overrides = { [55090] = 207311 }; state.next = 207311; state.plates = 1; step()
+expect("Unholy: Clawing Shadows override counts as spender", "icon:47541", (seen()))
+-- Below threshold -> nothing
+state.rp = 60; step()
+expect("Unholy: 60 RP -> no alert", "nothing", (seen()))
+-- Highlight already suggests Death Coil -> nothing
+state.rp = 95; state.next = 47541; step()
+expect("Unholy: highlight already says Death Coil -> no alert", "nothing", (seen()))
+
+-- FROST ------------------------------------------------------------------
+state.spec = 251; state.known = { [1249658] = true, [207230] = true }
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+state.overrides = {}; state.next = 49143; state.plates = 1
+step()
+expect("Frost: no Pillar yet -> no alert", "nothing", (seen()))
+cast(51271); step()
+local icon, text, size = seen()
+expect("Frost: Pillar cast -> Breath icon", "icon:1249658", icon)
+expect("Frost: Breath alert has no text", "", text)
+expect("Frost: Breath icon is 48px", 48, size)
+expect("Frost: no trinket note while Breath icon shows", "", nf.note.text)
+cast(1249658); step()
+expect("Frost: Breath cast -> icon gone", "nothing", (seen()))
+now = now + 50; cast(51271); step()
+expect("Frost: next Pillar while Breath on cooldown -> no Breath icon", "nothing", (seen()))
+expect("Frost: trinket reminder shows instead", "Pillar: use trinkets, potion and racial", nf.note.text)
+now = now + 80; cast(51271); step()
+expect("Frost: Pillar after Breath cooldown -> Breath icon again", "icon:1249658", (seen()))
+now = now + 13; step()
+expect("Frost: Pillar window over -> icon gone", "nothing", (seen()))
+state.plates = 3; state.next = 49020; step()
+expect("Frost: 3 targets + Obliterate -> Frostscythe", "icon:207230", (seen()))
+state.plates = 5; step()
+expect("Frost: 5 targets -> no Frostscythe nag", "nothing", (seen()))
+-- Breath not talented: no alert even after Pillar
+state.known = { [207230] = true }; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); state.plates = 1
+now = now + 200; cast(51271); step()
+expect("Frost: Breath not talented -> no Breath icon", "nothing", (seen()))
+
+-- Empower Rune Weapon suggested while out of melee range
+state.known = { [1249658] = true, [207230] = true }; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
+now = now + 200; state.plates = 1; state.next = 47568; state.inRange = false; step()
+local i2, t2 = seen()
+expect("Frost: ERW suggested out of range -> Pillar icon", "icon:51271", i2)
+expect("Frost: ERW out of range text", "Wait: get in melee", t2)
+state.inRange = true; step()
+expect("Frost: ERW in melee -> no alert", "nothing", (seen()))
+state.inRange = nil; step()
+expect("Frost: ERW with unknown range -> no alert", "nothing", (seen()))
+state.inRange = false; state.target = false; step()
+expect("Frost: ERW with no target -> no alert", "nothing", (seen()))
+state.target = nil
+
+-- OPENER ----------------------------------------------------------------
+local function combat(on) events.scripts.OnEvent(events, on and "PLAYER_REGEN_DISABLED" or "PLAYER_REGEN_ENABLED") end
+local function openerIcons() local t = {} for i = 1, 6 do local s = ob.slots[i]; if s.shown then t[#t+1] = s.texture end end return table.concat(t, ",") end
+state.spec = 251; state.inRange = true; state.target = nil
+state.known = { [47568]=true, [51271]=true, [1249658]=true, [49020]=true, [279302]=true } -- no Reaper's Mark
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED"); now = now + 300; step()
+expect("Opener: Frost shows before pull with hostile target", true, ob.shown)
+expect("Opener: Frost skips Reaper's Mark when not talented", "icon:47568,icon:51271,icon:1249658,icon:49020,icon:279302,icon:49020", openerIcons())
+expect("Opener: label", "Opener\n1/8", ob.label.text)
+expect("Opener: first icon is large", 44, ob.slots[1].size[1])
+combat(true); cast(47568); step()
+expect("Opener: advances after first cast", "Opener\n2/8", ob.label.text)
+cast(1249658); step() -- pressed Breath before Pillar: skip ahead within 2 steps
+expect("Opener: out-of-order cast skips ahead", "Opener\n4/8", ob.label.text)
+cast(49020); cast(279302); cast(49020); cast(49020); cast(49020); step()
+expect("Opener: finished -> hidden", false, ob.shown)
+combat(false); step()
+expect("Opener: resets after combat", "Opener\n1/8", ob.label.text)
+state.target = false; step()
+expect("Opener: hidden with no target out of combat", false, ob.shown)
+state.target = nil; combat(true); now = now + 30; step()
+expect("Opener: hidden 25s into combat", false, ob.shown)
+combat(false)
+-- Unholy: Raise Dead skipped when the ghoul is out
+state.spec = 252; state.pet = true
+state.known = { [46584]=true, [77575]=true, [85948]=true, [42650]=true, [1233448]=true, [1247378]=true, [47541]=true }
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED"); step()
+expect("Opener: Unholy with ghoul out starts at Outbreak", "icon:77575", ob.slots[1].texture)
+expect("Opener: Unholy length without Raise Dead", "Opener\n1/9", ob.label.text)
+state.pet = false; events.scripts.OnEvent(events, "UNIT_PET", "player"); step()
+expect("Opener: Unholy with no ghoul starts at Raise Dead", "icon:46584", ob.slots[1].texture)
+-- Dark Transformation turned into Blightfall still counts for that step
+state.pet = true; events.scripts.OnEvent(events, "UNIT_PET", "player"); combat(true)
+cast(77575); cast(85948); cast(85948); cast(42650); state.overrides = { [1233448] = 1271967 }; cast(1271967); step()
+expect("Opener: Blightfall cast counts as the Dark Transformation step", "icon:1247378", ob.slots[1].texture)
+combat(false); state.overrides = {}
+
+-- NEXT-CAST ICON ---------------------------------------------------------
+expect("Defaults: text alerts off", false, expect_default_text)
+expect("Defaults: icon size 48", 48, expect_default_size)
+expect("Next icon: 48px", 48, nf.icon.size[1])
+expect("Next icon: TOOLTIP strata", "TOOLTIP", nf.strata)
+function GetBindingKey(cmd)
+  local map = { ACTIONBUTTON3 = "F", MULTIACTIONBAR1BUTTON2 = "SHIFT-2" }
+  return map[cmd]
+end
+state.spec = 252; state.known = { [207317] = true }; state.pet = true
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+state.bars = { [55090] = 3, [47541] = 62, [77575] = 5 }; state.target = nil; state.overrides = {}
+state.next = 55090; state.rp = 30; state.plates = 1; state.barRange = true; step()
+expect("Next icon: shows highlight's suggestion", "icon:55090", nf.icon.texture)
+expect("Next icon: keybind from main bar slot", "F", nf.key.text)
+expect("Next icon: no border when not corrected", false, nf.border.shown)
+state.rp = 95; step()
+expect("Next icon: RP cap corrects to Death Coil", "icon:47541", nf.icon.texture)
+expect("Next icon: correction has gold border", true, nf.border.shown)
+expect("Next icon: shortened modifier keybind", "S2", nf.key.text)
+state.rp = 30; state.barRange = false; step()
+expect("Next icon: out of range tinted red", 0.3, nf.icon.color[2])
+state.barRange = true; step()
+expect("Next icon: in range normal color", 1, nf.icon.color[2])
+state.overrides = { [1233448] = 1271967 }; state.next = 77575; step()
+expect("Next icon: Blightfall loop corrected", "icon:1271967", nf.icon.texture)
+state.overrides = {}
+-- Frost ERW out of range: keep ERW, tint + desaturate, no gold border
+state.spec = 251; state.known = { [1249658] = true, [207230] = true }
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+now = now + 400; state.next = 47568; state.inRange = false; state.barRange = nil; step()
+expect("Next icon: ERW out of range keeps ERW icon", "icon:47568", nf.icon.texture)
+expect("Next icon: ERW wait is desaturated", true, nf.icon.desat)
+expect("Next icon: ERW wait has no gold border", false, nf.border.shown)
+expect("Text alert: clearer ERW wording", "Then Empower Rune Weapon + Pillar of Frost", display.sub.text)
+-- Breath during Pillar shows on the next icon
+state.inRange = true; state.next = 49020; cast(51271); step()
+expect("Next icon: Breath correction during Pillar", "icon:1249658", nf.icon.texture)
+expect("Next icon: no reminder text under the Breath icon", "", nf.note.text)
+cast(1249658); step()
+expect("Next icon: reminder shows once Breath is used", "Pillar: use trinkets, potion and racial", nf.note.text)
+-- no target, out of combat: hidden
+state.target = false; now = now + 30; step()
+expect("Next icon: hidden with no target out of combat", false, nf.shown)
+state.target = nil
+
+-- KEYBIND FALLBACK: a bar addon with its own bindings (e.g. EllesmereUI bar 9) ----
+local fakeButtons = {
+  { action = 121, HotKey = { GetText = function() return "SF" end }, IsVisible = function() return true end },
+  { action = 122, HotKey = { GetText = function() return RANGE_INDICATOR end }, IsVisible = function() return true end },
+  { action = 123, HotKey = { GetText = function() return "Q" end }, IsVisible = function() return false end },
+}
+RANGE_INDICATOR = "\226\151\143"
+function EnumerateFrames(prev)
+  if not prev then return fakeButtons[1] end
+  for i, f in ipairs(fakeButtons) do if f == prev then return fakeButtons[i + 1] end end
+end
+function InCombatLockdown() return false end
+state.spec = 252; state.known = { [207317] = true }; state.pet = true; state.overrides = {}
+state.bars = { [85948] = 121 }       -- Festering Strike only on a custom bar slot
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+events.scripts.OnEvent(events, "UPDATE_BINDINGS")
+state.next = 85948; state.rp = 10; state.barRange = true; state.target = nil; now = now + 50; step()
+expect("Keybind fallback: reads bar addon's button text", "SF", nf.key.text)
+state.bars = { [85948] = 122 }; events.scripts.OnEvent(events, "ACTIONBAR_SLOT_CHANGED"); step()
+expect("Keybind fallback: ignores range dot", "", nf.key.text)
+state.bars = { [85948] = 123 }; events.scripts.OnEvent(events, "ACTIONBAR_SLOT_CHANGED"); step()
+expect("Keybind fallback: ignores hidden buttons", "", nf.key.text)
+-- In combat: no scan yet -> no key, and the miss isn't cached forever
+function InCombatLockdown() return true end
+state.bars = { [85948] = 121 }; events.scripts.OnEvent(events, "ACTIONBAR_SLOT_CHANGED"); step()
+expect("Keybind fallback: in combat, uses last out-of-combat scan", "SF", nf.key.text)
+function InCombatLockdown() return false end
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); step()
+expect("Keybind fallback: scans after combat ends", "SF", nf.key.text)
+-- Blizzard binding still wins when present
+state.bars = { [85948] = 3 }; events.scripts.OnEvent(events, "UPDATE_BINDINGS"); step()
+expect("Keybind: Blizzard binding (EllesmereUI bars 1-8) still used", "F", nf.key.text)
+
+-- secret values: power returns a secret -> treated as unknown, no error
+issecretvalue = function(v) return v == "SECRET" end
+state.spec = 252; events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+state.rp = "SECRET"; state.next = 55090; step()
+expect("Secret runic power -> no alert, no error", "nothing", (seen()))
+
+io.stdout:write(table.concat(printed, "\n"), "\n")
+io.stdout:write(("\n%d passed, %d failed\n"):format(pass, fail))
+os.exit(fail == 0 and 0 or 1)
