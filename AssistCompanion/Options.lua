@@ -138,10 +138,10 @@ local function buildGeneral()
     "GameFontHighlightSmall"), 16, 22)
 
   heading("Icons")
-  place(checkbox("Show the next-cast icon", "The highlight's suggestion, or a correction with a gold border.",
+  place(checkbox("Next-cast icon", "The highlight's suggestion, or a correction with a gold border.",
     function() return db().nextIcon end, function(v) db().nextIcon = v end), 16)
 
-  place(label("Show the next-cast icon:", "GameFontHighlight"), 44, 22)
+  place(label("When to show it:", "GameFontHighlight"), 44, 22)
   local modes = {
     { "always", "Always" },
     { "target", "In combat or with an enemy targeted" },
