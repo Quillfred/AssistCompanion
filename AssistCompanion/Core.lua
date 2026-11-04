@@ -879,6 +879,7 @@ local function tick()
 
   ctx.db = db
   ctx.now = GetTime()
+  ctx.spec = specID
   if ns.trackCooldowns and specID and ns.trackCooldowns[specID] then
     for _, id in ipairs(ns.trackCooldowns[specID]) do snapshotCooldown(id) end
   end
