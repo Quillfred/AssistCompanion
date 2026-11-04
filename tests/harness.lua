@@ -898,6 +898,25 @@ lock.checked = false; lock:Click()
 expect("Options: unchecking 'Lock frames' unlocks", false, AssistCompanionDB.locked)
 lock.checked = true; lock:Click()
 expect("Options: checking it locks again", true, AssistCompanionDB.locked)
+-- strata option (owner's request): menu, slash command, all frames follow
+local strataRow
+for _, w in ipairs(ns.optionsWidgets) do if w.label and w.label.text == "Strata" then strataRow = w end end
+expect("Strata: in the options menu, HIGH by default", "HIGH", strataRow and strataRow.value.text)
+strataRow.minus:Click()
+expect("Strata: < steps down to MEDIUM", "MEDIUM", AssistCompanionDB.strata)
+expect("Strata: the next-cast icon follows", "MEDIUM", nf.strata)
+expect("Strata: ...and the opener bar, low-health icon and text box", "MEDIUM/MEDIUM/MEDIUM",
+  AssistCompanionOpener.strata .. "/" .. AssistCompanionHealth.strata .. "/" .. display.strata)
+SlashCmdList.ASSISTCOMPANION("strata full screen dialog")
+expect("Strata: /ac strata with spaces", "FULLSCREEN_DIALOG", nf.strata)
+expect("Strata: menu shows it without underscores", "FULLSCREEN DIALOG", (function() strataRow:refresh() return strataRow.value.text end)())
+SlashCmdList.ASSISTCOMPANION("strata nonsense")
+expect("Strata: an unknown name is ignored", "FULLSCREEN_DIALOG", AssistCompanionDB.strata)
+for _ = 1, 10 do strataRow.plus:Click() end
+expect("Strata: > stops at TOOLTIP", "TOOLTIP", AssistCompanionDB.strata)
+AssistCompanionDB.strata = "BOGUS"; events.scripts.OnEvent(events, "UPDATE_BINDINGS"); SlashCmdList.ASSISTCOMPANION("lock")
+expect("Strata: a bad saved value falls back to HIGH", "HIGH", nf.strata)
+SlashCmdList.ASSISTCOMPANION("strata high")
 local size = AssistCompanionDB.iconSize
 for _, w in ipairs(ns.optionsWidgets) do if w.label and w.label.text == "Icon size" then w.plus:Click() end end
 expect("Options: icon size + button", size + 4, AssistCompanionDB.iconSize)

@@ -14,6 +14,7 @@ local DEFAULTS = {
   scale = 1.0,
   locked = true,
   iconSize = 48,           -- next-cast icon size in pixels
+  strata = "HIGH",         -- frame strata of the icons, opener bar and text box (ns.STRATA)
   nextIcon = true,         -- show the next-cast icon
   showMode = "always",     -- next-cast icon: "always", "target" (in combat or enemy targeted), "combat"
   showWhenDead = false,    -- keep everything on screen while dead or a ghost
@@ -476,8 +477,8 @@ end
 local function makeMovable(f, pointKey)
   f:SetMovable(true)
   f:SetClampedToScreen(true)
-  -- HIGH strata: above the action bars and most of the UI, below dialogs, menus and tooltips.
-  -- A high frame level keeps it above other HIGH frames.
+  -- Strata from the settings (placeFrame); HIGH by default: above the action bars and most of the
+  -- UI, below dialogs, menus and tooltips. A high frame level keeps it above others on that layer.
   f:SetFrameStrata("HIGH")
   f:SetFrameLevel(9000)
   f:SetToplevel(true)
@@ -492,7 +493,19 @@ local function makeMovable(f, pointKey)
   f:Hide()
 end
 
+-- Frame strata a player can pick, lowest to highest (the game's layers).
+ns.STRATA = { "BACKGROUND", "LOW", "MEDIUM", "HIGH", "DIALOG", "FULLSCREEN", "FULLSCREEN_DIALOG", "TOOLTIP" }
+-- The matching strata name, ignoring case, spaces and underscores ("full screen dialog" works).
+local function validStrata(s)
+  if type(s) ~= "string" then return nil end
+  local key = s:upper():gsub("[%s_]", "")
+  for _, v in ipairs(ns.STRATA) do if (v:gsub("_", "")) == key then return v end end
+  return nil
+end
+
 local function placeFrame(f, pointKey)
+  f:SetFrameStrata(validStrata(db.strata) or "HIGH")
+  f:SetFrameLevel(9000)
   f:ClearAllPoints()
   local p = db[pointKey]
   f:SetPoint(p[1], UIParent, p[3], p[4], p[5])
@@ -1232,6 +1245,14 @@ SlashCmdList.ASSISTCOMPANION = function(input)
     nf.icon:SetTexture(spellIcon(sample)); nf.border:Show(); nf.key:SetText("F"); nf.rank:SetText("")
     nf.icon:SetVertexColor(1, 1, 1); nf.icon:SetDesaturated(false); nf.note:SetText("Reminders appear here")
     nf:Show()
+  elseif cmd == "strata" then
+    local want = validStrata(arg)
+    if want then
+      db.strata = want; layoutAll()
+      say("Strata " .. want .. ".")
+    else
+      say("Strata is " .. tostring(db.strata) .. ". Choose one of: " .. table.concat(ns.STRATA, ", "):lower())
+    end
   elseif cmd == "minimap" then
     db.minimapButton = not db.minimapButton
     if ns.updateMinimap then ns.updateMinimap(true) end
@@ -1260,6 +1281,7 @@ SlashCmdList.ASSISTCOMPANION = function(input)
     say("/ac debug  - log what the addon sees to its saved file (/ac debug chat also prints it)")
     say("/ac log  - show debug log size (/ac log clear empties it)")
     say("/ac minimap  - show or hide the minimap button")
+    say("/ac strata <name>  - layer the icons draw on (now " .. tostring(db.strata):lower() .. ")")
     say("/ac scale <n> | reset")
   end
 end

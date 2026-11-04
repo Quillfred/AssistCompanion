@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.17.1
+
+* **Strata option:** choose which layer the icons, opener bar and text box draw on (BACKGROUND up to TOOLTIP; HIGH by default). In the options menu under Icons, or `/ac strata <name>` (e.g. `/ac strata medium`).
+
 ## 0.17.0
 
 * **Augmentation: seven more talents counted in the timing** (only if you have them):
