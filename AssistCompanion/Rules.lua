@@ -73,6 +73,8 @@ ns.rules[252] = {
   {
     key = "blightfall",
     name = "Blightfall loop",
+    spell = S.BLIGHTFALL,
+    desc = "Shows Blightfall when the highlight keeps asking for Outbreak after Dark Transformation.",
     -- Blizzard's data says "Outbreak if Blightfall buff is up". The buff only turns
     -- Dark Transformation into Blightfall, and Outbreak doesn't clear it, so the
     -- highlight asks for Outbreak forever. Press Blightfall instead.
@@ -89,6 +91,8 @@ ns.rules[252] = {
   {
     key = "rpcap",
     name = "Runic power cap",
+    spell = S.DEATH_COIL,
+    desc = "Shows Death Coil (1-3 targets) or Epidemic (4+) when runic power is about to cap.",
     -- The highlight only spends runic power on procs, or when you're out of runes.
     check = function(ctx)
       local p = ctx.power
@@ -127,6 +131,8 @@ ns.rules[250] = {
   {
     key = "boneshield",
     name = "Bone Shield refresh",
+    spell = S.MARROWREND,
+    desc = "Shows Marrowrend (or Death's Caress when low on runes) with about 5 seconds of Bone Shield left.",
     -- The highlight refreshes Bone Shield by stack count only, so it often lets the 30s
     -- timer run out (Bone Shield ~90% uptime instead of 100%). We time it from your casts.
     check = function(ctx)
@@ -146,6 +152,8 @@ ns.rules[250] = {
   {
     key = "rpcap",
     name = "Death Strike at runic power cap",
+    spell = S.DEATH_STRIKE,
+    desc = "Shows Death Strike within 20 runic power of max.",
     -- Optimal spends Death Strike within 20 runic power of max; the highlight wastes 7-12% in AoE.
     check = function(ctx)
       local p = ctx.power
@@ -157,6 +165,8 @@ ns.rules[250] = {
   {
     key = "bloodboil",
     name = "Blood Boil charges",
+    spell = S.BLOOD_BOIL,
+    desc = "Shows Blood Boil instead of Heart Strike whenever a charge is available.",
     -- The highlight only casts Blood Boil to apply Blood Plague (7-13 casts vs 52-56 optimal).
     -- Use a charge instead of Heart Strike whenever one is available.
     check = function(ctx)
@@ -176,6 +186,8 @@ ns.rules[251] = {
   {
     key = "erwrange",
     name = "Empower Rune Weapon out of range",
+    spell = S.EMPOWER_RUNE_WEAPON,
+    desc = "Grays Empower Rune Weapon out and tints it red until you're in melee.",
     -- Pillar's highlight rule needs the target within 8 yards; Empower Rune Weapon's has no
     -- range check, so it gets suggested while you're still running in. Don't waste it.
     check = function(ctx)
@@ -189,6 +201,8 @@ ns.rules[251] = {
   {
     key = "frostscythe",
     name = "Frostscythe on 3 targets",
+    spell = S.FROSTSCYTHE,
+    desc = "Shows Frostscythe instead of Obliterate at exactly 3 targets.",
     -- The highlight's Frostscythe rule only starts above 3 enemies.
     check = function(ctx)
       if ctx.enemies ~= 3 then return end
@@ -272,6 +286,7 @@ ns.readyCooldowns = {
     after = "erwrange",
     {
       key = "breath", name = "Breath of Sindragosa", spell = S.BREATH,
+      desc = "Shows Breath of Sindragosa during Pillar of Frost when it's ready. The in-game highlight never suggests it.",
       cooldown = 90, -- game data (1249658)
       anytime = true, -- the Pillar window already limits it
       -- Right after Pillar of Frost, once per Pillar.
@@ -305,6 +320,8 @@ local function readyCooldownRule(entry)
   return {
     key = entry.key,
     name = entry.name .. " ready",
+    spell = entry.spell,
+    desc = entry.desc or ("Shows " .. entry.name .. " when it's ready. The in-game highlight never suggests it."),
     check = function(ctx)
       if not ctx.knows(entry.spell) then return end
       if not entry.anytime and not ctx.inCombat then return end
@@ -347,6 +364,22 @@ ns.chargeTrack = {
 -- +10 with Ossuary (219786) = 125 (confirmed in game and in SimC's Blood profile).
 ns.powerMaxFallback = {
   [250] = function(knows) return 115 + (knows(219786) and 10 or 0) end,
+}
+
+-- Specs the options menu lists, grouped by class (in this order). The game's own names are
+-- used when it gives them (GetSpecializationInfoByID); these are the fallbacks.
+ns.specInfo = {
+  { id = 250, class = "DEATHKNIGHT", className = "Death Knight", name = "Blood" },
+  { id = 251, class = "DEATHKNIGHT", className = "Death Knight", name = "Frost" },
+  { id = 252, class = "DEATHKNIGHT", className = "Death Knight", name = "Unholy" },
+}
+
+-- Spec-specific settings shown under the spec in the options menu (db keys, checkboxes).
+ns.specOptions = {
+  [250] = { { key = "healthIcon", name = "Low-health Death Strike icon", spell = S.DEATH_STRIKE,
+              desc = "A separate Death Strike icon that fades in as your health drops (/ac hp sets the thresholds)." } },
+  [251] = { { key = "cooldownReminder", name = "Trinket, potion and racial reminder", spell = S.PILLAR_OF_FROST,
+              desc = "Text under the icon for 4 seconds after Pillar of Frost." } },
 }
 
 -- Melee spell used for "is my target in melee range?"

@@ -15,7 +15,8 @@ local DEFAULTS = {
   locked = true,
   iconSize = 48,           -- next-cast icon size in pixels
   nextIcon = true,         -- show the next-cast icon
-  alwaysShow = true,       -- show it even with no target / out of combat (for a future options menu)
+  showMode = "always",     -- next-cast icon: "always", "target" (in combat or enemy targeted), "combat"
+  showWhenDead = false,    -- keep everything on screen while dead or a ghost
   showText = false,        -- show text alerts as well (off: the icon carries the corrections)
   unholyRP = 80,           -- warn at or above this runic power when the highlight wants a rune spender
   cooldownReminder = true, -- Frost: trinkets/potion/racial reminder when Pillar goes out
@@ -26,7 +27,7 @@ local DEFAULTS = {
   healthFull = 35,         -- health % at or below which it's fully visible
   healthNone = 50,         -- health % at or above which it's invisible
   healthPoint = { "CENTER", "UIParent", "CENTER", 60, -100 },
-  disabled = {},           -- rule keys turned off with /ac toggle <key>
+  disabled = {},           -- rules turned off, as "<specID>:<key>" (options menu or /ac toggle <key>)
   debug = false,
 }
 
@@ -180,6 +181,21 @@ end
 
 local inCombat, combatStart = false, 0
 local function combatOrTarget() return inCombat or hostileTarget() end
+
+-- Should the next-cast icon be on screen right now? (db.showMode)
+local function iconVisibleNow()
+  if db.showMode == "combat" then return inCombat end
+  if db.showMode == "target" then return combatOrTarget() end
+  return true
+end
+
+-- Rule on/off, per spec (the same key, e.g. "raisedead", exists in several specs).
+function ns.ruleEnabled(spec, key)
+  return not (db and db.disabled[spec .. ":" .. key])
+end
+function ns.setRuleEnabled(spec, key, on)
+  db.disabled[spec .. ":" .. key] = (not on) or nil
+end
 
 ---------------------------------------------------------------------------
 -- Debug log (/ac debug). Kept in saved variables, so WoW writes it to
@@ -532,11 +548,11 @@ local function showNext(ctx, alert, note)
   end
   if alert and alert.iconOnly then note = nil end -- e.g. Breath: just the icon, nothing else
   local idle = false
-  if db.alwaysShow and db.nextIcon and not spell then
+  if db.nextIcon and not spell then
     -- No suggestion right now: keep the last one on screen, grayed out.
     spell, idle, corrected, wait = nf.lastSpell, true, false, false
   end
-  if not db.nextIcon or not spell or (not db.alwaysShow and not combatOrTarget()) then
+  if not db.nextIcon or not spell or not iconVisibleNow() then
     nf.note:SetText("")
     nf:SetShown(not db.locked)
     return nil, "hidden"
@@ -819,8 +835,8 @@ end
 
 local function tick()
   if not db then return end
-  -- Dead or a ghost: hide everything until you're back up.
-  if playerDead() then
+  -- Dead or a ghost: hide everything until you're back up (unless you want it shown).
+  if not db.showWhenDead and playerDead() then
     nf:Hide(); ob:Hide(); hf:Hide(); frame:Hide()
     return
   end
@@ -845,7 +861,7 @@ local function tick()
   local rules = specID and ns.rules[specID]
   if rules then
     for _, rule in ipairs(rules) do
-      if not db.disabled[rule.key] then
+      if ns.ruleEnabled(specID, rule.key) then
         local ok, result = pcall(rule.check, ctx)
         if ok and result then alert, alertKey = result, rule.key break end
       end
@@ -952,10 +968,35 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
   if event == "ADDON_LOADED" and arg1 == ADDON then
     AssistCompanionDB = AssistCompanionDB or {}
     db = AssistCompanionDB
+    -- 0.11 and older: alwaysShow (true/false) became showMode.
+    if db.showMode == nil and db.alwaysShow == false then db.showMode = "target" end
+    db.alwaysShow = nil
     for k, v in pairs(DEFAULTS) do
       if db[k] == nil then db[k] = type(v) == "table" and CopyTable(v) or v end
     end
+    -- 0.11 and older: rule toggles were stored by key only; now per spec ("250:raisedead").
+    for k in pairs(CopyTable(db.disabled)) do
+      if type(k) == "string" and not k:find(":", 1, true) then
+        for spec, rules in pairs(ns.rules) do
+          for _, rule in ipairs(rules) do
+            if rule.key == k then db.disabled[spec .. ":" .. k] = true end
+          end
+        end
+        db.disabled[k] = nil
+      end
+    end
     layoutAll()
+    if ns.initOptions then
+      ns.initOptions({
+        db = function() return db end,
+        specID = function() return specID end,
+        layoutAll = layoutAll,
+        updateGCD = updateGCD,
+        updateHealthIcon = updateHealthIcon,
+        buildOpener = buildOpener,
+        logSize = function() return db.debugLog and #db.debugLog or 0, LOG_MAX end,
+      })
+    end
   elseif event == "SPELL_UPDATE_COOLDOWN" then
     updateGCD()
   elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
@@ -1045,13 +1086,15 @@ SlashCmdList.ASSISTCOMPANION = function(input)
     db.cooldownReminder = not db.cooldownReminder
     say("Frost cooldown reminder " .. (db.cooldownReminder and "on." or "off."))
   elseif cmd == "toggle" and arg ~= "" then
-    db.disabled[arg] = not db.disabled[arg] or nil
-    say(("Rule '%s' %s."):format(arg, db.disabled[arg] and "off" or "on"))
+    if not specID then say("No spec yet.") return end
+    local on = not ns.ruleEnabled(specID, arg)
+    ns.setRuleEnabled(specID, arg, on)
+    say(("Rule '%s' %s for this spec."):format(arg, on and "on" or "off"))
   elseif cmd == "rules" then
     local rules = specID and ns.rules[specID]
     if not rules then say("No rules for this spec.") return end
     for _, r in ipairs(rules) do
-      say(("%s  (%s)  %s"):format(r.key, r.name, db.disabled[r.key] and "|cffff6666off|r" or "|cff66ff66on|r"))
+      say(("%s  (%s)  %s"):format(r.key, r.name, ns.ruleEnabled(specID, r.key) and "|cff66ff66on|r" or "|cffff6666off|r"))
     end
   elseif cmd == "debug" then
     if arg == "chat" then
@@ -1083,13 +1126,16 @@ SlashCmdList.ASSISTCOMPANION = function(input)
     nf.icon:SetTexture(spellIcon(sample)); nf.border:Show(); nf.key:SetText("F")
     nf.icon:SetVertexColor(1, 1, 1); nf.icon:SetDesaturated(false); nf.note:SetText("Reminders appear here")
     nf:Show()
+  elseif cmd == "" or cmd == "options" or cmd == "config" then
+    if ns.openOptions and ns.openOptions() then return end
+    say("The options menu isn't available. /ac help lists the commands.")
   elseif cmd == "reset" then
     db.point = CopyTable(DEFAULTS.point); db.openerPoint = CopyTable(DEFAULTS.openerPoint)
     db.nextPoint = CopyTable(DEFAULTS.nextPoint); db.iconSize = DEFAULTS.iconSize
     db.healthPoint = CopyTable(DEFAULTS.healthPoint)
     db.scale = DEFAULTS.scale; layoutAll(); say("Position and size reset.")
   else
-    say("commands:")
+    say("commands (/ac on its own opens the options menu):")
     say("/ac unlock | lock  - move the icon and opener bar")
     say("/ac test  - show a sample icon")
     say("/ac icon  - toggle the next-cast icon (/ac icon 48 sets its size, now " .. db.iconSize .. ")")

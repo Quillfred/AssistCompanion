@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.11.0** (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.12.0** (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -13,6 +13,13 @@ conversation. Current addon version: **0.11.0** (see `AssistCompanion/AssistComp
 * **Research:** `docs/FINDINGS.md` (per-rule evidence), `docs/TRIAGE.md` (phase 1, all specs).
 * **Rankings page** (claude.ai artifact, owner's account): sortable table of highlight vs optimal DPS per
   spec. **Out of date** for specs hit by the SimC button-override limitation (below).
+
+**Options menu (0.12.0):** `AssistCompanion/Options.lua`, a canvas panel in the game's Settings (Esc > Options >
+AddOns, or `/ac`). The ability tree is built from `ns.specInfo` (class/spec list), `ns.rules` (each rule's `name`,
+`desc`, `spell` icon) and `ns.specOptions` (spec settings), so a new spec shows up by adding it to `ns.specInfo`.
+Rule toggles are now per spec (`db.disabled["250:raisedead"]`); old key-only toggles are migrated to every spec
+with that key. `alwaysShow` became `showMode` ("always" / "target" / "combat"); `showWhenDead` is new.
+Not yet seen in the live game: check the panel's layout, scrolling, and that checkboxes and +/- buttons respond.
 
 ## Plan (agreed order)
 

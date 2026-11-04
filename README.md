@@ -34,10 +34,20 @@ Corrections have a gold border. While an opener is running, the icon follows the
 
 If the game says the addon is out of date, tick **Load out of date AddOns** on the AddOns screen.
 
+## Options menu
+
+Type **`/ac`**, or open **Esc → Options → AddOns → Assist Companion**.
+
+* **Icons:** show or hide the next-cast icon, and when to show it (always, in combat or with an enemy targeted, or only in combat); show while dead; global cooldown swipe; text alerts; lock or unlock frames for moving; icon size and scale; test icon; reset positions.
+* **Opener:** opener bar on or off, whether the next-cast icon follows it, restart it.
+* **Debug:** debug log on or off, also print to chat, clear the log.
+* **Abilities:** a tree of classes and specs. Open a spec to turn each of its corrections on or off (hover one for what it does), plus spec settings such as Blood's low-health icon. Your current class and spec open by themselves.
+
 ## Commands
 
 | Command | What it does |
 |---|---|
+| `/ac` | Open the options menu. `/ac help` lists the commands |
 | `/ac unlock`, `/ac lock` | Move the next-cast icon and opener bar |
 | `/ac test` | Show a sample icon |
 | `/ac icon` | Turn the next-cast icon on or off. `/ac icon 56` sets its size (default 48) |
@@ -47,7 +57,7 @@ If the game says the addon is out of date, tick **Load out of date AddOns** on t
 | `/ac opener` | Turn the opener bar on or off. `/ac opener reset` restarts it. `/ac opener icon` stops the next-cast icon following the opener |
 | `/ac rp 80` | Unholy: runic power level that triggers a spend warning |
 | `/ac cds` | Frost: turn the "use trinkets, potion and racial" reminder during Pillar on or off |
-| `/ac rules`, `/ac toggle <key>` | List rules or turn one off |
+| `/ac rules`, `/ac toggle <key>` | List your current spec's rules, or turn one on or off for your current spec |
 | `/ac scale <n>`, `/ac reset` | Scale everything, or reset positions |
 | `/ac debug` | Log what the addon sees (icon changes and why, casts, opener steps, combat start/end, status each second) to its saved file. `/ac debug chat` also prints it to chat |
 | `/ac log` | Show the debug log's size. `/ac log clear` empties it |
