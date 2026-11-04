@@ -14,3 +14,6 @@ Scripts used to produce the numbers in `docs/FINDINGS.md`. They expect, next to 
 | `decode_talents.py` | Lists the talents in an in-game export string: `python3 decode_talents.py <string>` |
 | `blood_sims.py` | Blood: optimal vs highlight at 1/3/5 targets (casts, runic power waste, Bone Shield uptime, damage taken) |
 | `blood_rules_sim.py` | Blood: the highlight's own priority with the addon's corrections added, to measure what they're worth |
+| `override_map.py` | Builds `override_map.json`: every "button B casts A in some state" pair from the game's Override Action Spell effects |
+| `override_resim.py` | Re-sims the highlight with each override added after its base spell (SimC's base actions refuse to fire in override states, e.g. Chaos Strike during Metamorphosis) |
+| `triage.py` | Phase 1 triage: per spec and fight, where the highlight loses damage vs optimal and whether an addon could fix it. Writes `triage.json` and `TRIAGE.md` |
