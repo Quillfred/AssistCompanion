@@ -1301,6 +1301,29 @@ state.known[407876] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED
 expect("Accretion: 10 Eruptions -> 1s left -> rank 1", "1", nf.rank.text)
 state.known[407876] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); state.next = 431443
 
+-- Learned factors are saved and survive a /reload; a talent change resets them
+local A = ns.augCooldowns
+step()                                                           -- settle the current talents
+A.empowerFactor, A.tipFactor = 1.12, 1.05; step()
+expect("Saved: learned factors written to the settings", "1.12/1.05",
+  AssistCompanionDB.augLearned.empower .. "/" .. AssistCompanionDB.augLearned.tip)
+local sig = AssistCompanionDB.augLearned.sig
+A.learnedLoaded = false; A.empowerFactor, A.tipFactor = 1, 1; step()   -- as after a /reload
+expect("Saved: a new session starts with the learned factors", "1.12/1.05", A.empowerFactor .. "/" .. A.tipFactor)
+state.known[407876] = not state.known[407876]; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+expect("Saved: Accretion changed -> start over", "1/1", A.empowerFactor .. "/" .. A.tipFactor)
+expect("Saved: ...with the new talents remembered", true, AssistCompanionDB.augLearned.sig ~= sig)
+A.learnedLoaded = false; AssistCompanionDB.augLearned = { sig = "zzz", empower = 1.5, tip = 1.5 }; step()
+expect("Saved: values saved for other talents aren't loaded", "1/1", A.empowerFactor .. "/" .. A.tipFactor)
+local saved = AssistCompanionDB.augLearned
+state.known[395152] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")   -- spellbook not loaded yet
+A.learnedLoaded = false; AssistCompanionDB.augLearned = { sig = saved.sig, empower = 1.2, tip = 1.1 }; step()
+expect("Saved: nothing loaded or overwritten before the spellbook is ready", 1.2, AssistCompanionDB.augLearned.empower)
+state.known[395152] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+expect("Saved: ...then loaded once it is", "1.2/1.1", A.empowerFactor .. "/" .. A.tipFactor)
+state.known[407876] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+A.empowerFactor, A.tipFactor = 1, 1; step()
+
 -- debug log: Ebon Might estimate on the status line, rule errors logged once
 local function dbgHas(pat) for _, l in ipairs(AssistCompanionDB.debugLog or {}) do if l:find(pat, 1, true) then return true end end return false end
 AssistCompanionDB.debugLog = {}; AssistCompanionDB.debug = true

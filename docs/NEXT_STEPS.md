@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.16.3** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.16.4** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -75,8 +75,13 @@ Not yet seen in the live game: check the panel's layout, scrolling, and that che
    **0.16.1:** cancelled empowers undone (`UNIT_SPELLCAST_EMPOWER_STOP`, `ns.onCastCancelled`); learned factors
    averaged, implausible readings dropped. `up=` confirmed counting down (seventh log). Haste is ~8% and hidden
    in combat, so it doesn't explain the Tip the Scales gap; `tx=` learning stays.
-   **Open:** check the empower-cancel event reports `complete` readably in game (look for "empower cancelled" in
-   the log after cancelling a Fire Breath).
+   **0.16.4:** learned factors saved (`db.augLearned`), reset when Accretion / Chronoboon / Temporal Burst change,
+   loaded only once the spellbook is ready. Eighth log clean (see FINDINGS). CurseForge beta on hold at the
+   owner's request until everything is confirmed.
+   **Open (owner to test):** cancelled empowers. With debug on, start Fire Breath and cancel it before
+   releasing (jump, move without Hover, or a /stopcasting macro). Expect `cast: Fire Breath` then
+   `empower cancelled: Fire Breath`, and the highlight should keep offering Fire Breath. A normal release must
+   NOT log "empower cancelled". If the line never appears, the event's `complete` argument isn't readable.
    **Open:** the Ebon Might estimate runs at least 8s short in the owner's log, so the `ebonmight` refresh rule
    never fires. Next log: compare `em=` on the status lines with when the highlight asks for Ebon Might again
    (it only does once the buff is down and Ebon Might is off cooldown). Original notes:

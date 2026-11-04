@@ -432,8 +432,39 @@ end
 aug.blend = blend
 
 ns.onTick = ns.onTick or {}
+-- Learned factors are saved with your settings (db.augLearned), so a session starts calibrated
+-- (owner's log: the first Upheaval of a session came ~5s before the uncorrected estimate). They're
+-- reset when the talents they depend on change.
+local function learnedSignature(ctx)
+  return (ctx.knows(S.ACCRETION) and "A" or "-") .. (ctx.knows(S.CHRONOBOON) and "C" or "-")
+      .. (ctx.knows(S.TEMPORAL_BURST) and "T" or "-")
+end
+
+local function syncLearned(ctx)
+  local db = ctx.db
+  if not db then return end
+  -- Right after login the spellbook/talents may not be loaded yet; a wrong signature then would
+  -- wipe the saved values. Wait until a baseline Augmentation spell is known.
+  if not ctx.knows(S.EBON_MIGHT) then return end
+  local sig = learnedSignature(ctx)
+  local saved = db.augLearned
+  if not aug.learnedLoaded then
+    aug.learnedLoaded = true
+    if saved and saved.sig == sig then
+      aug.empowerFactor, aug.tipFactor = saved.empower or 1, saved.tip or 1
+    end
+  elseif saved and saved.sig ~= sig then
+    aug.empowerFactor, aug.tipFactor = 1, 1 -- talents changed: start over
+  end
+  if not saved or saved.sig ~= sig or saved.empower ~= aug.empowerFactor or saved.tip ~= aug.tipFactor then
+    db.augLearned = { sig = sig, empower = aug.empowerFactor, tip = aug.tipFactor }
+  end
+end
+aug.syncLearned = syncLearned
+
 ns.onTick[1473] = function(ctx)
   readTemporalBurst(ctx)
+  syncLearned(ctx)
   if ns.augLearnTip then ns.augLearnTip(ctx) end
   local n = ctx.next
   if not ctx.inCombat or not n then return end
