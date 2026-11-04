@@ -461,15 +461,31 @@ local function advanceOpener(id)
     local want = steps[k].id
     if id == want or id == override(want) then
       opener.index = k + 1
+      opener.lastAdvance = GetTime()
       return
     end
   end
+end
+
+-- Fresh start for the next pull, assuming everything is off cooldown (as after a raid wipe):
+-- opener back to step 1, and forget cast times so cooldown-based rules (Breath) treat
+-- abilities as ready.
+local OPENER_IDLE_RESET = 10 -- seconds out of combat after an opener cast before it resets
+local function resetForNextPull()
+  wipe(lastCast)
+  buildOpener()
 end
 
 -- Draws the opener bar. Returns the current opener step while the opener is active
 -- (so the next-cast icon can follow it), or nil.
 local function renderOpener()
   local steps = opener.steps
+  -- Opener spells pressed out of combat (testing on a dummy, a pull that never started):
+  -- start over once you've been idle out of combat for a while.
+  if not inCombat and opener.index > 1 and opener.lastAdvance
+     and GetTime() - opener.lastAdvance >= OPENER_IDLE_RESET then
+    buildOpener() -- opener only; cast history is cleared by real combat drops, deaths and encounter ends
+  end
   local visible = db.opener and #steps > 0 and opener.index <= #steps
     and ((not inCombat and hostileTarget()) or (inCombat and GetTime() - combatStart <= OPENER_COMBAT_WINDOW))
   if not visible then ob:SetShown(not db.locked) return nil end
@@ -586,6 +602,8 @@ events:RegisterEvent("TRAIT_CONFIG_UPDATED")
 events:RegisterEvent("SPELLS_CHANGED")
 events:RegisterEvent("PLAYER_REGEN_ENABLED")
 events:RegisterEvent("PLAYER_REGEN_DISABLED")
+events:RegisterEvent("PLAYER_DEAD")
+events:RegisterEvent("ENCOUNTER_END")
 events:RegisterEvent("UPDATE_BINDINGS")
 events:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
 events:RegisterUnitEvent("UNIT_PET", "player")
@@ -619,7 +637,9 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
     inCombat = false
     cachePowerMax()
     if not hotkeyScanned then clearBindingCache() end -- rescan buttons now that combat is over
-    buildOpener() -- ready for the next pull
+    resetForNextPull()
+  elseif event == "PLAYER_DEAD" or event == "ENCOUNTER_END" then
+    resetForNextPull() -- wipe or kill: next pull starts from a full opener
   elseif event == "UNIT_PET" then
     if not inCombat and opener.index == 1 then buildOpener() end
   elseif event == "UPDATE_BINDINGS" or event == "ACTIONBAR_SLOT_CHANGED" then

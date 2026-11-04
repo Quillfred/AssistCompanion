@@ -50,6 +50,7 @@ The keybind on the icon comes from Blizzard's action bar bindings. For bar addon
 
 * Midnight hides some combat information from addons. Counting nearby enemies (used for the 3-target and 1–3 vs 4+ choices) may not work in combat; when it doesn't, those parts stay quiet.
 * The openers come from SimC's optimal single-target rotation for SimC's default builds. Steps for spells you don't have are skipped.
+* When combat drops (or you die, or an encounter ends) the opener restarts and every ability is treated as off cooldown, as after a raid wipe. Opener spells pressed out of combat rewind after 10 seconds.
 * This has been tested against a mocked WoW API (see below), not yet in the live game. Please report anything that behaves differently.
 
 ## Tests

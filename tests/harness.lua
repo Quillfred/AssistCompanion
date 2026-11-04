@@ -333,6 +333,41 @@ expect("Opener icon: gold border color restored", 1, nf.border.color[1])
 combat(false)
 AssistCompanionDB.openerIcon = false
 
+-- RESET FOR THE NEXT PULL (cooldowns assumed reset, as after a wipe) --------
+AssistCompanionDB.openerIcon = true
+state.spec = 251; state.target = nil; state.overrides = {}; state.inRange = true
+state.known = { [47568]=true, [51271]=true, [1249658]=true, [49020]=true, [279302]=true }
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED")
+now = now + 600; state.next = 49143; step()
+-- pull: Pillar + Breath used, then combat drops (wipe)
+combat(true); cast(47568); cast(51271); cast(1249658); step()
+expect("Reset: mid-opener before wipe", "Opener\n4/8", ob.label.text)
+combat(false); step()
+expect("Reset: combat drop -> opener back to step 1", "Opener\n1/8", ob.label.text)
+-- next pull right away: Breath must count as ready even though it was cast <120s ago
+AssistCompanionDB.openerIcon = false
+combat(true); now = now + 5; cast(51271); state.next = 49020; step()
+expect("Reset: Breath treated as off cooldown after combat drop", "icon:1249658", nf.icon.texture)
+combat(false); AssistCompanionDB.openerIcon = true
+-- death resets mid-pull
+combat(true); cast(47568); cast(51271); step()
+events.scripts.OnEvent(events, "PLAYER_DEAD"); step()
+expect("Reset: death -> opener back to step 1", "Opener\n1/8", ob.label.text)
+combat(false)
+-- encounter end resets
+combat(true); cast(47568); step()
+events.scripts.OnEvent(events, "ENCOUNTER_END"); combat(false); step()
+expect("Reset: encounter end -> step 1", "Opener\n1/8", ob.label.text)
+-- out-of-combat press: stays advanced briefly, resets after 10s idle
+cast(47568); step()
+expect("Reset: out-of-combat press advances", "Opener\n2/8", ob.label.text)
+now = now + 5; step()
+expect("Reset: still advanced after 5s", "Opener\n2/8", ob.label.text)
+now = now + 6; step()
+expect("Reset: reset after 10s idle out of combat", "Opener\n1/8", ob.label.text)
+AssistCompanionDB.openerIcon = false
+
 -- secret values: power returns a secret -> treated as unknown, no error
 issecretvalue = function(v) return v == "SECRET" end
 state.spec = 252; events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
