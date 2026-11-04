@@ -120,3 +120,6 @@ prefers: 48px icon, text alerts off, HIGH strata, icons always shown (not when d
 * Commits end with the session's attribution lines. Push to the session's branch, then open a pull request
   into `main` and merge it once CI passes. The owner wants Claude to handle all pull requests and merges
   without asking.
+* After every update to GitHub (each merge into `main`), send the owner a zip of the addon in the chat:
+  the `AssistCompanion` folder from `main`, zipped with that folder at the top level, named
+  `AssistCompanion-<version>.zip` (version from the TOC).
