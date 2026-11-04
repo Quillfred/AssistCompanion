@@ -1,0 +1,88 @@
+# Next steps (hand-off)
+
+Written at the end of a long working session so a fresh session can pick up without the old
+conversation. Current addon version: **0.10.0** (see `AssistCompanion/AssistCompanion.toc`).
+
+## Where things stand
+
+* **Addon:** Blood, Frost and Unholy Death Knight. Next-cast icon (Assisted Highlight suggestion with
+  keybind, GCD swipe, range/resource shading, gold border = correction, blue = opener step), opener bar,
+  Blood low-health Death Strike icon, optional text alerts (off), saved debug log (`/ac debug`).
+  Rules live in `AssistCompanion/Rules.lua`; display, tracking and commands in `Core.lua`.
+* **Tests:** `lua5.1 tests/harness.lua AssistCompanion` (mocked WoW API, ~198 cases). CI runs them on push.
+* **Research:** `docs/FINDINGS.md` (per-rule evidence), `docs/TRIAGE.md` (phase 1, all specs).
+* **Rankings page** (claude.ai artifact, owner's account): sortable table of highlight vs optimal DPS per
+  spec. **Out of date** for specs hit by the SimC button-override limitation (below).
+
+## Plan (agreed order)
+
+1. **Cooldown-ready template, DKs + Devastation first.** Generalize Frost's Breath of Sindragosa rule
+   (`Rules.lua`, rule `breath`, plus `ns.trackCooldowns`) into a data-driven template: per spec, a list of
+   cooldowns the in-game highlight never suggests; show the icon when one is ready (cooldown read out of
+   combat, timed from your own casts in combat, as Breath does since 0.7.2). DK: Breath of Sindragosa,
+   Raise Dead, Vampiric Blood (Blood). Devastation: confirm the list from `docs/TRIAGE.md` and the
+   highlight list (`simc/ActionPriorityLists/assisted_combat/evoker_devastation.simc`).
+2. **Devastation deep dive** (Blood-style, see "How Blood was done"):
+   * Azure Sweep never cast (34-45 casts optimal, 0 highlight). The re-sim with the Azure Strike -> Azure Sweep
+     override did **not** change anything, so it's a real gap: check the highlight's Azure Strike rule
+     conditions and SimC's `azure_sweep` buff/ready logic.
+   * Essence waste 24% vs 8-12% optimal: "spend at cap" rule (essence is readable via UnitPower).
+   * Pyre skipped at exactly 3 targets (">3" rule): needs an enemy count in combat (see open checks).
+   * Disintegrate under-used at 1 target (86 vs 62 casts).
+   * Empowered spells: the highlight never says which empower rank; consider showing the rank.
+3. **Cooldown template for the remaining specs**, a few classes per batch, push after each.
+4. Optional: **update the rankings page** with the corrected losses from `simout_override/`.
+
+The owner plays Frost/Unholy/Blood DK, Devastation and Augmentation Evoker, uses EllesmereUI bars, and
+prefers: 48px icon, text alerts off, HIGH strata, icons always shown (not when dead).
+
+## Key findings to keep in mind
+
+* **SimC button-override limitation:** SimC's base actions refuse to fire in override states (Chaos Strike
+  during Metamorphosis -> Annihilation, Raging Blow -> Crushing Blow, Consume -> Devour...), so its
+  `use_blizzard_action_list=1` sims understate the highlight for those specs. `tools/override_map.py` builds
+  all 162 pairs from game data; `tools/override_resim.py` re-sims with them. Corrected average losses:
+  Devourer -55.7 -> -29.6, Havoc -34.6 -> -12.3, Shadow -27.3 -> -10.0, Ret -15.8 -> -8.6,
+  Affliction -23.9 -> -17.9 (Fury +4.8 points, others ~unchanged).
+* **SimC presses some cooldowns in its highlight sims** that the in-game highlight never suggests
+  (its `actions.cooldowns` list and "Blizzard automation" lines). Real in-game losses for those specs are
+  larger than the sims show (Frost DK: -1.6% in sim, about -20% following only the in-game highlight).
+* **Midnight addon restrictions (12.1.5 API docs):** readable in combat: `C_AssistedCombat.GetNextCastSpell`,
+  your own `UnitPower`, `C_Spell.GetOverrideSpell`, `C_Spell.IsSpellUsable`, `C_Spell.IsSpellInRange`,
+  `C_ActionBar.*`, your own casts. Hidden: auras, cooldowns, charges, health, combat log, damage meter.
+  Cooldown frames and `Texture:SetAlpha` accept hidden values (used for the GCD swipe and the low-health
+  icon). `UnitPowerMax` can be hidden even out of combat (Blood uses a talent-based fallback).
+* **Highlight data quirks:** Blood's Heart Strike is stored as Rune Strike (316239); Unholy's Blightfall
+  rule loops Outbreak; many AoE rules use ">3" so exactly 3 targets plays as single target.
+
+## Open in-game checks (owner to test, ideally with `/ac debug` and the saved log)
+
+* Low-health Death Strike icon fades in below 50% health (curve covers 0-1 and 0-100 scales; unconfirmed).
+* `enemies=` in the debug log during combat: if it's always `nil`, enemy counting is blocked and the
+  3-target rules (Frost Frostscythe, Unholy 1-3 vs 4+, future Pyre) stay quiet.
+* GCD swipe shows in combat (cooldown frames accepting hidden values).
+* `rp=x/125` with Ossuary on Blood (or "(fb)" = fallback in use).
+* Keybinds on EllesmereUI bars 9-10 (read from button text).
+
+## How Blood was done (template for a deep dive)
+
+1. `tools/blood_sims.py`: optimal vs highlight at 1/3/5 targets on each rotation's best build; compare
+   casts, resource waste, buff uptimes, damage taken.
+2. Read the highlight's rules from game data (`simc/engine/dbc/generated/assisted_combat.inc`, condition
+   types in `simc/engine/dbc/data_enums.hh`, `AC_*`) and the optimal list.
+3. Design corrections the addon can observe in combat.
+4. `tools/blood_rules_sim.py`: sim the highlight's own list with the corrections added on top (strip the
+   profile's own `actions` lines, see `override_resim.py`), to prove they help before building.
+5. Implement in `Rules.lua`, add tests, bump version, push.
+
+## Environment notes for a fresh session
+
+* SimC must be rebuilt: clone `simulationcraft/simc` (midnight branch) and
+  `cmake -S simc -B simc/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_GUI=OFF -DSC_NO_NETWORKING=ON && ninja -C simc/build simc`
+  (~20 min on 4 cores; give the build a long timeout). Put it next to the tools or set `SIM_ROOT`.
+* Sim outputs from this session (`simout*/`, `table_data.json`, `nox/` talent builds, `override_map.json`)
+  were in the old container's scratch space and may be gone; the tools regenerate them
+  (`tools/README.md`). Talent build lists came from Noxxic's talent pages (`nox/aoe_builds.json`,
+  `nox/candidate_builds.json`), scraped from `https://www.noxxic.com/wow/guide/<spec>/talent-builds`.
+* Lua 5.1 for tests: `apt-get install -y lua5.1`.
+* Commits end with the session's attribution lines; push to `main`.
