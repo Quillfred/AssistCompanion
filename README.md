@@ -20,7 +20,7 @@ The addon only displays information. You press every button yourself.
 | Blood | **Vampiric Blood** is never suggested (no defensive is) | **Vampiric Blood** in combat whenever it's ready |
 | Augmentation | **Ebon Might** is only recast after it drops (optimal refreshes with ~4s left) | **Ebon Might** when it's ready with about 4s left, timed from your casts (Eruption, empowers and Breath of Eons extend it) |
 | Augmentation | **Breath of Eons** isn't in the highlight's list (it has Deep Breath, which Breath of Eons replaces) | Deep Breath suggestions show as **Breath of Eons**; it also shows when ready, after Ebon Might and Prescience |
-| Augmentation | **Tip the Scales** and **Time Skip** are never suggested in game (both are in the highlight's list) | **Tip the Scales** before Fire Breath; **Time Skip** once the empowers are spent, away from Breath of Eons |
+| Augmentation | **Tip the Scales** and **Time Skip** are never suggested in game (both are in the highlight's list) | **Tip the Scales** before Fire Breath (or, with the cancel-macro option, on cooldown: with an empower if one is ready within a GCD, else through the macro); **Time Skip** once the empowers are spent, away from Breath of Eons |
 | Augmentation | Fire Breath and Upheaval can be suggested just before Ebon Might comes back, so they land outside it | Hold them: **Eruption** or **Chrono Flames** to fill the wait, then **Ebon Might**, then the empower |
 | Augmentation | The highlight never says which **empower rank** to use | A number on **Fire Breath** (1 while Upheaval is ready, else 3) and **Upheaval** (1) |
 | Augmentation | **Prescience** is only cast when none is active, so its second charge sits capped | In a group, **Prescience** when both charges are ready |

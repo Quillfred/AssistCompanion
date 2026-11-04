@@ -363,7 +363,12 @@ ns.onCast = function(spec, id, now)
     ebonMight.expires = ebonMight.expires + EM_EXTEND[id]
   end
   if id == S.TIME_SKIP then speedEvents[#speedEvents + 1] = { kind = "ts", t = now } end
-  if id == S.TIP_THE_SCALES then speedEvents[#speedEvents + 1] = { kind = "tb", t = now } end
+  if id == S.TIP_THE_SCALES then
+    speedEvents[#speedEvents + 1] = { kind = "tb", t = now }
+    aug.tipCast, aug.tipConsumed = now, nil
+  elseif EMPOWERS[id] and aug.tipCast and not aug.tipConsumed then
+    aug.tipConsumed = now -- the first empower after Tip the Scales uses it up
+  end
   if id == S.CLEAR_EMPOWER_COOLDOWN then aug.empowerReset = now end
   while speedEvents[1] and now - speedEvents[1].t > 600 do table.remove(speedEvents, 1) end
 end
@@ -394,6 +399,66 @@ ns.onTick[1473] = function(ctx)
     if ebonMight.expires > ctx.now then ebonMight.expires = ctx.now end
   end
 end
+
+---------------------------------------------------------------------------
+-- Tip the Scales (Icy Veins, Augmentation guide): its 2-minute cooldown starts when the buff is used
+-- up, by an empowered spell or cancelled (/cancelaura macro), not when you press it. Chronoboon
+-- (Chronowarden) takes 30s off (game data 1260484, -30000 ms). Time Skip / Temporal Burst speed it up.
+-- With the "cancel macro" option (db.tipMacro): pair it with an empower that's ready within a global
+-- cooldown, else use it on cooldown through the macro (Temporal Burst and Time Skip stay in sync).
+-- Without it: as before, with Fire Breath when the highlight asks for it.
+---------------------------------------------------------------------------
+local TIP_COOLDOWN, CHRONOBOON_CDR = 120, 30
+local TIP_CONSUME_WINDOW = 2 -- macro: an empower this soon after Tip used it; otherwise the macro cancelled it
+
+-- waiting = pressed and its buff not used yet (its cooldown hasn't started); start = when it started.
+local function tipState(ctx)
+  local cast = ctx.lastCast[S.TIP_THE_SCALES]
+  if not cast or aug.tipCast ~= cast then return false, nil end -- not pressed this pull
+  if aug.tipConsumed then return false, aug.tipConsumed end
+  if ctx.db and ctx.db.tipMacro and ctx.now - cast > TIP_CONSUME_WINDOW then return false, cast end
+  return true, nil
+end
+
+local function tipCooldownLeft(ctx)
+  local waiting, start = tipState(ctx)
+  if waiting then return math.huge end
+  if not start then
+    local r = ctx.readyIn and ctx.readyIn(S.TIP_THE_SCALES) -- read before the pull
+    return r or 0
+  end
+  local cd = TIP_COOLDOWN - (ctx.knows(S.CHRONOBOON) and CHRONOBOON_CDR or 0)
+  return math.max(0, cd - (ctx.now - start) - extraBetween(ctx, start, ctx.now))
+end
+ns.augTip = { state = tipState, cooldownLeft = tipCooldownLeft }
+
+local tipRule = {
+  key = "tipthescales",
+  name = "Tip the Scales ready",
+  spell = S.TIP_THE_SCALES,
+  desc = "Shows Tip the Scales with Fire Breath (the in-game highlight never suggests it). With the cancel-macro option: "
+      .. "with Fire Breath or Upheaval when one is ready within a global cooldown, otherwise on cooldown through your macro.",
+  check = function(ctx)
+    if not ctx.inCombat or not ctx.knows(S.TIP_THE_SCALES) or ctx.next == S.TIP_THE_SCALES then return end
+    if tipCooldownLeft(ctx) > 0 then return end
+    local fbSoon = FIRE_BREATHS[ctx.next] or cooldownLeft(ctx, FIRE_BREATH_IDS, FIRE_BREATH_COOLDOWN, true) <= GCD
+    local upSoon = UPHEAVALS[ctx.next] or cooldownLeft(ctx, UPHEAVAL_IDS, UPHEAVAL_COOLDOWN, true) <= GCD
+    if not ctx.db.tipMacro then
+      if FIRE_BREATHS[ctx.next] then
+        return { spell = S.TIP_THE_SCALES, text = "Tip the Scales", sub = "Then Fire Breath: instant, max rank" }
+      end
+      return
+    end
+    -- Chronowarden plays it with either empower; Scalecommander pairs it with Fire Breath.
+    if fbSoon or (upSoon and ctx.knows(S.TEMPORAL_BURST)) then
+      return { spell = S.TIP_THE_SCALES, note = "+ empower",
+               text = "Tip the Scales", sub = "Then the empower: instant, max rank" }
+    end
+    return { spell = S.TIP_THE_SCALES, note = "macro",
+             text = "Tip the Scales (macro)", sub = "No empower ready: cancel it right away" }
+  end,
+}
+ns.augTipRule = tipRule
 
 ns.rules[1473] = {
   {
@@ -458,11 +523,7 @@ local UPHEAVAL_SOON = 1.5
 ns.empowerRank = {
   [1473] = function(ctx, spell)
     if not FIRE_BREATHS[spell] and not UPHEAVALS[spell] then return nil end
-    local tip = ctx.lastCast[S.TIP_THE_SCALES]
-    if tip then
-      local used = math.max(lastOfIds(ctx, FIRE_BREATH_IDS) or 0, lastOfIds(ctx, UPHEAVAL_IDS) or 0)
-      if tip > used then return nil end -- Tip the Scales is waiting: instant, max rank
-    end
+    if (tipState(ctx)) then return nil end -- Tip the Scales is waiting: instant, max rank
     if UPHEAVALS[spell] then return 1 end
     return cooldownLeft(ctx, UPHEAVAL_IDS, UPHEAVAL_COOLDOWN, true) <= UPHEAVAL_SOON and 1 or 3
   end,
@@ -586,13 +647,7 @@ ns.readyCooldowns = {
           .. "The highlight's list has Deep Breath, which Breath of Eons replaces; if it suggests that, the icon shows Breath of Eons.",
       when = function(ctx) return ctx.next ~= S.EBON_MIGHT and ctx.next ~= S.PRESCIENCE end,
     },
-    {
-      key = "tipthescales", name = "Tip the Scales", spell = S.TIP_THE_SCALES,
-      cooldown = 120, -- game data (370553); Chronoboon shortens it, so the icon may come back late
-      desc = "Shows Tip the Scales when the highlight asks for Fire Breath and Tip the Scales is ready. "
-          .. "The game's list has it right before Fire Breath, but the in-game highlight never suggests it.",
-      when = function(ctx) return ctx.next == S.FIRE_BREATH or ctx.next == S.FIRE_BREATH_FOM end,
-    },
+    ns.augTipRule, -- a full rule (Tip the Scales' cooldown starts when its buff is used up)
     {
       key = "timeskip", name = "Time Skip", spell = S.TIME_SKIP,
       cooldown = 180, -- game data (404977)
@@ -605,10 +660,8 @@ ns.readyCooldowns = {
             or n == S.UPHEAVAL or n == S.UPHEAVAL_FOM then
           return false
         end
-        local tip = ctx.lastCast[S.TIP_THE_SCALES]
-        local fb = math.max(ctx.lastCast[S.FIRE_BREATH] or 0, ctx.lastCast[S.FIRE_BREATH_FOM] or 0)
-        local tipWaiting = tip and tip > fb
-        local tipDown = ctx.knows(S.TIP_THE_SCALES) and ns.cooldownLeft(ctx, S.TIP_THE_SCALES, 120) >= 6
+        local tipWaiting = ns.augTip.state(ctx)
+        local tipDown = ctx.knows(S.TIP_THE_SCALES) and not tipWaiting and ns.augTip.cooldownLeft(ctx) >= 6
         if tipDown and not tipWaiting then return true end
         if ctx.knows(S.CHRONOBOON) then return false end
         return not ctx.knows(S.BREATH_OF_EONS) or ns.cooldownLeft(ctx, S.BREATH_OF_EONS, 120) >= 15
@@ -686,7 +739,8 @@ for spec, list in pairs(ns.readyCooldowns) do
   end
   ns.trackCooldowns[spec] = ns.trackCooldowns[spec] or {}
   for k, entry in ipairs(list) do
-    table.insert(rules, at + k - 1, readyCooldownRule(entry))
+    -- an entry with its own check is a full rule; otherwise build one from the template
+    table.insert(rules, at + k - 1, entry.check and entry or readyCooldownRule(entry))
     table.insert(ns.trackCooldowns[spec], entry.spell)
   end
 end
@@ -723,7 +777,11 @@ ns.specOptions = {
               desc = "A separate Death Strike icon that fades in as your health drops (/ac hp sets the thresholds)." } },
   [251] = { { key = "cooldownReminder", name = "Trinket, potion and racial reminder", spell = S.PILLAR_OF_FROST,
               desc = "Text under the icon for 4 seconds after Pillar of Frost." } },
-  [1473] = { { key = "empowerRank", name = "Empower rank on the icon", spell = S.FIRE_BREATH,
+  [1473] = { { key = "tipMacro", name = "I use a Tip the Scales cancel macro", spell = S.TIP_THE_SCALES,
+               desc = "For a /cast Tip the Scales + /cancelaura Tip the Scales macro (Icy Veins, Chronowarden with Time Skip). "
+                   .. "On: Tip the Scales with an empower ready within a global cooldown (note \"+ empower\": press plain Tip the Scales), "
+                   .. "otherwise on cooldown (note \"macro\": press your macro). Off: with Fire Breath, as before." },
+             { key = "empowerRank", name = "Empower rank on the icon", spell = S.FIRE_BREATH,
                desc = "A number on Fire Breath and Upheaval saying which rank to hold them to: Fire Breath 1 while Upheaval is ready, else 3; Upheaval 1. Hidden right after Tip the Scales (instant, max rank)." } },
 }
 
