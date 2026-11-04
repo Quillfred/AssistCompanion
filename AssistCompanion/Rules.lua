@@ -582,6 +582,9 @@ local tipRule = {
       .. "with Fire Breath or Upheaval when one is ready within a global cooldown, otherwise on cooldown through your macro.",
   check = function(ctx)
     if not ctx.inCombat or not ctx.knows(S.TIP_THE_SCALES) or ctx.next == S.TIP_THE_SCALES then return end
+    -- After the highlight's Prescience and Ebon Might, like Breath of Eons: the empower it pairs with
+    -- should go out inside Ebon Might (owner's log: shown at the pull while Prescience was asked for).
+    if ctx.next == S.PRESCIENCE or ctx.next == S.EBON_MIGHT then return end
     if tipCooldownLeft(ctx) > 0 then return end
     local fbSoon = FIRE_BREATHS[ctx.next] or cooldownLeft(ctx, FIRE_BREATH_IDS, FIRE_BREATH_COOLDOWN, true) <= GCD
     local upSoon = UPHEAVALS[ctx.next] or cooldownLeft(ctx, UPHEAVAL_IDS, UPHEAVAL_COOLDOWN, true) <= GCD
@@ -677,17 +680,19 @@ ns.debugStatus = {
   -- em = our Ebon Might estimate (seconds left); up/emcd = Upheaval / Ebon Might cooldown estimates;
   -- x = learned empower recovery factor; upb = the Upheaval ID on your button; tip = Tip the Scales
   -- cooldown estimate ("w" = pressed, buff not used yet); tx = learned Tip the Scales factor; haste %;
-  -- emdur = Ebon Might duration multiplier from mastery; crit = crit % used for extension crits
+  -- emdur = Ebon Might duration multiplier from mastery; crit = crit % used for extension crits;
+  -- ts / boe = Time Skip / Breath of Eons cooldown estimates
   [1473] = function(ctx)
     local waiting = ns.augTip.state(ctx)
     local haste = GetHaste and select(2, pcall(GetHaste))
     if issecretvalue and issecretvalue(haste) then haste = nil end
-    return ("em=%.1f emcd=%.1f up=%.1f x=%.2f upb=%s tip=%s tx=%.2f haste=%s emdur=%.2f crit=%.0f"):format(
+    return ("em=%.1f emcd=%.1f up=%.1f x=%.2f upb=%s tip=%s tx=%.2f haste=%s emdur=%.2f crit=%.0f ts=%.0f boe=%.0f"):format(
       math.max(0, ebonMight.expires - ctx.now),
       cooldownLeft(ctx, EBON_MIGHT_IDS, EM_COOLDOWN), cooldownLeft(ctx, UPHEAVAL_IDS, UPHEAVAL_COOLDOWN, true),
       aug.empowerFactor, tostring(ctx.override(S.UPHEAVAL)),
       waiting and "w" or ("%.1f"):format(ns.augTip.cooldownLeft(ctx)), aug.tipFactor,
-      type(haste) == "number" and ("%.1f"):format(haste) or "?", emMod.duration, emMod.crit * 100)
+      type(haste) == "number" and ("%.1f"):format(haste) or "?", emMod.duration, emMod.crit * 100,
+      ns.cooldownLeft(ctx, S.TIME_SKIP, 180), ns.cooldownLeft(ctx, S.BREATH_OF_EONS, 120))
   end,
 }
 
