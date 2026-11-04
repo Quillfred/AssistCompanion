@@ -1104,6 +1104,7 @@ expect("Tip: 110s after the buff was used -> not ready", "icon:357208", nf.icon.
 now = t1 + 120.5; step()
 expect("Tip: 120s after the buff was used -> Tip with Fire Breath", "icon:370553", nf.icon.texture)
 expect("Tip: macro off -> no note", "", nf.note.text)
+expect("Tip: macro off -> no x2 on the keybind", "", nf.key.text)
 state.next = 431443; step()
 expect("Tip: macro off, highlight not on Fire Breath -> wait (as before)", "icon:431443", nf.icon.texture)
 state.known[1260484] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
@@ -1116,7 +1117,11 @@ expect("Tip with Chronoboon: 90s -> ready", "icon:370553", nf.icon.texture)
 AssistCompanionDB.tipMacro = true; state.known[431695] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
 cast(357208); cast(396286); state.next = 431443; step()         -- Fire Breath and Upheaval on cooldown
 expect("Tip macro: no empower soon -> Tip on cooldown", "icon:370553", nf.icon.texture)
-expect("Tip macro: ...with a 'macro x2' note (the cancel only works on a 2nd press)", "macro x2", nf.note.text)
+expect("Tip macro: ...with a 'macro' note", "macro", nf.note.text)
+expect("Tip macro: 'x2' after the keybind (no keybind here: just x2)", "x2", nf.key.text)
+state.bars[370553] = 5; function GetBindingKey(cmd) if cmd == "ACTIONBUTTON5" then return "F" end end
+events.scripts.OnEvent(events, "UPDATE_BINDINGS"); step()
+expect("Tip macro: 'x2' right after the keybind", "F x2", nf.key.text)
 local t3 = now; cast(370553); now = t3 + 3; step()               -- macro: cancelled, no empower followed
 expect("Tip macro: cancelled -> no longer waiting (Fire Breath gets a rank again)", false, (ns.augTip.state(
   { lastCast = { [370553] = t3 }, now = now, db = AssistCompanionDB })))
@@ -1124,6 +1129,8 @@ now = t3 + 88; step()
 expect("Tip macro: Chronoboon, 88s after the cancel (+Temporal Burst) -> ready again", "icon:370553", nf.icon.texture)
 state.next = 357208; step()
 expect("Tip macro: Fire Breath ready -> Tip paired with it", "+ empower", nf.note.text)
+expect("Tip with an empower: plain keybind, no x2", "F", nf.key.text)
+state.bars[370553] = nil; events.scripts.OnEvent(events, "UPDATE_BINDINGS")
 cast(370553); cast(357208); now = now + 1; step()
 expect("Tip macro: used by Fire Breath -> not waiting", false, (ns.augTip.state(
   { lastCast = { [370553] = now - 1 }, now = now, db = AssistCompanionDB })))

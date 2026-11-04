@@ -602,7 +602,11 @@ local function showNext(ctx, alert, note)
   if not idle then nf.lastSpell = spell end
   nf.icon:SetTexture(spellIcon(spell))
   nf.border:SetShown(corrected)
-  nf.key:SetText(keybindFor(spell) or "")
+  -- A rule can add to the keybind text (e.g. "x2": press the Tip the Scales macro twice).
+  local key = keybindFor(spell)
+  local suffix = alert and alert.keySuffix and alert.spell == spell and not idle and alert.keySuffix
+  if suffix then key = key and (key .. " " .. suffix) or suffix end
+  nf.key:SetText(key or "")
   local rank
   local rankFor = db.empowerRank and not idle and ns.empowerRank and specID and ns.empowerRank[specID]
   if rankFor then
