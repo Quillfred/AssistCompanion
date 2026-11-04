@@ -639,12 +639,18 @@ events:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
 events:RegisterUnitEvent("UNIT_PET", "player")
 events:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 
-local function refresh()
+-- Spec/talent/spellbook changes. The game also fires SPELLS_CHANGED mid-combat (e.g. when a
+-- buff that swaps a button ends), so never rebuild the opener in combat, and out of combat only
+-- rebuild on a real spec/talent change or when the opener hasn't been started.
+local function refresh(event)
   wipe(knownCache)
   clearBindingCache()
   specID = currentSpecID()
   cachePowerMax()
-  buildOpener()
+  if inCombat then return end
+  if event ~= "SPELLS_CHANGED" or opener.index == 1 then
+    buildOpener()
+  end
 end
 
 events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
@@ -678,7 +684,7 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
   elseif event == "UPDATE_BINDINGS" or event == "ACTIONBAR_SLOT_CHANGED" then
     clearBindingCache()
   elseif db then
-    refresh()
+    refresh(event)
   end
 end)
 

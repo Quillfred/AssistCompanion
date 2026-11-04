@@ -381,6 +381,30 @@ now = now + 6; step()
 expect("Reset: reset after 10s idle out of combat", "Opener\n1/8", ob.label.text)
 AssistCompanionDB.openerIcon = false
 
+-- OPENER SURVIVES MID-COMBAT SPELLBOOK UPDATES ----------------------------
+AssistCompanionDB.openerIcon = true
+state.spec = 251; state.target = nil; state.overrides = {}; state.inRange = true
+state.known = { [47568]=true, [51271]=true, [439843]=true, [1249658]=true, [49020]=true, [279302]=true }
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 700; step()
+combat(true)
+cast(47568); cast(51271); cast(439843); cast(1249658); cast(49020); cast(279302); cast(49020); step()
+expect("Opener bug: at step 8 of 9 (two Obliterates left)", "Opener\n8/9", ob.label.text)
+events.scripts.OnEvent(events, "SPELLS_CHANGED"); step() -- e.g. Pillar of Frost ends
+expect("Opener bug: SPELLS_CHANGED mid-combat does not reset", "Opener\n8/9", ob.label.text)
+events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+expect("Opener bug: talent event mid-combat does not reset", "Opener\n8/9", ob.label.text)
+cast(49020); cast(49020); step()
+expect("Opener bug: finishes normally", false, ob.shown)
+combat(false); step()
+expect("Opener bug: still resets on combat drop", "Opener\n1/9", ob.label.text)
+-- out of combat, mid-opener: SPELLS_CHANGED keeps progress; a real talent change rebuilds
+cast(47568); events.scripts.OnEvent(events, "SPELLS_CHANGED"); step()
+expect("Opener bug: SPELLS_CHANGED out of combat keeps progress", "Opener\n2/9", ob.label.text)
+events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+expect("Opener bug: talent change out of combat rebuilds", "Opener\n1/9", ob.label.text)
+AssistCompanionDB.openerIcon = false
+
 -- GCD SWIPE ----------------------------------------------------------------
 local gcdFrame = nf.gcd
 expect("GCD: swipe frame exists on the icon", true, gcdFrame ~= nil)
