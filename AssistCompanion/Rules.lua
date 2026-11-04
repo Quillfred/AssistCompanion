@@ -62,6 +62,7 @@ local S = {
   TIME_SKIP           = 404977,
   TEMPORAL_BURST      = 431695, -- Chronowarden
   CLEAR_EMPOWER_COOLDOWN = 397374,
+  ACCRETION           = 407876, -- each Eruption: Upheaval's remaining cooldown -1s (game data 411932)
   LIVING_FLAME        = 361469, -- Chrono Flames (431443) replaces it on the button for Chronowarden -- "[DNT] Clear Empower Cooldown": resets Fire Breath and Upheaval
   CHRONOBOON          = 1260484, -- Chronowarden: Tip the Scales' cooldown is shorter
 }
@@ -320,28 +321,43 @@ local function extraBetween(ctx, a, b)
 end
 
 local function lastOfIds(ctx, ids)
-  local t
+  local t, which
   for _, id in ipairs(ids) do
     local c = ctx.lastCast[id]
-    if c and (not t or c > t) then t = c end
+    if c and (not t or c > t) then t, which = c, id end
   end
-  return t
+  return t, which
 end
 
--- Seconds until one of these spells (the same ability's IDs) is ready: the game's own answer if
--- we read one out of combat, else timed from your last cast with the speed-ups above.
+-- Accretion: seconds taken off Upheaval by Eruptions cast after `from`.
+local eruptions = {}
+local ACCRETION_PER_ERUPTION = 1 -- game data 411932: -1000 ms
+local function accretionSince(ctx, from)
+  if not ctx.knows(S.ACCRETION) then return 0 end
+  local n = 0
+  for _, t in ipairs(eruptions) do if t > from then n = n + 1 end end
+  return n * ACCRETION_PER_ERUPTION
+end
+
+-- Seconds until one of these spells (the same ability's IDs) is ready. Once you've cast it this
+-- session: timed from that cast with the speed-ups above (in combat the game's reads are hidden or
+-- wrong; out of combat we take the game's read of the ID you cast). Before that: the game's read of
+-- the spell on your button.
 local function cooldownLeft(ctx, ids, cooldown, isEmpower)
-  -- Only the spell on your button (Font of Magic swaps it): the other ID reads as "ready" out of
-  -- combat because you don't have it.
-  local onButton = (ctx.override and ctx.override(ids[1])) or ids[1]
-  local r = ctx.readyIn and ctx.readyIn(onButton)
-  if r ~= nil then return r end
-  local last = lastOfIds(ctx, ids)
-  if not last then return 0 end
+  local last, castId = lastOfIds(ctx, ids)
+  if not last then
+    local onButton = (ctx.override and ctx.override(ids[1])) or ids[1]
+    return (ctx.readyIn and ctx.readyIn(onButton)) or 0
+  end
+  if not ctx.inCombat then
+    local r = ctx.readyIn and ctx.readyIn(castId)
+    if r ~= nil then return r end
+  end
   if aug.readyNow[ids[1]] and aug.readyNow[ids[1]] > last then return 0 end -- the highlight said so
   if isEmpower and aug.empowerReset > last then return 0 end
   local recovered = (ctx.now - last) + extraBetween(ctx, last, ctx.now)
   if isEmpower then recovered = recovered * aug.empowerFactor end
+  if ids == UPHEAVAL_IDS then recovered = recovered + accretionSince(ctx, last) end
   return math.max(0, cooldown - recovered)
 end
 ns.augCooldownLeft = cooldownLeft
@@ -370,6 +386,10 @@ ns.onCast = function(spec, id, now)
     aug.tipConsumed = now -- the first empower after Tip the Scales uses it up
   end
   if id == S.CLEAR_EMPOWER_COOLDOWN then aug.empowerReset = now end
+  if id == S.ERUPTION or id == S.ERUPTION_2 then
+    eruptions[#eruptions + 1] = now
+    while eruptions[1] and now - eruptions[1] > 120 do table.remove(eruptions, 1) end
+  end
   while speedEvents[1] and now - speedEvents[1].t > 600 do table.remove(speedEvents, 1) end
 end
 
@@ -380,9 +400,10 @@ local function learnEmpower(ctx, ids, cooldown)
   if aug.readyNow[ids[1]] and aug.readyNow[ids[1]] > last then return end -- already learned for this cast
   aug.readyNow[ids[1]] = ctx.now
   local took = (ctx.now - last) + extraBetween(ctx, last, ctx.now)
-  if took > 1 and took < cooldown then
+  local needed = cooldown - (ids == UPHEAVAL_IDS and accretionSince(ctx, last) or 0)
+  if took > 1 and took < needed then
     -- ready no later than now: the real factor is at least this (capped against odd cases)
-    aug.empowerFactor = math.max(1, math.min(1.6, cooldown / took))
+    aug.empowerFactor = math.max(1, math.min(1.6, needed / took))
   end
 end
 
@@ -415,8 +436,11 @@ local TIP_CONSUME_WINDOW = 2 -- macro: an empower this soon after Tip used it; o
 local function tipState(ctx)
   local cast = ctx.lastCast[S.TIP_THE_SCALES]
   if not cast or aug.tipCast ~= cast then return false, nil end -- not pressed this pull
-  if aug.tipConsumed then return false, aug.tipConsumed end
-  if ctx.db and ctx.db.tipMacro and ctx.now - cast > TIP_CONSUME_WINDOW then return false, cast end
+  local macro = ctx.db and ctx.db.tipMacro
+  if aug.tipConsumed and (not macro or aug.tipConsumed - cast <= TIP_CONSUME_WINDOW) then
+    return false, aug.tipConsumed -- an empower used it
+  end
+  if macro and ctx.now - cast > TIP_CONSUME_WINDOW then return false, cast end -- the macro cancelled it
   return true, nil
 end
 
@@ -454,7 +478,7 @@ local tipRule = {
       return { spell = S.TIP_THE_SCALES, note = "+ empower",
                text = "Tip the Scales", sub = "Then the empower: instant, max rank" }
     end
-    return { spell = S.TIP_THE_SCALES, note = "macro",
+    return { spell = S.TIP_THE_SCALES, note = "macro x2", -- the /cancelaura line only works on a 2nd press
              text = "Tip the Scales (macro)", sub = "No empower ready: cancel it right away" }
   end,
 }
@@ -532,11 +556,14 @@ ns.empowerRank = {
 -- Extra text for the once-a-second debug status line.
 ns.debugStatus = {
   -- em = our Ebon Might estimate (seconds left); up/emcd = Upheaval / Ebon Might cooldown estimates;
-  -- x = learned empower recovery factor
+  -- x = learned empower recovery factor; upb = the Upheaval ID on your button; tip = Tip the Scales
+  -- cooldown estimate ("w" = pressed, buff not used yet)
   [1473] = function(ctx)
-    return ("em=%.1f emcd=%.1f up=%.1f x=%.2f"):format(math.max(0, ebonMight.expires - ctx.now),
+    local waiting = ns.augTip.state(ctx)
+    return ("em=%.1f emcd=%.1f up=%.1f x=%.2f upb=%s tip=%s"):format(math.max(0, ebonMight.expires - ctx.now),
       cooldownLeft(ctx, EBON_MIGHT_IDS, EM_COOLDOWN), cooldownLeft(ctx, UPHEAVAL_IDS, UPHEAVAL_COOLDOWN, true),
-      aug.empowerFactor)
+      aug.empowerFactor, tostring(ctx.override(S.UPHEAVAL)),
+      waiting and "w" or ("%.1f"):format(ns.augTip.cooldownLeft(ctx)))
   end,
 }
 
