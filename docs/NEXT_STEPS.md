@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.14.0** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.14.1** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -51,6 +51,9 @@ Not yet seen in the live game: check the panel's layout, scrolling, and that che
    **0.14.0 also:** Tip the Scales and Time Skip as cooldown-ready rules. The owner's debug log confirmed the
    in-game highlight never suggests them (nor Breath of Eons / Deep Breath), and that empowered spells do fire
    `UNIT_SPELLCAST_SUCCEEDED` (details in `docs/FINDINGS.md`).
+   **0.14.1:** cooldown model for Augmentation (Time Skip, Temporal Burst from its tooltip, Clear Empower
+   Cooldown reset, learned empower recovery factor; `ns.augCooldownLeft`, `ns.onTick`), rank 1 within 1.5s of
+   Upheaval, `ebonfirst` rule. Status line: `em= emcd= up= x=`. From the owner's second log (`docs/FINDINGS.md`).
    **Open:** the Ebon Might estimate runs at least 8s short in the owner's log, so the `ebonmight` refresh rule
    never fires. Next log: compare `em=` on the status lines with when the highlight asks for Ebon Might again
    (it only does once the buff is down and Ebon Might is off cooldown). Original notes:

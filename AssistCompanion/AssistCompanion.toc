@@ -2,7 +2,7 @@
 ## Title: Assist Companion
 ## Notes: Shows the Assisted Highlight suggestion as one icon with a keybind, corrected where Blizzard's rules are wrong, plus an opener bar. Blood, Frost and Unholy Death Knight, Augmentation Evoker.
 ## Author: Quillfred
-## Version: 0.14.0
+## Version: 0.14.1
 ## SavedVariables: AssistCompanionDB
 ## Category: Combat
 ## X-Curse-Project-ID: 1783748

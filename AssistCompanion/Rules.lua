@@ -60,6 +60,8 @@ local S = {
   UPHEAVAL_FOM        = 408092,
   TIP_THE_SCALES      = 370553,
   TIME_SKIP           = 404977,
+  TEMPORAL_BURST      = 431695, -- Chronowarden
+  CLEAR_EMPOWER_COOLDOWN = 397374, -- "[DNT] Clear Empower Cooldown": resets Fire Breath and Upheaval
   CHRONOBOON          = 1260484, -- Chronowarden: Tip the Scales' cooldown is shorter
 }
 ns.S = S
@@ -249,6 +251,97 @@ local EM_EXTEND = {
 local ebonMight = { expires = 0 }
 ns.ebonMight = ebonMight
 
+local FIRE_BREATH_COOLDOWN = 30 -- game data (357208)
+local UPHEAVAL_COOLDOWN = 40    -- game data (396286)
+local FIRE_BREATH_IDS = { S.FIRE_BREATH, S.FIRE_BREATH_FOM }
+local UPHEAVAL_IDS = { S.UPHEAVAL, S.UPHEAVAL_FOM }
+local EBON_MIGHT_IDS = { S.EBON_MIGHT }
+local FIRE_BREATHS = { [S.FIRE_BREATH] = true, [S.FIRE_BREATH_FOM] = true }
+local UPHEAVALS = { [S.UPHEAVAL] = true, [S.UPHEAVAL_FOM] = true }
+local EMPOWERS = { [S.FIRE_BREATH] = true, [S.FIRE_BREATH_FOM] = true, [S.UPHEAVAL] = true, [S.UPHEAVAL_FOM] = true }
+
+---------------------------------------------------------------------------
+-- Augmentation cooldowns in combat (hidden from addons). Timed from your casts, plus what speeds
+-- them up (game data):
+--   Time Skip (404977): cooldowns recover 10x as fast for its 2s channel (SimC models it as 10x)
+--   Temporal Burst (431695, Chronowarden): after Tip the Scales, cooldown recovery +30%, fading to 0
+--   over 30s in game data; the owner's tooltip says 34.1s, so it's read from the tooltip (above)
+--   "[DNT] Clear Empower Cooldown" (397374): resets Fire Breath and Upheaval (owner's log: it fired
+--   right after a Tip the Scales Fire Breath; both were ready again within 3s)
+-- Empowered cooldowns also recover faster from things we can't see (the 4-piece set bonus during
+-- Ebon Might, possibly haste), so we learn a factor from the highlight: the first time it suggests
+-- Fire Breath or Upheaval after a cast, that spell is ready, which bounds how fast they recover.
+---------------------------------------------------------------------------
+local TS_SECONDS, TS_EXTRA = 2, 9        -- 10x recovery = 9 extra seconds per second
+-- Temporal Burst's size and fade time: game data says 30% over 30s, but the in-game tooltip can say
+-- otherwise (the owner's says 34.1s), so read both from the tooltip out of combat when we can.
+local tb = { seconds = 30, max = 0.30, readAt = nil }
+ns.temporalBurst = tb
+
+local function readTemporalBurst(ctx)
+  if ctx.inCombat or (tb.readAt and ctx.now - tb.readAt < 5) then return end
+  tb.readAt = ctx.now
+  local d = ctx.description and ctx.description(S.TEMPORAL_BURST)
+  if not d then return end
+  local pct = tonumber((d:match("(%d+[%.,]?%d*)%s*%%") or ""):gsub(",", ".") .. "")
+  local last -- the duration is the last number in the text that isn't a percentage
+  for num, after in d:gmatch("(%d+[%.,]?%d*)(%s*%%?)") do
+    if not after:find("%%") then last = num end
+  end
+  local secs = last and tonumber((last:gsub(",", ".")))
+  if pct and pct >= 5 and pct <= 100 then tb.max = pct / 100 end
+  if secs and secs >= 10 and secs <= 90 then tb.seconds = secs end
+end
+local speedEvents = {}                   -- { kind = "ts" | "tb", t = time }
+local aug = { empowerFactor = 1, empowerReset = 0, readyNow = {} }
+ns.augCooldowns = aug
+
+-- Extra seconds of recovery between a and b from Time Skip and Temporal Burst.
+local function extraBetween(ctx, a, b)
+  local x = 0
+  local hasBurst = ctx.knows(S.TEMPORAL_BURST)
+  for _, e in ipairs(speedEvents) do
+    if e.kind == "ts" then
+      local s, f = math.max(a, e.t), math.min(b, e.t + TS_SECONDS)
+      if f > s then x = x + (f - s) * TS_EXTRA end
+    elseif hasBurst then
+      local s, f = math.max(a, e.t), math.min(b, e.t + tb.seconds)
+      if f > s then
+        -- bonus(u) = max * (1 - u / seconds), u = time since Tip the Scales
+        local function F(t) local u = t - e.t return tb.max * (u - u * u / (2 * tb.seconds)) end
+        x = x + F(f) - F(s)
+      end
+    end
+  end
+  return x
+end
+
+local function lastOfIds(ctx, ids)
+  local t
+  for _, id in ipairs(ids) do
+    local c = ctx.lastCast[id]
+    if c and (not t or c > t) then t = c end
+  end
+  return t
+end
+
+-- Seconds until one of these spells (the same ability's IDs) is ready: the game's own answer if
+-- we read one out of combat, else timed from your last cast with the speed-ups above.
+local function cooldownLeft(ctx, ids, cooldown, isEmpower)
+  for _, id in ipairs(ids) do
+    local r = ctx.readyIn and ctx.readyIn(id)
+    if r ~= nil then return r end
+  end
+  local last = lastOfIds(ctx, ids)
+  if not last then return 0 end
+  if aug.readyNow[ids[1]] and aug.readyNow[ids[1]] > last then return 0 end -- the highlight said so
+  if isEmpower and aug.empowerReset > last then return 0 end
+  local recovered = (ctx.now - last) + extraBetween(ctx, last, ctx.now)
+  if isEmpower then recovered = recovered * aug.empowerFactor end
+  return math.max(0, cooldown - recovered)
+end
+ns.augCooldownLeft = cooldownLeft
+
 -- Called by Core.lua for each of your successful casts.
 ns.onCast = function(spec, id, now)
   if spec ~= 1473 then return end
@@ -259,6 +352,37 @@ ns.onCast = function(spec, id, now)
     ebonMight.expires = now + EM_EXTEND[id]
   elseif EM_EXTEND[id] and left > 0 then
     ebonMight.expires = ebonMight.expires + EM_EXTEND[id]
+  end
+  if id == S.TIME_SKIP then speedEvents[#speedEvents + 1] = { kind = "ts", t = now } end
+  if id == S.TIP_THE_SCALES then speedEvents[#speedEvents + 1] = { kind = "tb", t = now } end
+  if id == S.CLEAR_EMPOWER_COOLDOWN then aug.empowerReset = now end
+  while speedEvents[1] and now - speedEvents[1].t > 600 do table.remove(speedEvents, 1) end
+end
+
+-- Learn from what the highlight suggests (called by Core.lua every update, before the rules).
+local function learnEmpower(ctx, ids, cooldown)
+  local last = lastOfIds(ctx, ids)
+  if not last or aug.empowerReset > last then return end
+  if aug.readyNow[ids[1]] and aug.readyNow[ids[1]] > last then return end -- already learned for this cast
+  aug.readyNow[ids[1]] = ctx.now
+  local took = (ctx.now - last) + extraBetween(ctx, last, ctx.now)
+  if took > 1 and took < cooldown then
+    -- ready no later than now: the real factor is at least this (capped against odd cases)
+    aug.empowerFactor = math.max(1, math.min(1.6, cooldown / took))
+  end
+end
+
+ns.onTick = ns.onTick or {}
+ns.onTick[1473] = function(ctx)
+  readTemporalBurst(ctx)
+  local n = ctx.next
+  if not ctx.inCombat or not n then return end
+  if FIRE_BREATHS[n] then learnEmpower(ctx, FIRE_BREATH_IDS, FIRE_BREATH_COOLDOWN) end
+  if UPHEAVALS[n] then learnEmpower(ctx, UPHEAVAL_IDS, UPHEAVAL_COOLDOWN) end
+  if n == S.EBON_MIGHT then
+    -- The highlight only asks for Ebon Might once its buff is down: it's ready, and not running.
+    aug.readyNow[S.EBON_MIGHT] = ctx.now
+    if ebonMight.expires > ctx.now then ebonMight.expires = ctx.now end
   end
 end
 
@@ -273,8 +397,25 @@ ns.rules[1473] = {
       if ctx.next == S.EBON_MIGHT then return end
       local left = ebonMight.expires - ctx.now
       if left <= 0 or left > EM_REFRESH then return end -- dropped: the highlight asks for it itself
-      if not ns.cooldownReady(ctx, S.EBON_MIGHT, EM_COOLDOWN) then return end
+      if cooldownLeft(ctx, EBON_MIGHT_IDS, EM_COOLDOWN) > 0 then return end
       return { spell = S.EBON_MIGHT, text = "Refresh Ebon Might", sub = ("About %.0fs left"):format(left) }
+    end,
+  },
+  {
+    key = "ebonfirst",
+    name = "Ebon Might before empowers",
+    spell = S.EBON_MIGHT,
+    desc = "When the highlight asks for Fire Breath or Upheaval in the last 1.5 seconds before Ebon Might comes off cooldown (and it has run out or is about to), "
+        .. "shows Ebon Might first: empowers should go out inside Ebon Might, and they extend it.",
+    check = function(ctx)
+      if not ctx.inCombat or not ctx.knows(S.EBON_MIGHT) then return end
+      if not EMPOWERS[ctx.next] then return end
+      if ebonMight.expires - ctx.now > EM_REFRESH then return end
+      -- Only while it's about to come off cooldown: once it's ready, the highlight asks for it
+      -- itself if the buff is down (so if it says an empower instead, the buff is still up).
+      local cd = cooldownLeft(ctx, EBON_MIGHT_IDS, EM_COOLDOWN)
+      if cd <= 0 or cd > 1.5 then return end
+      return { spell = S.EBON_MIGHT, text = "Ebon Might first", sub = "Then the empower, inside Ebon Might" }
     end,
   },
   {
@@ -296,47 +437,31 @@ ns.rules[1473] = {
 --   Fire Breath: rank 1 while Upheaval is ready (get to Upheaval sooner), else rank 3
 --   Upheaval: rank 1
 --   right after Tip the Scales: none (the next empower is instant at max rank)
--- Upheaval's cooldown (40s, game data) is read out of combat and timed from your casts in combat.
--- Talents that speed it up during Ebon Might make it come back sooner than we think, so at worst
--- we say rank 3 where rank 1 was a little better.
-local UPHEAVAL_COOLDOWN = 40
-local FIRE_BREATHS = { [S.FIRE_BREATH] = true, [S.FIRE_BREATH_FOM] = true }
-local UPHEAVALS = { [S.UPHEAVAL] = true, [S.UPHEAVAL_FOM] = true }
-
-local function lastOf(ctx, set)
-  local t
-  for id in pairs(set) do
-    local c = ctx.lastCast[id]
-    if c and (not t or c > t) then t = c end
-  end
-  return t
-end
-
-local function upheavalReady(ctx)
-  local id = ctx.override(S.UPHEAVAL) or S.UPHEAVAL -- Font of Magic swaps the button's spell
-  local cd = ctx.onCooldown(id)
-  if cd ~= nil then return not cd end
-  local last = lastOf(ctx, UPHEAVALS)
-  return not last or ctx.now - last >= UPHEAVAL_COOLDOWN
-end
+-- "Upheaval ready" allows 1.5s: a rank 1 Fire Breath takes about that long, so Upheaval is up after it.
+local UPHEAVAL_SOON = 1.5
 
 ns.empowerRank = {
   [1473] = function(ctx, spell)
     if not FIRE_BREATHS[spell] and not UPHEAVALS[spell] then return nil end
     local tip = ctx.lastCast[S.TIP_THE_SCALES]
     if tip then
-      local used = math.max(lastOf(ctx, FIRE_BREATHS) or 0, lastOf(ctx, UPHEAVALS) or 0)
+      local used = math.max(lastOfIds(ctx, FIRE_BREATH_IDS) or 0, lastOfIds(ctx, UPHEAVAL_IDS) or 0)
       if tip > used then return nil end -- Tip the Scales is waiting: instant, max rank
     end
     if UPHEAVALS[spell] then return 1 end
-    return upheavalReady(ctx) and 1 or 3
+    return cooldownLeft(ctx, UPHEAVAL_IDS, UPHEAVAL_COOLDOWN, true) <= UPHEAVAL_SOON and 1 or 3
   end,
 }
 
 -- Extra text for the once-a-second debug status line.
 ns.debugStatus = {
-  -- em = our Ebon Might estimate (seconds left), to compare with when the highlight asks for it again
-  [1473] = function(ctx) return ("em=%.1f"):format(math.max(0, ebonMight.expires - ctx.now)) end,
+  -- em = our Ebon Might estimate (seconds left); up/emcd = Upheaval / Ebon Might cooldown estimates;
+  -- x = learned empower recovery factor
+  [1473] = function(ctx)
+    return ("em=%.1f emcd=%.1f up=%.1f x=%.2f"):format(math.max(0, ebonMight.expires - ctx.now),
+      cooldownLeft(ctx, EBON_MIGHT_IDS, EM_COOLDOWN), cooldownLeft(ctx, UPHEAVAL_IDS, UPHEAVAL_COOLDOWN, true),
+      aug.empowerFactor)
+  end,
 }
 
 -- Talent replacements the highlight's data doesn't know about: when it suggests the first spell and
@@ -438,7 +563,7 @@ ns.readyCooldowns = {
     { key = "raisedead", name = "Raise Dead", spell = S.RAISE_DEAD, cooldown = 120 }, -- game data (46585)
   },
   [1473] = {                                                 -- Augmentation
-    after = "ebonmight",
+    after = "ebonfirst",
     {
       key = "breatheons", name = "Breath of Eons", spell = S.BREATH_OF_EONS,
       cooldown = 120, -- game data (403631)
@@ -523,7 +648,7 @@ end
 -- The cooldown-ready spells are added below.
 ns.trackCooldowns = {
   [251] = { S.PILLAR_OF_FROST },
-  [1473] = { S.UPHEAVAL, S.UPHEAVAL_FOM }, -- for the Fire Breath rank
+  [1473] = { S.UPHEAVAL, S.UPHEAVAL_FOM, S.EBON_MIGHT }, -- Fire Breath rank, Ebon Might timing
 }
 
 for spec, list in pairs(ns.readyCooldowns) do
