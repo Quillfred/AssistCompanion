@@ -1,0 +1,40 @@
+name: release
+
+# Push a tag like v0.13.0 (release), v0.14.0-beta1 (beta) or v0.14.0-alpha1 (alpha) to build the
+# addon zip, attach it to a GitHub release and upload it to CurseForge (project id in the TOC).
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the packager reads tags and history
+
+      - name: Check the tag matches the TOC version
+        run: |
+          toc=$(grep -oP '^## Version:\s*\K\S+' AssistCompanion/AssistCompanion.toc)
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "${tag%%-*}" != "$toc" ]; then
+            echo "Tag $GITHUB_REF_NAME doesn't match the TOC version $toc" >&2
+            exit 1
+          fi
+
+      - name: Install Lua 5.1
+        run: sudo apt-get update && sudo apt-get install -y lua5.1
+
+      - name: Run tests
+        run: lua5.1 tests/harness.lua AssistCompanion
+
+      - name: Package and upload
+        uses: BigWigsMods/packager@v2
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_KEY }}
+          GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -5,6 +5,7 @@
 ## Version: 0.13.0
 ## SavedVariables: AssistCompanionDB
 ## Category: Combat
+## X-Curse-Project-ID: 1783748
 
 Rules.lua
 Core.lua
