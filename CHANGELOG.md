@@ -1,5 +1,10 @@
 # Assist Companion
 
+## 0.17.3
+
+* **Enemy count works on training dummies.** Dummies never report being in combat, so the count was always 0. Enemies within range of your spell now count too (melee range for Death Knights, Eruption's range for Augmentation). This drives the 3-target corrections (Frost Frostscythe, Unholy Death Coil / Epidemic).
+* **Debug log:** the enemy breakdown also shows how many are in range (`inrange=`).
+
 ## 0.17.2
 
 * **Debug log:** status lines show what the enemy count sees (`np=` nameplates, then how many had a unit, were attackable, in combat, or hidden by the game), and `rp=hidden` when the game hides your runic power from addons.

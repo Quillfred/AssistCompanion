@@ -227,6 +227,16 @@ state.plates = 3; state.next = 49020; step()
 expect("Frost: 3 targets + Obliterate -> Frostscythe", "icon:207230", (seen()))
 state.plates = 5; step()
 expect("Frost: 5 targets -> no Frostscythe nag", "nothing", (seen()))
+-- Owner's logs: training dummies never report "in combat"; count enemies within melee range instead
+local savedCombat = UnitAffectingCombat
+UnitAffectingCombat = function() return false end
+state.plates = 3; state.inRange = true; step()
+expect("Count: 3 dummies in melee range, none 'in combat' -> 3 (Frostscythe)", "icon:207230", (seen()))
+state.inRange = false; step()
+expect("Count: 3 dummies out of range and not in combat -> 0 (no Frostscythe)", "nothing", (seen()))
+state.inRange = nil; step()
+expect("Count: range hidden and not in combat -> unknown (no Frostscythe)", "nothing", (seen()))
+UnitAffectingCombat = savedCombat; state.inRange = nil
 -- Breath not talented: no alert even after Pillar
 state.known = { [207230] = true }; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); state.plates = 1
 now = now + 200; cast(51271); step()

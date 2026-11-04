@@ -1047,6 +1047,12 @@ ns.meleeSpell = {
   [252] = S.SCOURGE_STRIKE,
 }
 
+-- Spell whose range decides which nearby enemies count (Core.lua countEnemies), when it isn't the
+-- melee spell above. Augmentation: Eruption (25 yd).
+ns.countRangeSpell = {
+  [1473] = S.ERUPTION,
+}
+
 -- Low-health icon: fades in as your health drops (the game evaluates your hidden health).
 ns.healthIcon = {
   [250] = { spell = S.DEATH_STRIKE },
