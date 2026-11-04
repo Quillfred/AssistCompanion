@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.15.2
+
+* **Tip the Scales macro** (only with the cancel-macro option on): when it's time to press the macro (no empower ready), the icon shows **"x2"** right after the keybind (for example `F x2`), and the note under the icon says "macro". With the option off, nothing changes.
+
 ## 0.15.1
 
 * **Augmentation: Fire Breath rank 3 (third try).** Once you've cast Upheaval, it's timed from your cast. Your action button reports a different Upheaval spell that always reads "ready", and the addon was taking that.

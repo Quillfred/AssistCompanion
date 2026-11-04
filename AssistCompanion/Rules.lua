@@ -478,7 +478,8 @@ local tipRule = {
       return { spell = S.TIP_THE_SCALES, note = "+ empower",
                text = "Tip the Scales", sub = "Then the empower: instant, max rank" }
     end
-    return { spell = S.TIP_THE_SCALES, note = "macro x2", -- the /cancelaura line only works on a 2nd press
+    return { spell = S.TIP_THE_SCALES, note = "macro",
+             keySuffix = "x2", -- after the keybind: the /cancelaura line only works on a 2nd press
              text = "Tip the Scales (macro)", sub = "No empower ready: cancel it right away" }
   end,
 }
