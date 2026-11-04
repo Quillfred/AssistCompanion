@@ -739,6 +739,9 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
     local id = readable(spellID)
     if id then
       lastCast[id] = GetTime()
+      -- Casting it just started its cooldown, which may be hidden in combat. Forget the old
+      -- "ready" answer so rules fall back to timing from this cast until we can read it again.
+      readyAt[id] = nil
       advanceOpener(id)
     end
   elseif event == "PLAYER_REGEN_DISABLED" then

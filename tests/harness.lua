@@ -496,6 +496,19 @@ state.cd = {}; step()                                    -- wipe: game reset the
 combat(true); cast(51271); step()
 expect("Breath: shown when the game says Breath is ready", "icon:1249658", nf.icon.texture)
 combat(false)
+-- Bug: Breath suggested while on cooldown after being cast in the same pull
+AssistCompanionDB.openerIcon = false
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 30
+state.cd = {}; step()                                     -- out of combat: Breath reads as ready
+combat(true); state.cd = { [1249658] = "SECRET", [51271] = "SECRET" }  -- combat hides cooldowns
+cast(51271); step()
+expect("Breath bug: first Pillar of the pull -> Breath", "icon:1249658", nf.icon.texture)
+cast(1249658); state.next = 49020; step()
+now = now + 60; cast(51271); step()                       -- next Pillar 60s later, Breath has ~60s left
+expect("Breath bug: not suggested while its cooldown is still running", "icon:49020", nf.icon.texture)
+now = now + 65; cast(51271); step()                       -- 125s after Breath: ready again
+expect("Breath bug: suggested again once 120s have passed", "icon:1249658", nf.icon.texture)
+combat(false)
 C_Spell.GetSpellCooldown, C_Spell.GetSpellCharges = nil, nil
 
 -- TEXT BOX HIDDEN WHEN TEXT ALERTS ARE OFF (even unlocked) -----------------
