@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.14.3** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.15.0** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -59,6 +59,9 @@ Not yet seen in the live game: check the panel's layout, scrolling, and that che
    **0.14.3:** cooldown reads ignored in combat (empowers read "ready" right after the cast, so `up=` was
    always 0), and `ebonfirst` now holds empowers up to 6s for Ebon Might with an Eruption / Chrono Flames
    filler. From the owner's fourth log.
+   **0.15.0:** Tip the Scales is a full rule (`ns.augTipRule`): cooldown from when its buff is used up, Chronoboon,
+   and the `tipMacro` option (Icy Veins' cancel macro: with an empower ready within a GCD, else on cooldown via
+   the macro; off = with Fire Breath as before). Rule notes (`alert.note`) show under the icon.
    **Open:** the Ebon Might estimate runs at least 8s short in the owner's log, so the `ebonmight` refresh rule
    never fires. Next log: compare `em=` on the status lines with when the highlight asks for Ebon Might again
    (it only does once the buff is down and Ebon Might is off cooldown). Original notes:

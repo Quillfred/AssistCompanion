@@ -997,6 +997,7 @@ cast(357208); step()
 expect("Time Skip with Chronoboon: Tip spent and on cooldown -> Time Skip", "icon:404977", nf.icon.texture)
 cast(404977); step()
 expect("Time Skip: used -> highlight", "icon:431443", nf.icon.texture)
+state.known[1260484] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED") -- 120s again
 now = now + 100; state.next = 357208; step()
 expect("Tip: not back before its 120s cooldown", "icon:357208", nf.icon.texture)
 now = now + 21; cast(403631); ns.ebonMight.expires = 0; step() -- (Breath of Eons is back too: use it)
@@ -1087,6 +1088,47 @@ expect("Ebon first: Ebon Might ready but the highlight says Fire Breath (buff up
 -- The highlight asking for Ebon Might means the buff is down
 ns.ebonMight.expires = now + 20; state.next = 395152; step()
 expect("Ebon Might: highlight asks for it -> our estimate says it's down", true, ns.ebonMight.expires <= now)
+state.next = 431443
+
+-- Tip the Scales: cooldown from when its buff is used up; Chronoboon; the cancel-macro option
+ns.setRuleEnabled(1473, "tipthescales", true); AssistCompanionDB.tipMacro = false
+state.known[370553] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
+now = now + 400; augReset(); ns.ebonMight.expires = now + 1000
+local t0 = now; cast(370553)                                    -- pressed, not used yet
+now = t0 + 130; state.next = 357208; step()
+expect("Tip: pressed but not used -> cooldown hasn't started, no Tip", "icon:357208", nf.icon.texture)
+expect("Tip: ...and Fire Breath is instant (no rank)", "", nf.rank.text)
+local t1 = now; cast(357208)                                    -- Fire Breath uses it: cooldown starts now
+now = t1 + 110; state.next = 357208; step()
+expect("Tip: 110s after the buff was used -> not ready", "icon:357208", nf.icon.texture)
+now = t1 + 120.5; step()
+expect("Tip: 120s after the buff was used -> Tip with Fire Breath", "icon:370553", nf.icon.texture)
+expect("Tip: macro off -> no note", "", nf.note.text)
+state.next = 431443; step()
+expect("Tip: macro off, highlight not on Fire Breath -> wait (as before)", "icon:431443", nf.icon.texture)
+state.known[1260484] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
+cast(370553); cast(357208); local t2 = now
+now = t2 + 89; state.next = 357208; step()
+expect("Tip with Chronoboon: 89s -> not ready", "icon:357208", nf.icon.texture)
+now = t2 + 90.5; step()
+expect("Tip with Chronoboon: 90s -> ready", "icon:370553", nf.icon.texture)
+-- macro on
+AssistCompanionDB.tipMacro = true; state.known[431695] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
+cast(357208); cast(396286); state.next = 431443; step()         -- Fire Breath and Upheaval on cooldown
+expect("Tip macro: no empower soon -> Tip on cooldown", "icon:370553", nf.icon.texture)
+expect("Tip macro: ...with a 'macro' note", "macro", nf.note.text)
+local t3 = now; cast(370553); now = t3 + 3; step()               -- macro: cancelled, no empower followed
+expect("Tip macro: cancelled -> no longer waiting (Fire Breath gets a rank again)", false, (ns.augTip.state(
+  { lastCast = { [370553] = t3 }, now = now, db = AssistCompanionDB })))
+now = t3 + 88; step()
+expect("Tip macro: Chronoboon, 88s after the cancel (+Temporal Burst) -> ready again", "icon:370553", nf.icon.texture)
+state.next = 357208; step()
+expect("Tip macro: Fire Breath ready -> Tip paired with it", "+ empower", nf.note.text)
+cast(370553); cast(357208); now = now + 1; step()
+expect("Tip macro: used by Fire Breath -> not waiting", false, (ns.augTip.state(
+  { lastCast = { [370553] = now - 1 }, now = now, db = AssistCompanionDB })))
+AssistCompanionDB.tipMacro = false; state.known[431695] = nil; state.known[1260484] = nil
+events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); ns.setRuleEnabled(1473, "tipthescales", false)
 state.next = 431443
 
 -- Owner's third log: Breath of Eons held ~23s after Time Skip had brought it back

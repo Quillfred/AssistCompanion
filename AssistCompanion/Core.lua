@@ -23,6 +23,7 @@ local DEFAULTS = {
   opener = true,           -- show the opening sequence before and at the start of a pull
   openerIcon = true,       -- the next-cast icon follows the opener while it's running
   gcdSwipe = true,         -- global cooldown swipe on the next-cast icon
+  tipMacro = false,        -- Augmentation: the player uses a /cancelaura Tip the Scales macro
   empowerRank = true,      -- empower rank badge on Fire Breath / Upheaval (Rules.lua: ns.empowerRank)
   healthIcon = true,       -- Blood: Death Strike icon that fades in as your health drops
   healthFull = 35,         -- health % at or below which it's fully visible
@@ -585,6 +586,7 @@ local function showNext(ctx, alert, note)
   else
     nf.border:SetColorTexture(1, 0.82, 0, 1)
   end
+  if alert and alert.note then note = alert.note end -- a rule's own note (e.g. "macro") wins
   if alert and alert.iconOnly then note = nil end -- e.g. Breath: just the icon, nothing else
   local idle = false
   if db.nextIcon and not spell then
