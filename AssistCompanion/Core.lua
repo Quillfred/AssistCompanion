@@ -480,7 +480,14 @@ frame.sub:SetPoint("RIGHT", frame, "RIGHT", -4, 0)
 frame.sub:SetJustifyH("LEFT")
 
 local function showText(alert)
-  if not db.showText then frame:SetShown(not db.locked) return end
+  if not db.showText then frame:Hide() return end -- off: hidden, even while unlocked
+  if not alert and not db.locked then
+    -- unlocked with nothing to show: a labeled placeholder so you can position it
+    frame.icon:Hide(); frame.border:Hide()
+    frame.text:SetText("Text alerts"); frame.sub:SetText("Drag to move")
+    frame:Show()
+    return
+  end
   if alert and alert.iconOnly then
     frame.icon:SetTexture(spellIcon(alert.spell))
     frame.icon:SetSize(48, 48)

@@ -498,6 +498,17 @@ expect("Breath: shown when the game says Breath is ready", "icon:1249658", nf.ic
 combat(false)
 C_Spell.GetSpellCooldown, C_Spell.GetSpellCharges = nil, nil
 
+-- TEXT BOX HIDDEN WHEN TEXT ALERTS ARE OFF (even unlocked) -----------------
+AssistCompanionDB.showText = false
+SlashCmdList.ASSISTCOMPANION("unlock"); step()
+expect("Text box: hidden when text alerts off, even unlocked", false, display.shown)
+expect("Unlocked: next-cast icon still shown for positioning", true, nf.shown)
+AssistCompanionDB.showText = true; state.next = nil; step()
+expect("Text box: unlocked placeholder when text alerts on", "Text alerts", display.text.text)
+expect("Text box: no stray yellow square on placeholder", false, display.border.shown)
+SlashCmdList.ASSISTCOMPANION("lock"); step()
+expect("Text box: locked with no alert -> hidden", false, display.shown)
+
 -- secret values: power returns a secret -> treated as unknown, no error
 issecretvalue = function(v) return v == "SECRET" end
 state.spec = 252; events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
