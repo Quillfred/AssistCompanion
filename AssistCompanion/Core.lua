@@ -181,6 +181,26 @@ end
 local inCombat, combatStart = false, 0
 local function combatOrTarget() return inCombat or hostileTarget() end
 
+---------------------------------------------------------------------------
+-- Debug log (/ac debug). Kept in saved variables, so WoW writes it to
+-- WTF\Account\<ACCOUNT>\SavedVariables\AssistCompanion.lua on /reload or logout.
+-- Chat echo is optional (/ac debug chat).
+---------------------------------------------------------------------------
+local LOG_MAX = 500
+local function dlog(fmt, ...)
+  if not db or not db.debug then return end
+  local ok, msg = pcall(string.format, fmt, ...)
+  if not ok then msg = tostring(fmt) end
+  local stamp = date and date("%H:%M:%S") or ""
+  local t = inCombat and string.format(" +%.1fs", GetTime() - combatStart) or ""
+  local line = stamp .. t .. "  " .. msg
+  db.debugLog = db.debugLog or {}
+  local L = db.debugLog
+  L[#L + 1] = line
+  while #L > LOG_MAX do table.remove(L, 1) end
+  if db.debugChat then print("|cff66ccffAC|r " .. line) end
+end
+
 -- Is the current target in melee range? Uses a melee spell of your spec (Rules.lua: ns.meleeSpell).
 -- Returns nil when there's no hostile target or the game won't say.
 local function inMelee()
@@ -519,7 +539,7 @@ local function showNext(ctx, alert, note)
   if not db.nextIcon or not spell or (not db.alwaysShow and not combatOrTarget()) then
     nf.note:SetText("")
     nf:SetShown(not db.locked)
-    return
+    return nil, "hidden"
   end
   if not idle then nf.lastSpell = spell end
   nf.icon:SetTexture(spellIcon(spell))
@@ -544,6 +564,9 @@ local function showNext(ctx, alert, note)
   nf.icon:SetDesaturated(wait or idle)
   nf.note:SetText(note or "")
   nf:Show()
+  local mode = idle and "idle" or (alert and alert.opener and "opener") or wait and "wait"
+    or (alert and "correction") or "highlight"
+  return spell, mode
 end
 
 ---------------------------------------------------------------------------
@@ -626,6 +649,9 @@ ob.border = ob:CreateTexture(nil, "BORDER", nil, 0) -- gold on the current step,
 ob.border:SetColorTexture(1, 0.82, 0, 0.9)
 
 local function buildOpener()
+  if opener.index > 1 and opener.index <= #opener.steps then
+    dlog("opener: reset (was at step %d/%d)", opener.index, #opener.steps)
+  end
   wipe(opener.steps)
   opener.index = 1
   local list = specID and ns.openers and ns.openers[specID]
@@ -645,6 +671,8 @@ local function advanceOpener(id)
   for k = opener.index, math.min(opener.index + 2, #steps) do
     local want = steps[k].id
     if id == want or id == override(want) then
+      dlog("opener: step %d/%d done (%s)%s", k, #steps, spellName(want),
+        k > opener.index and (" - skipped ahead from step " .. opener.index) or "")
       opener.index = k + 1
       opener.lastAdvance = GetTime()
       return
@@ -677,6 +705,8 @@ local function renderOpener()
   -- Skip steps that are still on cooldown (e.g. Pillar after a quick reset on a dummy),
   -- so they don't hold up the rest of the opener.
   while opener.index <= #steps and onCooldown(steps[opener.index].id) do
+    dlog("opener: skipped step %d/%d (%s on cooldown, ready in %.0fs)", opener.index, #steps,
+      spellName(steps[opener.index].id), (readyAt[steps[opener.index].id] or 0) - GetTime())
     opener.index = opener.index + 1
   end
   local visible = db.opener and #steps > 0 and opener.index <= #steps
@@ -779,6 +809,7 @@ end
 ---------------------------------------------------------------------------
 local ctx = { lastCast = lastCast, knows = knows, override = override, onCooldown = onCooldown, charges = charges }
 local elapsed, debugElapsed = 0, 0
+local lastIconKey
 local testUntil = 0
 
 local function playerDead()
@@ -810,13 +841,13 @@ local function tick()
   ctx.enemies = countEnemies()
   ctx.inMelee = inMelee()
 
-  local alert, note
+  local alert, note, alertKey
   local rules = specID and ns.rules[specID]
   if rules then
     for _, rule in ipairs(rules) do
       if not db.disabled[rule.key] then
         local ok, result = pcall(rule.check, ctx)
-        if ok and result then alert = result break end
+        if ok and result then alert, alertKey = result, rule.key break end
       end
     end
     local reminder = ns.reminders[specID]
@@ -836,18 +867,35 @@ local function tick()
       iconOnly = alert and alert.iconOnly and alert.spell == openerStep.id or nil,
     }
   end
-  showNext(ctx, iconAlert, note)
+  local shown, mode = showNext(ctx, iconAlert, note)
   showText(alert)
 
   if db.debug then
+    -- Log every change of the main icon, with why it shows that spell.
+    local key = tostring(mode) .. ":" .. tostring(shown)
+    if key ~= lastIconKey then
+      lastIconKey = key
+      local why = mode
+      if mode == "correction" or mode == "wait" then why = mode .. ", rule " .. tostring(alertKey) end
+      if mode ~= "highlight" and ctx.next and ctx.next ~= shown then
+        why = why .. ", highlight said " .. spellName(ctx.next)
+      end
+      dlog("icon: %s (%s)", shown and spellName(shown) or "none", why)
+    end
+    -- Status once a second while fighting or targeting an enemy.
     debugElapsed = debugElapsed + 1
-    if debugElapsed >= 10 then -- about once a second
+    if debugElapsed >= 10 then
       debugElapsed = 0
-      print(("|cff66ccffAC|r next=%s (%s) key=%s rp=%s/%s%s enemies=%s melee=%s DT->%s Scourge->%s"):format(
-        spellName(ctx.next), tostring(ctx.next), tostring(keybindFor(ctx.next)), tostring(ctx.power),
-        tostring(ctx.powerMax), powerMaxCache and "" or " (fallback)",
-        tostring(ctx.enemies), tostring(ctx.inMelee),
-        tostring(override(ns.S.DARK_TRANSFORMATION)), tostring(override(ns.S.SCOURGE_STRIKE))))
+      if combatOrTarget() then
+        local bb = charges(50842)
+        dlog("status: highlight=%s rp=%s/%s%s runes=%s enemies=%s melee=%s opener=%s%s%s",
+          ctx.next and (spellName(ctx.next) .. " " .. ctx.next) or "none",
+          tostring(ctx.power), tostring(ctx.powerMax), powerMaxCache and "" or "(fb)",
+          tostring(ctx.runes), tostring(ctx.enemies), tostring(ctx.inMelee),
+          openerStep and (opener.index .. "/" .. #opener.steps) or "off",
+          bb and (" bloodboil=" .. bb) or "",
+          (specID == 252) and (" DT->" .. tostring(override(ns.S.DARK_TRANSFORMATION))) or "")
+      end
     end
   end
 end
@@ -891,6 +939,9 @@ local function refresh(event)
   cachePowerMax()
   wipe(chargeState) -- re-read charges for the (possibly new) spec
   powerSeenMax = 0  -- talents/spec may have lowered the max
+  if event == "PLAYER_SPECIALIZATION_CHANGED" or event == "TRAIT_CONFIG_UPDATED" or event == "PLAYER_LOGIN" then
+    dlog("%s: spec %s", event, tostring(specID))
+  end
   if inCombat then return end
   if event ~= "SPELLS_CHANGED" or opener.index == 1 then
     buildOpener()
@@ -915,17 +966,21 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
       -- Casting it just started its cooldown, which may be hidden in combat. Forget the old
       -- "ready" answer so rules fall back to timing from this cast until we can read it again.
       readyAt[id] = nil
+      dlog("cast: %s (%d)", spellName(id), id)
       spendCharge(id)
       advanceOpener(id)
     end
   elseif event == "PLAYER_REGEN_DISABLED" then
     inCombat, combatStart = true, GetTime()
+    dlog("---- combat start ----")
   elseif event == "PLAYER_REGEN_ENABLED" then
+    dlog("---- combat end (%.0fs) ----", GetTime() - combatStart)
     inCombat = false
     cachePowerMax()
     if not hotkeyScanned then clearBindingCache() end -- rescan buttons now that combat is over
     resetForNextPull()
   elseif event == "PLAYER_DEAD" or event == "ENCOUNTER_END" then
+    dlog("%s", event)
     resetForNextPull() -- wipe or kill: next pull starts from a full opener
   elseif event == "UNIT_PET" then
     if not inCombat and opener.index == 1 then buildOpener() end
@@ -999,7 +1054,29 @@ SlashCmdList.ASSISTCOMPANION = function(input)
       say(("%s  (%s)  %s"):format(r.key, r.name, db.disabled[r.key] and "|cffff6666off|r" or "|cff66ff66on|r"))
     end
   elseif cmd == "debug" then
-    db.debug = not db.debug; say("Debug " .. (db.debug and "on: prints the highlight's suggestion every second." or "off."))
+    if arg == "chat" then
+      db.debugChat = not db.debugChat
+      say("Debug lines " .. (db.debugChat and "also printed to chat." or "no longer printed to chat."))
+      return
+    end
+    db.debug = not db.debug
+    if db.debug then
+      local version = "?"
+      local getMeta = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+      if getMeta then version = select(2, pcall(getMeta, ADDON, "Version")) or "?" end
+      lastIconKey = nil
+      dlog("==== debug on: Assist Companion %s, spec %s ====", tostring(version), tostring(specID))
+      say("Debug logging on. Play, then /reload (or log out) to write it to")
+      say("WTF\\Account\\<ACCOUNT>\\SavedVariables\\AssistCompanion.lua  (/ac debug chat to also see it in chat)")
+    else
+      db.debug = true; dlog("==== debug off ===="); db.debug = false
+      say("Debug logging off. /reload to save the log file.")
+    end
+  elseif cmd == "log" then
+    db.debugLog = db.debugLog or {}
+    if arg == "clear" then wipe(db.debugLog); say("Debug log cleared.") return end
+    say(("Debug log: %d of %d lines kept. Logging is %s."):format(#db.debugLog, LOG_MAX, db.debug and "on" or "off"))
+    say("Saved on /reload or logout to WTF\\Account\\<ACCOUNT>\\SavedVariables\\AssistCompanion.lua")
   elseif cmd == "test" then
     testUntil = GetTime() + 4
     local sample = (specID == 252) and ns.S.BLIGHTFALL or ns.S.BREATH
@@ -1024,6 +1101,8 @@ SlashCmdList.ASSISTCOMPANION = function(input)
     say("/ac opener  - toggle the opener bar (/ac opener reset to restart it)")
     say("/ac opener icon  - toggle the next-cast icon following the opener")
     say("/ac rules | toggle <key>  - list or turn off rules")
-    say("/ac scale <n> | reset | debug")
+    say("/ac debug  - log what the addon sees to its saved file (/ac debug chat also prints it)")
+    say("/ac log  - show debug log size (/ac log clear empties it)")
+    say("/ac scale <n> | reset")
   end
 end

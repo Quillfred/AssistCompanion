@@ -681,6 +681,48 @@ state.rp = 104; step()
 expect("RP max: readable 125 used directly, 104 doesn't trigger", false, nf.icon.texture == "icon:49998")
 state.rpmax = nil; issecretvalue = nil; state.rp = 10
 
+-- DEBUG LOG (saved variables) -------------------------------------------------
+date = os.date
+C_AddOns = { GetAddOnMetadata = function(_, k) if k == "Version" then return "test" end end }
+local printedBefore = #printed
+AssistCompanionDB.debugLog = nil; AssistCompanionDB.debug = false; AssistCompanionDB.debugChat = nil
+AssistCompanionDB.openerIcon = true
+state.spec = 251; state.pet = true; state.target = nil; state.overrides = {}; state.inRange = true
+state.known = { [47568]=true, [51271]=true, [1249658]=true, [49020]=true, [279302]=true }
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED"); events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED")
+SlashCmdList.ASSISTCOMPANION("debug")
+local log = AssistCompanionDB.debugLog
+local function logHas(pat) for _, l in ipairs(log) do if l:find(pat, 1, true) then return true end end return false end
+expect("Debug log: header with version and spec", true, logHas("debug on: Assist Companion test, spec 251"))
+now = now + 3000; state.next = 49020
+combat(true); for _ = 1, 12 do step() end
+cast(47568); step()
+expect("Debug log: combat start", true, logHas("---- combat start ----"))
+expect("Debug log: casts with name and id", true, logHas("cast: spell47568 (47568)"))
+expect("Debug log: opener step done", true, logHas("opener: step 1/8 done (spell47568)"))
+expect("Debug log: icon change with reason", true, logHas("(opener, highlight said spell49020)"))
+expect("Debug log: status line once a second", true, logHas("status: highlight=spell49020 49020"))
+expect("Debug log: lines show time into combat", true, log[#log]:find("+%d+%.%ds") ~= nil)
+combat(false)
+expect("Debug log: combat end", true, logHas("---- combat end"))
+local chatAC = 0
+for i = printedBefore + 1, #printed do if printed[i]:find("|cff66ccffAC|r", 1, true) then chatAC = chatAC + 1 end end
+expect("Debug log: nothing echoed to chat by default", 0, chatAC)
+SlashCmdList.ASSISTCOMPANION("debug chat"); cast(51271)
+local echoed = false
+for i = #printed - 3, #printed do if printed[i] and printed[i]:find("cast: spell51271", 1, true) then echoed = true end end
+expect("Debug log: /ac debug chat echoes to chat", true, echoed)
+SlashCmdList.ASSISTCOMPANION("debug chat")
+for i = 1, 600 do cast(49020) end
+expect("Debug log: capped at 500 lines", 500, #log)
+SlashCmdList.ASSISTCOMPANION("debug")
+expect("Debug log: 'debug off' line written", true, log[#log]:find("debug off", 1, true) ~= nil)
+local n = #log; cast(49020)
+expect("Debug log: nothing logged while off", n, #log)
+SlashCmdList.ASSISTCOMPANION("log clear")
+expect("Debug log: /ac log clear empties it", 0, #AssistCompanionDB.debugLog)
+AssistCompanionDB.openerIcon = false
+
 -- HIDDEN WHILE DEAD ----------------------------------------------------------
 function UnitIsDeadOrGhost(u) return u == "player" and state.dead or false end
 state.spec = 250; state.pet = true; state.target = nil; state.next = 206930

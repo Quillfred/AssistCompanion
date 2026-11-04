@@ -47,7 +47,15 @@ If the game says the addon is out of date, tick **Load out of date AddOns** on t
 | `/ac cds` | Frost: turn the "use trinkets, potion and racial" reminder during Pillar on or off |
 | `/ac rules`, `/ac toggle <key>` | List rules or turn one off |
 | `/ac scale <n>`, `/ac reset` | Scale everything, or reset positions |
-| `/ac debug` | Print the highlight's suggestion, keybind, runic power, enemy count and range every second |
+| `/ac debug` | Log what the addon sees (icon changes and why, casts, opener steps, combat start/end, status each second) to its saved file. `/ac debug chat` also prints it to chat |
+| `/ac log` | Show the debug log's size. `/ac log clear` empties it |
+
+## Sending a debug log
+
+1. Type `/ac debug` and play (the last 500 lines are kept).
+2. `/reload` or log out. WoW then writes the log to
+   `World of Warcraft\_retail_\WTF\Account\<ACCOUNT>\SavedVariables\AssistCompanion.lua`
+3. Share that file. `/ac debug` again turns logging off.
 
 ## Keybinds
 
