@@ -47,6 +47,17 @@ local S = {
   RUNE_STRIKE         = 316239, -- the highlight's data uses this ID; Heart Strike replaces it
   DEATH_AND_DECAY     = 43265,
   VAMPIRIC_BLOOD      = 55233,
+  -- Augmentation Evoker
+  EBON_MIGHT          = 395152,
+  PRESCIENCE          = 409311,
+  BREATH_OF_EONS      = 403631,
+  DEEP_BREATH         = 357210, -- Breath of Eons replaces it (talent data)
+  ERUPTION            = 395160,
+  ERUPTION_2          = 1259172,
+  FIRE_BREATH         = 357208,
+  FIRE_BREATH_FOM     = 382266, -- with Font of Magic
+  UPHEAVAL            = 396286,
+  UPHEAVAL_FOM        = 408092,
 }
 ns.S = S
 
@@ -214,6 +225,77 @@ ns.rules[251] = {
 }
 
 ---------------------------------------------------------------------------
+-- Augmentation Evoker (spec 1473)
+--
+-- Ebon Might's buff is hidden in combat, but everything that changes it is your own cast, so we
+-- keep our own estimate of when it runs out (game data, Sands of Time 395153):
+--   Ebon Might: 10s; recasting keeps up to 3s of what's left (pandemic, 30% of 10s)
+--   Eruption +1s, empowered spells (Fire Breath, Upheaval) +2s, Breath of Eons / Deep Breath +5s
+--   (Breath of Eons also grants 5s of Ebon Might if it isn't up)
+-- Each extension has your crit chance to be 50% longer, which we can't see, so the estimate runs
+-- a little short: the refresh reminder can come slightly early, never late.
+---------------------------------------------------------------------------
+local EM_DURATION, EM_PANDEMIC = 10, 3
+local EM_REFRESH = 4     -- optimal refreshes with 40% (4s) left
+local EM_COOLDOWN = 30   -- game data (395152)
+local EM_EXTEND = {
+  [S.ERUPTION] = 1, [S.ERUPTION_2] = 1,
+  [S.FIRE_BREATH] = 2, [S.FIRE_BREATH_FOM] = 2, [S.UPHEAVAL] = 2, [S.UPHEAVAL_FOM] = 2,
+  [S.BREATH_OF_EONS] = 5, [S.DEEP_BREATH] = 5,
+}
+local ebonMight = { expires = 0 }
+ns.ebonMight = ebonMight
+
+-- Called by Core.lua for each of your successful casts.
+ns.onCast = function(spec, id, now)
+  if spec ~= 1473 then return end
+  local left = ebonMight.expires - now
+  if id == S.EBON_MIGHT then
+    ebonMight.expires = now + EM_DURATION + math.max(0, math.min(left, EM_PANDEMIC))
+  elseif id == S.BREATH_OF_EONS and left <= 0 then
+    ebonMight.expires = now + EM_EXTEND[id]
+  elseif EM_EXTEND[id] and left > 0 then
+    ebonMight.expires = ebonMight.expires + EM_EXTEND[id]
+  end
+end
+
+ns.rules[1473] = {
+  {
+    key = "ebonmight",
+    name = "Ebon Might refresh",
+    spell = S.EBON_MIGHT,
+    desc = "Shows Ebon Might when it's ready and has about 4 seconds left. The highlight only recasts it after it drops.",
+    check = function(ctx)
+      if not ctx.inCombat or not ctx.knows(S.EBON_MIGHT) then return end
+      if ctx.next == S.EBON_MIGHT then return end
+      local left = ebonMight.expires - ctx.now
+      if left <= 0 or left > EM_REFRESH then return end -- dropped: the highlight asks for it itself
+      if not ns.cooldownReady(ctx, S.EBON_MIGHT, EM_COOLDOWN) then return end
+      return { spell = S.EBON_MIGHT, text = "Refresh Ebon Might", sub = ("About %.0fs left"):format(left) }
+    end,
+  },
+  {
+    key = "prescience",
+    name = "Prescience charges",
+    spell = S.PRESCIENCE,
+    desc = "In a group, shows Prescience when both charges are ready. The highlight only casts it when none is active, so a charge sits capped.",
+    check = function(ctx)
+      if not ctx.inCombat or not ctx.inGroup or not ctx.knows(S.PRESCIENCE) then return end
+      if ctx.next == S.PRESCIENCE then return end
+      local c = ctx.charges(S.PRESCIENCE)
+      if not c or c < 2 then return end
+      return { spell = S.PRESCIENCE, text = "Prescience", sub = "Both charges ready: put one on a DPS ally" }
+    end,
+  },
+}
+
+-- Talent replacements the highlight's data doesn't know about: when it suggests the first spell and
+-- you have the second, show the second (its button is the one you press).
+ns.replacedBy = {
+  [S.DEEP_BREATH] = S.BREATH_OF_EONS,
+}
+
+---------------------------------------------------------------------------
 -- Openers: the first casts of SimC's optimal single-target rotation (patch 12.1.5,
 -- SimC's default build for the spec). Steps for spells you don't know are skipped.
 -- skipIfPet = skip this step when your pet is already out.
@@ -277,6 +359,9 @@ ns.openers[250] = {                     -- Blood
 --   Blood:  Vampiric Blood, Raise Dead (both missing; no defensive is in the list).
 --           Optimal: both on cooldown.
 --   Unholy: none (Raise Dead is its permanent pet, in the list).
+--   Augmentation: Breath of Eons (not in the list; but it replaces Deep Breath, which is, so the
+--           in-game highlight may point at it already: see ns.replacedBy). Optimal: on cooldown,
+--           after Prescience and Ebon Might.
 --   Devastation: none. Dragonrage, Tip the Scales, Deep Breath, Fire Breath and Eternity
 --           Surge are all in the list, with no automation-only entries. Its gaps are
 --           conditions and button overrides (see docs/NEXT_STEPS.md, step 2).
@@ -298,6 +383,16 @@ ns.readyCooldowns = {
       end,
     },
     { key = "raisedead", name = "Raise Dead", spell = S.RAISE_DEAD, cooldown = 120 }, -- game data (46585)
+  },
+  [1473] = {                                                 -- Augmentation
+    after = "ebonmight",
+    {
+      key = "breatheons", name = "Breath of Eons", spell = S.BREATH_OF_EONS,
+      cooldown = 120, -- game data (403631)
+      desc = "Shows Breath of Eons when it's ready, after the highlight's Ebon Might and Prescience. "
+          .. "The highlight's list has Deep Breath, which Breath of Eons replaces; if it suggests that, the icon shows Breath of Eons.",
+      when = function(ctx) return ctx.next ~= S.EBON_MIGHT and ctx.next ~= S.PRESCIENCE end,
+    },
   },
   [250] = {                                                  -- Blood
     after = "boneshield",
@@ -357,6 +452,7 @@ end
 
 -- Charges counted from your own casts (hidden in combat). recharge = seconds per charge.
 ns.chargeTrack = {
+  [1473] = { [S.PRESCIENCE] = { max = 2, recharge = 12 } }, -- game data: 2 charges, 12s
   [250] = { [S.BLOOD_BOIL] = { max = 2, recharge = 7.5 } }, -- game data: 2 charges, 7.5s, not hasted
 }
 
@@ -372,6 +468,12 @@ ns.specInfo = {
   { id = 250, class = "DEATHKNIGHT", className = "Death Knight", name = "Blood" },
   { id = 251, class = "DEATHKNIGHT", className = "Death Knight", name = "Frost" },
   { id = 252, class = "DEATHKNIGHT", className = "Death Knight", name = "Unholy" },
+  { id = 1473, class = "EVOKER", className = "Evoker", name = "Augmentation" },
+}
+
+-- Resource read into ctx.power, if not runic power (Enum.PowerType: Essence = 19).
+ns.powerType = {
+  [1473] = 19,
 }
 
 -- Spec-specific settings shown under the spec in the options menu (db keys, checkboxes).
