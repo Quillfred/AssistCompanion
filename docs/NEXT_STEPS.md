@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.16.8** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.17.0** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -85,15 +85,15 @@ Not yet seen in the live game: check the panel's layout, scrolling, and that che
    extension crits; replaying the first log lands within ~0.5s of the real drop. To confirm in game: `emdur=`
    should read ~1.14 and `crit=` ~21 out of combat, and `em=` should reach 0 about when the highlight asks for
    Ebon Might once it's off cooldown. CurseForge beta still on hold until the owner says everything is clear.
-   **Proposed, awaiting the owner's go-ahead:** talent effects on timing not modelled yet (game data values):
+   **Done in 0.17.0 (owner approved):** talent effects on timing (corrected: Nozdormu Adept is -2s, not -4s):
    Tomorrow, Today (Time Skip +1s channel: ~27s of recovery instead of 18), Instability Matrix (empowers -0-6s
    own cooldown per cast, ~3s average), Interwoven Threads (all cooldowns -10%), Dream of Spring (Emerald
-   Blossom extends Ebon Might 1s), Nozdormu Adept (Prescience cooldown -4s), Overlord (Breath of Eons casts
+   Blossom extends Ebon Might 1s), Nozdormu Adept (Prescience cooldown -2s), Overlord (Breath of Eons casts
    Eruptions on up to 3 targets: invisible Ebon Might extensions and Accretion), Wingleader (Mass Eruption
-   -1.5s Breath of Eons per target). Offered: log which of these the player has at debug start.
-   **Open:** the Ebon Might estimate runs at least 8s short in the owner's log, so the `ebonmight` refresh rule
-   never fires. Next log: compare `em=` on the status lines with when the highlight asks for Ebon Might again
-   (it only does once the buff is down and Ebon Might is off cooldown). Original notes:
+   -1.5s Breath of Eons per target). The debug log lists them at each combat start (`talents:`). The owner
+   uses Overlord.
+   **Resolved in 0.16.6:** the Ebon Might estimate used to run ~8s short; mastery (aura duration) and average
+   extension crits fixed it (replay within ~0.5s of the real drop). Original notes:
    * **What exists online (checked Nov 2026):** no published optimal-vs-highlight comparison.
      Icy Veins' easy-mode guide calls the highlight "acceptable with no real loss of performance" (a judgment,
      not a sim): https://astro.k.icy-veins.com/wow/augmentation-evoker-pve-dps-easy-mode. Icy Veins' sim page

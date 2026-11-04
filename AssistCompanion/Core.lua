@@ -268,6 +268,12 @@ local function runes() return (try(UnitPower, "player", RUNES)) end
 ---------------------------------------------------------------------------
 local chargeState = {} -- id -> { charges, max, nextAt }
 
+-- recharge can be a number or a function of knows() (talents that change it)
+local function rechargeOf(t)
+  if type(t.recharge) == "function" then return t.recharge(knows) end
+  return t.recharge
+end
+
 local function chargeInfo(id)
   local t = ns.chargeTrack and specID and ns.chargeTrack[specID] and ns.chargeTrack[specID][id]
   if not t then return nil end
@@ -297,7 +303,7 @@ local function syncCharges()
     -- Otherwise advance our own count.
     while st.charges < st.max and st.nextAt and now >= st.nextAt do
       st.charges = st.charges + 1
-      st.nextAt = (st.charges < st.max) and (st.nextAt + t.recharge) or nil
+      st.nextAt = (st.charges < st.max) and (st.nextAt + rechargeOf(t)) or nil
     end
   end
 end
@@ -305,7 +311,7 @@ end
 local function spendCharge(id)
   local st, t = chargeInfo(id)
   if not st then return end
-  if st.charges >= st.max or not st.nextAt then st.nextAt = GetTime() + t.recharge end
+  if st.charges >= st.max or not st.nextAt then st.nextAt = GetTime() + rechargeOf(t) end
   st.charges = math.max(0, st.charges - 1)
 end
 
@@ -1108,6 +1114,11 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID, arg4)
   elseif event == "PLAYER_REGEN_DISABLED" then
     inCombat, combatStart = true, GetTime()
     dlog("---- combat start ----")
+    local talents = ns.debugTalents and specID and ns.debugTalents[specID]
+    if talents then
+      local ok, line = pcall(talents, knows)
+      if ok and line then dlog("talents: %s", line) end
+    end
   elseif event == "PLAYER_REGEN_ENABLED" then
     dlog("---- combat end (%.0fs) ----", GetTime() - combatStart)
     inCombat = false

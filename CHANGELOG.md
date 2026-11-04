@@ -1,5 +1,20 @@
 # Assist Companion
 
+## 0.17.0
+
+* **Augmentation: seven more talents counted in the timing** (only if you have them):
+  * **Tomorrow, Today:** Time Skip lasts 3 seconds, so cooldowns come back ~27 seconds sooner instead of 18.
+  * **Instability Matrix:** Fire Breath and Upheaval come back ~3 seconds sooner per cast (it's random, 0–6).
+  * **Interwoven Threads:** all cooldowns 10% shorter.
+  * **Dream of Spring:** Emerald Blossom extends Ebon Might by 1 second.
+  * **Nozdormu Adept:** Prescience recharges in 10 seconds instead of 12.
+  * **Overlord:** Breath of Eons' Eruption extends Ebon Might and counts for Accretion.
+  * **Wingleader:** each Mass Eruption takes 1.5 seconds off Breath of Eons.
+  
+  Overlord and Wingleader assume one target (enemy counts aren't readable in combat), so with more targets the addon can only be a little late, never early.
+* The learned cooldown speeds start over once, because they're now kept per set of these talents.
+* **Debug log:** the start of each fight lists which of these timing talents you have.
+
 ## 0.16.8
 
 * **Augmentation: Fire Breath rank 1 when Ebon Might is about to end.** With under ~2.5 seconds of Ebon Might left, a rank 3 Fire Breath would land after it ends and lose its extension, so the icon says rank 1.
