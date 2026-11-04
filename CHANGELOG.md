@@ -1,5 +1,10 @@
 # Assist Companion
 
+## 0.16.0
+
+* **Minimap button.** Left-click opens the options menu, right-click locks or unlocks the frames, drag moves it around the minimap (square minimaps too). Hide it in the options menu or with `/ac minimap`.
+* Assist Companion is also in the minimap's **addon menu** (Blizzard's addon compartment).
+
 ## 0.15.3
 
 * **Augmentation: Fire Breath rank 3, found the real cause.** The highlight keeps showing Upheaval for a moment after you cast it. The addon took that as "Upheaval is ready again". It now ignores those first seconds.

@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.15.3** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.16.0** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -13,6 +13,10 @@ conversation. Current addon version: **0.15.3** (0.13.0-beta1 on CurseForge) (se
 * **Research:** `docs/FINDINGS.md` (per-rule evidence), `docs/TRIAGE.md` (phase 1, all specs).
 * **Rankings page** (claude.ai artifact, owner's account): sortable table of highlight vs optimal DPS per
   spec. **Out of date** for specs hit by the SimC button-override limitation (below).
+
+**Minimap button (0.16.0):** `AssistCompanion/Minimap.lua`, no libraries (left-click options, right-click lock/unlock,
+drag around the minimap, square minimaps handled; `db.minimapButton`, `db.minimapAngle`, `/ac minimap`) plus the
+addon compartment entry (`## AddonCompartmentFunc` in the TOC).
 
 **Options menu (0.12.0):** `AssistCompanion/Options.lua`, a canvas panel in the game's Settings (Esc > Options >
 AddOns, or `/ac`). The ability tree is built from `ns.specInfo` (class/spec list), `ns.rules` (each rule's `name`,
