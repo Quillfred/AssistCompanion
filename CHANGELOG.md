@@ -1,5 +1,11 @@
 # Assist Companion
 
+## 0.15.3
+
+* **Augmentation: Fire Breath rank 3, found the real cause.** The highlight keeps showing Upheaval for a moment after you cast it. The addon took that as "Upheaval is ready again". It now ignores those first seconds.
+* **Augmentation: Tip the Scales learns from your presses.** If you press Tip the Scales while the addon still thought it had time left, it recovers faster than modelled. The addon learns the ratio and shows it sooner next time.
+* **Debug log:** status lines also show the learned Tip the Scales speed (`tx=`) and your haste (`haste=`).
+
 ## 0.15.2
 
 * **Tip the Scales macro** (only with the cancel-macro option on): when it's time to press the macro (no empower ready), the icon shows **"x2"** right after the keybind (for example `F x2`), and the note under the icon says "macro". With the option off, nothing changes.

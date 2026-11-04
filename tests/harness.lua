@@ -1011,7 +1011,7 @@ expect("Time Skip: Breath of Eons due in 10s, Tip ready -> hold Time Skip", "ico
 -- Time Skip come off cooldown between these sections; turn them off so they don't take the icon.
 for _, k in ipairs({ "breatheons", "tipthescales", "timeskip" }) do ns.setRuleEnabled(1473, k, false) end
 local function augReset()
-  ns.augCooldowns.empowerFactor, ns.augCooldowns.empowerReset = 1, 0
+  ns.augCooldowns.empowerFactor, ns.augCooldowns.empowerReset, ns.augCooldowns.tipFactor = 1, 0, 1
   for k in pairs(ns.augCooldowns.readyNow) do ns.augCooldowns.readyNow[k] = nil end
   ns.ebonMight.expires = 0
 end
@@ -1138,6 +1138,20 @@ expect("Tip macro: used by Fire Breath -> not waiting", false, (ns.augTip.state(
 local t4 = now + 100; now = t4; cast(370553); now = t4 + 18; cast(357208); now = t4 + 19
 local _, started = ns.augTip.state({ lastCast = { [370553] = t4 }, now = now, db = AssistCompanionDB })
 expect("Tip macro: an empower 18s later didn't use it -> cooldown from the press", t4, started)
+-- Owner's sixth log: Tip the Scales was ready before our estimate. A press proves it: learn the ratio.
+AssistCompanionDB.tipMacro = false; augReset(); state.known[431695] = nil
+events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")         -- Chronoboon on: 90s
+local p0 = now + 500; now = p0; cast(370553); cast(357208)       -- used at p0
+now = p0 + 60; step()
+expect("Tip learn: 60s in, estimate 30s left", 30, math.floor(ns.augTip.cooldownLeft({ lastCast = { [370553] = p0 },
+  now = now, db = AssistCompanionDB, knows = function(id) return id == 1260484 end, readyIn = function() end }) + 0.5))
+now = p0 + 72; cast(370553); cast(357208); step()                -- pressed at 72s: it was ready
+expect("Tip learn: pressed at 72s of 90 -> factor 1.25", 1.25, math.floor(ns.augCooldowns.tipFactor * 100 + 0.5) / 100)
+local p1 = now; now = p1 + 72.5; state.next = 357208; step()
+expect("Tip learn: next cycle ready after 72s", "icon:370553", nf.icon.texture)
+now = p1 + 200; cast(370553); cast(357208); step()               -- a late press teaches nothing
+expect("Tip learn: a late press doesn't lower the factor", 1.25, math.floor(ns.augCooldowns.tipFactor * 100 + 0.5) / 100)
+ns.augCooldowns.tipFactor = 1
 AssistCompanionDB.tipMacro = false; state.known[431695] = nil; state.known[1260484] = nil
 events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); ns.setRuleEnabled(1473, "tipthescales", false)
 state.next = 431443
@@ -1176,6 +1190,13 @@ combat(true); C_Spell.GetSpellCooldown = function() return { startTime = "SECRET
 cast(396286); state.next = 357208; step()
 expect("Rank: button shows another Upheaval ID that reads ready -> still rank 3 after casting", "3", nf.rank.text)
 state.overrides[396286] = nil; table.remove(ns.trackCooldowns[1473]); C_Spell.GetSpellCooldown = nil
+-- Owner's sixth log: the highlight keeps showing Upheaval for a moment after the cast; that is not
+-- "ready again" (it made up= read 0 all fight)
+now = now + 300; augReset(); ns.ebonMight.expires = now + 1000
+cast(396286); state.next = 396286; step(); step(); step()        -- highlight still on Upheaval for 0.6s
+state.next = 357208; step()
+expect("Learn: highlight still on Upheaval right after the cast -> not ready (rank 3)", "3", nf.rank.text)
+expect("Learn: ...and nothing learned from it", 1, ns.augCooldowns.empowerFactor)
 -- Accretion: each Eruption takes 1s off Upheaval
 now = now + 300; augReset(); ns.ebonMight.expires = now + 1000
 local a0 = now; cast(396286)
@@ -1193,7 +1214,7 @@ table.insert(ns.rules[1473], 1, { key = "broken", name = "Broken", check = funct
 for _ = 1, 12 do step() end
 expect("Debug: Augmentation status shows the Ebon Might estimate", true, dbgHas(" em="))
 expect("Debug: ...and the cooldown estimates", true, dbgHas(" up=") and dbgHas(" emcd=") and dbgHas(" x=")
-  and dbgHas(" upb=") and dbgHas(" tip="))
+  and dbgHas(" upb=") and dbgHas(" tip=") and dbgHas(" tx=") and dbgHas(" haste="))
 expect("Debug: a rule error is logged", true, dbgHas("rule broken error"))
 local n = 0 for _, l in ipairs(AssistCompanionDB.debugLog) do if l:find("rule broken error", 1, true) then n = n + 1 end end
 expect("Debug: ...only once", 1, n)
