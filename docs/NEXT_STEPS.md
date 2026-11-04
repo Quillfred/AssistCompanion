@@ -42,8 +42,24 @@ Not yet seen in the live game: check the panel's layout, scrolling, and that che
    * Pyre skipped at exactly 3 targets (">3" rule): needs an enemy count in combat (see open checks).
    * Disintegrate under-used at 1 target (86 vs 62 casts).
    * Empowered spells: the highlight never says which empower rank; consider showing the rank.
-3. **Cooldown template for the remaining specs**, a few classes per batch, push after each.
-4. Optional: **update the rankings page** with the corrected losses from `simout_override/`.
+3. **Augmentation Evoker** (owner plays it; not in the triage because solo sims can't measure it):
+   * **What exists online (checked Nov 2026):** no published optimal-vs-highlight comparison.
+     Icy Veins' easy-mode guide calls the highlight "acceptable with no real loss of performance" (a judgment,
+     not a sim): https://astro.k.icy-veins.com/wow/augmentation-evoker-pve-dps-easy-mode. Icy Veins' sim page
+     notes Aug sims report raid DPS with large error (~300 DPS at 0.05% target error):
+     https://www.icy-veins.com/wow/augmentation-evoker-pve-dps-simulations. Noxxic has an Aug Assisted
+     Highlight rotation page and highlight build rankings (12.1.5; top single-target build Chronowarden) but no
+     highlight-vs-full percentage: https://www.noxxic.com/wow/guide/augmentation-evoker/assisted-highlight
+   * **Gaps from the game's highlight rules** (`simc/ActionPriorityLists/assisted_combat/evoker_augmentation.simc`):
+     Breath of Eons never suggested (SimC cooldown list only); Ebon Might only re-applied after it drops
+     (optimal refreshes below 40% duration); Prescience goes on the current target (optimal picks the best DPS,
+     avoids tanks/healers/Augs); Fire Breath, Upheaval and Eruption aren't held for Ebon Might windows.
+   * **Addon candidates:** Breath of Eons via the cooldown-ready template; Ebon Might "refresh soon" timed from
+     your own casts (fixed duration, like Bone Shield); possibly a Prescience reminder. Prescience targeting can't
+     be automated.
+   * **Measuring it** needs SimC's raid-DPS setup with simulated allies (noisy, slow); decide if worth it.
+4. **Cooldown template for the remaining specs**, a few classes per batch, push after each.
+5. Optional: **update the rankings page** with the corrected losses from `simout_override/`.
 
 The owner plays Frost/Unholy/Blood DK, Devastation and Augmentation Evoker, uses EllesmereUI bars, and
 prefers: 48px icon, text alerts off, HIGH strata, icons always shown (not when dead).
