@@ -164,7 +164,7 @@ local function buildGeneral()
   place(checkbox("Minimap button", "Left-click: this menu. Right-click: lock or unlock frames. Drag it around the minimap. "
       .. "Assist Companion is also in the minimap's addon menu.",
     function() return db().minimapButton end,
-    function(v) db().minimapButton = v; if ns.updateMinimap then ns.updateMinimap() end end), 16)
+    function(v) db().minimapButton = v; if ns.updateMinimap then ns.updateMinimap(true) end end), 16)
   place(stepper("Icon size", "Next-cast icon size in pixels.",
     function() return db().iconSize end,
     function(v) db().iconSize = v; C.layoutAll(); C.updateHealthIcon() end, 4, 24, 128, "%d"), 16)

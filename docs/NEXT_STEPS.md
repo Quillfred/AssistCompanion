@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.16.4** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.16.5** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -17,7 +17,8 @@ conversation. Current addon version: **0.16.4** (0.13.0-beta1 on CurseForge) (se
 **Minimap button (0.16.0):** `AssistCompanion/Minimap.lua`, no libraries (left-click options, shift-click debug log on/off (icon red while on),
 ctrl-click clear the log, right-click lock/unlock,
 drag around the minimap, square minimaps handled; `db.minimapButton`, `db.minimapAngle`, `/ac minimap`) plus the
-addon compartment entry (`## AddonCompartmentFunc` in the TOC).
+addon compartment entry (`## AddonCompartmentFunc` in the TOC). 0.16.5: never re-place it on clicks, and not at all
+once another addon (e.g. a minimap button bar) has reparented it: the owner's button bar lost it on shift/ctrl-click.
 
 **Options menu (0.12.0):** `AssistCompanion/Options.lua`, a canvas panel in the game's Settings (Esc > Options >
 AddOns, or `/ac`). The ability tree is built from `ns.specInfo` (class/spec list), `ns.rules` (each rule's `name`,
