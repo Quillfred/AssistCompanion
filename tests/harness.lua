@@ -1116,7 +1116,7 @@ expect("Tip with Chronoboon: 90s -> ready", "icon:370553", nf.icon.texture)
 AssistCompanionDB.tipMacro = true; state.known[431695] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
 cast(357208); cast(396286); state.next = 431443; step()         -- Fire Breath and Upheaval on cooldown
 expect("Tip macro: no empower soon -> Tip on cooldown", "icon:370553", nf.icon.texture)
-expect("Tip macro: ...with a 'macro' note", "macro", nf.note.text)
+expect("Tip macro: ...with a 'macro x2' note (the cancel only works on a 2nd press)", "macro x2", nf.note.text)
 local t3 = now; cast(370553); now = t3 + 3; step()               -- macro: cancelled, no empower followed
 expect("Tip macro: cancelled -> no longer waiting (Fire Breath gets a rank again)", false, (ns.augTip.state(
   { lastCast = { [370553] = t3 }, now = now, db = AssistCompanionDB })))
@@ -1127,6 +1127,10 @@ expect("Tip macro: Fire Breath ready -> Tip paired with it", "+ empower", nf.not
 cast(370553); cast(357208); now = now + 1; step()
 expect("Tip macro: used by Fire Breath -> not waiting", false, (ns.augTip.state(
   { lastCast = { [370553] = now - 1 }, now = now, db = AssistCompanionDB })))
+-- Owner's fifth log: macro pressed (twice: cancelled), next empower 18s later -> cooldown from the press
+local t4 = now + 100; now = t4; cast(370553); now = t4 + 18; cast(357208); now = t4 + 19
+local _, started = ns.augTip.state({ lastCast = { [370553] = t4 }, now = now, db = AssistCompanionDB })
+expect("Tip macro: an empower 18s later didn't use it -> cooldown from the press", t4, started)
 AssistCompanionDB.tipMacro = false; state.known[431695] = nil; state.known[1260484] = nil
 events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); ns.setRuleEnabled(1473, "tipthescales", false)
 state.next = 431443
@@ -1157,6 +1161,23 @@ combat(false); now = now + 60; cast(396286); step()
 combat(true); state.next = 357208; step()
 expect("Rank: pre-pull Upheaval read 'ready' before its cooldown started -> rank 3", "3", nf.rank.text)
 C_Spell.GetSpellCooldown = nil; state.next = 431443
+-- Owner's fifth log: up= still 0. The button's Upheaval ID differs from the cast ID and reads ready.
+C_Spell.GetSpellCooldown = function() return { startTime = 0, duration = 0, modRate = 1 } end
+state.overrides[396286] = 408092; ns.trackCooldowns[1473][#ns.trackCooldowns[1473] + 1] = 408092
+combat(false); now = now + 300; augReset(); ns.ebonMight.expires = now + 1000; step() -- 408092 reads ready
+combat(true); C_Spell.GetSpellCooldown = function() return { startTime = "SECRET", duration = "SECRET" } end
+cast(396286); state.next = 357208; step()
+expect("Rank: button shows another Upheaval ID that reads ready -> still rank 3 after casting", "3", nf.rank.text)
+state.overrides[396286] = nil; table.remove(ns.trackCooldowns[1473]); C_Spell.GetSpellCooldown = nil
+-- Accretion: each Eruption takes 1s off Upheaval
+now = now + 300; augReset(); ns.ebonMight.expires = now + 1000
+local a0 = now; cast(396286)
+for i = 1, 10 do now = a0 + i; cast(395160) end
+now = a0 + 29; state.next = 357208; step()
+expect("Accretion: not talented, 11s left -> rank 3", "3", nf.rank.text)
+state.known[407876] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+expect("Accretion: 10 Eruptions -> 1s left -> rank 1", "1", nf.rank.text)
+state.known[407876] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); state.next = 431443
 
 -- debug log: Ebon Might estimate on the status line, rule errors logged once
 local function dbgHas(pat) for _, l in ipairs(AssistCompanionDB.debugLog or {}) do if l:find(pat, 1, true) then return true end end return false end
@@ -1164,7 +1185,8 @@ AssistCompanionDB.debugLog = {}; AssistCompanionDB.debug = true
 table.insert(ns.rules[1473], 1, { key = "broken", name = "Broken", check = function() error("boom") end })
 for _ = 1, 12 do step() end
 expect("Debug: Augmentation status shows the Ebon Might estimate", true, dbgHas(" em="))
-expect("Debug: ...and the cooldown estimates", true, dbgHas(" up=") and dbgHas(" emcd=") and dbgHas(" x="))
+expect("Debug: ...and the cooldown estimates", true, dbgHas(" up=") and dbgHas(" emcd=") and dbgHas(" x=")
+  and dbgHas(" upb=") and dbgHas(" tip="))
 expect("Debug: a rule error is logged", true, dbgHas("rule broken error"))
 local n = 0 for _, l in ipairs(AssistCompanionDB.debugLog) do if l:find("rule broken error", 1, true) then n = n + 1 end end
 expect("Debug: ...only once", 1, n)

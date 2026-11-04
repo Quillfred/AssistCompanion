@@ -1,5 +1,12 @@
 # Assist Companion
 
+## 0.15.1
+
+* **Augmentation: Fire Breath rank 3 (third try).** Once you've cast Upheaval, it's timed from your cast. Your action button reports a different Upheaval spell that always reads "ready", and the addon was taking that.
+* **Augmentation: Accretion.** Each Eruption takes 1 second off Upheaval's cooldown, and the addon now counts it.
+* **Tip the Scales macro:** the note under the icon says **"macro x2"**. The `/cancelaura` line only works on a second press, because on the first the buff isn't there yet. The cooldown is now timed from your macro press even if your next empower comes much later.
+* **Debug log:** status lines show the Upheaval spell on your button (`upb=`) and the Tip the Scales cooldown estimate (`tip=`, or `w` while its buff waits).
+
 ## 0.15.0
 
 * **Augmentation: Tip the Scales cancel-macro option** (options menu, under Augmentation; off by default). For the Icy Veins Chronowarden macro (`/cast Tip the Scales` + `/cancelaura Tip the Scales`):
