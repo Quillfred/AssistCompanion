@@ -97,6 +97,20 @@ local function cachePowerMax()
   if m and m > 0 then powerMaxCache = m end
 end
 
+-- Max runic power: the game's number when readable (UnitPowerMax may be hidden even out of
+-- combat), else the spec's known value from talents (Rules.lua: ns.powerMaxFallback), and
+-- never less than the most runic power we've actually seen you hold.
+local powerSeenMax = 0
+local function effectiveMaxPower(current)
+  if type(current) == "number" and current > powerSeenMax then powerSeenMax = current end
+  local m = powerMaxCache
+  if not m then
+    local fb = ns.powerMaxFallback and specID and ns.powerMaxFallback[specID]
+    m = (type(fb) == "function" and fb(knows)) or fb or 100
+  end
+  return math.max(m, powerSeenMax)
+end
+
 ---------------------------------------------------------------------------
 -- Cooldown tracking. Cooldowns are hidden from addons in combat, but readable out of
 -- combat. We note when each tracked spell will be ready whenever we can read it, and keep
@@ -789,7 +803,7 @@ local function tick()
   updateHealthIcon()
   ctx.next = nextSpell()
   ctx.power = power()
-  ctx.powerMax = powerMaxCache
+  ctx.powerMax = effectiveMaxPower(ctx.power)
   ctx.runes = runes()
   ctx.inCombat = inCombat
   ctx.enemies = countEnemies()
@@ -828,8 +842,9 @@ local function tick()
     debugElapsed = debugElapsed + 1
     if debugElapsed >= 10 then -- about once a second
       debugElapsed = 0
-      print(("|cff66ccffAC|r next=%s (%s) key=%s rp=%s enemies=%s melee=%s DT->%s Scourge->%s"):format(
+      print(("|cff66ccffAC|r next=%s (%s) key=%s rp=%s/%s%s enemies=%s melee=%s DT->%s Scourge->%s"):format(
         spellName(ctx.next), tostring(ctx.next), tostring(keybindFor(ctx.next)), tostring(ctx.power),
+        tostring(ctx.powerMax), powerMaxCache and "" or " (fallback)",
         tostring(ctx.enemies), tostring(ctx.inMelee),
         tostring(override(ns.S.DARK_TRANSFORMATION)), tostring(override(ns.S.SCOURGE_STRIKE))))
     end
@@ -871,8 +886,10 @@ local function refresh(event)
   wipe(knownCache)
   clearBindingCache()
   specID = currentSpecID()
+  powerMaxCache = nil -- talents/spec may have changed it; re-read (or fall back) fresh
   cachePowerMax()
   wipe(chargeState) -- re-read charges for the (possibly new) spec
+  powerSeenMax = 0  -- talents/spec may have lowered the max
   if inCombat then return end
   if event ~= "SPELLS_CHANGED" or opener.index == 1 then
     buildOpener()

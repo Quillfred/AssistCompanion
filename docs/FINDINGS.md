@@ -19,6 +19,8 @@ What drives the gap (highlight vs optimal casts):
 * **Bone Shield:** ~90% uptime vs 100%. The highlight refreshes on stack count (≤6) only, so the 30s duration can run out. Death's Caress: 0 casts vs 5–7. The addon times the 30s from your Marrowrend / Death's Caress casts.
 * **Runic power waste:** 7.5% (3 targets) and 12% (5 targets) vs 0%. The highlight's Death Strike rules are "≤50% health" or "≥80 runic power".
 
+Max runic power for Blood is 125 with Ossuary (219786 grants +10; confirmed in game and in SimC's Blood profile), 115 without. `UnitPowerMax` can return a hidden value even out of combat, so the addon falls back to that, and never assumes less than the most runic power it has seen. The Death Strike rule therefore fires at 105 with Ossuary.
+
 The highlight's data stores Heart Strike as Rune Strike (316239), which Heart Strike replaces. SimC's highlight sims also press Vampiric Blood on cooldown, which the in-game highlight never suggests; no defensive is ever suggested.
 
 Health is secret in combat, but `UnitHealthPercent(unit, usePredicted, curve)` evaluates a curve on it, and `Texture:SetAlpha` accepts secret values from addon code, so the low-health icon's alpha is set by the game. The docs don't say whether the health input is 0–1 or 0–100, so the curve covers both.

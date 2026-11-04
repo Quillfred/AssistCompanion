@@ -266,6 +266,12 @@ ns.chargeTrack = {
   [250] = { [S.BLOOD_BOIL] = { max = 2, recharge = 7.5 } }, -- game data: 2 charges, 7.5s, not hasted
 }
 
+-- Max runic power when the game won't say (UnitPowerMax can be hidden). Blood is 115,
+-- +10 with Ossuary (219786) = 125 (confirmed in game and in SimC's Blood profile).
+ns.powerMaxFallback = {
+  [250] = function(knows) return 115 + (knows(219786) and 10 or 0) end,
+}
+
 -- Melee spell used for "is my target in melee range?"
 ns.meleeSpell = {
   [250] = S.HEART_STRIKE,

@@ -94,7 +94,7 @@ C_ActionBar = {
 }
 C_AssistedCombat = { GetNextCastSpell = function() return state.next end }
 function UnitPower() return state.rp end
-function UnitPowerMax() return 100 end
+function UnitPowerMax() if state.rpmaxSecret then return "SECRET" end return state.rpmax or 100 end
 C_NamePlate = { GetNamePlates = function()
   local t = {} for i = 1, state.plates do t[i] = { namePlateUnitToken = "nameplate" .. i } end return t end }
 function UnitCanAttack() return true end
@@ -655,6 +655,29 @@ UnitHealthPercent = saved
 state.spec = 251; events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED"); step()
 expect("HP icon: not shown for Frost", false, hf.shown)
 C_Spell.GetSpellCharges = nil
+
+-- MAX RUNIC POWER WHEN UnitPowerMax IS HIDDEN -------------------------------
+issecretvalue = function(v) return v == "SECRET" end
+state.rpmaxSecret = true
+state.spec = 250; state.pet = true; state.target = nil; state.overrides = {}; state.inRange = true
+state.known = { [195182]=true, [195292]=true, [49998]=true, [50842]=true, [206930]=true, [219786]=true }
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED"); events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED")
+state.next = 206930; state.charges = nil; now = now + 60
+state.rp = 100; step()
+expect("RP max: hidden max + Ossuary -> 125, so 100 RP doesn't trigger", false, nf.icon.texture == "icon:49998")
+state.rp = 106; step()
+expect("RP max: 106 of 125 -> Death Strike", "icon:49998", nf.icon.texture)
+state.known[219786] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
+state.rp = 94; step()
+expect("RP max: without Ossuary 115 -> 94 doesn't trigger", false, nf.icon.texture == "icon:49998")
+state.rp = 96; step()
+expect("RP max: without Ossuary 96 of 115 -> Death Strike", "icon:49998", nf.icon.texture)
+state.rp = 130; step(); state.rp = 108; step()
+expect("RP max: seen 130 -> max raised, 108 doesn't trigger", false, nf.icon.texture == "icon:49998")
+state.rpmaxSecret = false; state.rpmax = 125; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
+state.rp = 104; step()
+expect("RP max: readable 125 used directly, 104 doesn't trigger", false, nf.icon.texture == "icon:49998")
+state.rpmax = nil; issecretvalue = nil; state.rp = 10
 
 -- HIDDEN WHILE DEAD ----------------------------------------------------------
 function UnitIsDeadOrGhost(u) return u == "player" and state.dead or false end
