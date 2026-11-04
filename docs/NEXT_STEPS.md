@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.17.2** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.17.3** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -136,10 +136,12 @@ prefers: 48px icon, text alerts off, HIGH strata (now an option, `db.strata`, 0.
 
 ## Open in-game checks (owner to test, ideally with `/ac debug` and the saved log)
 
-* **Runic power readable?** Frost log (0.17.1) showed `rp=nil` even out of combat. Next DK log: `rp=hidden` means
-  the game hides it (then Unholy/Blood runic power rules need another source); a number means it's fine.
-* **Enemy count:** with enemy nameplates on, `np=` should be the number of plates; `enemies=0` with `np>0` means a
-  check fails (see the units/attackable/incombat/hidden counts).
+* **Runic power is hidden** (confirmed 0.17.2: `rp=hidden`). Unholy `rpcap` and Blood `rpcap` are silent.
+  Proposed to the owner: drive those icons' visibility from the game itself (like the low-health icon: a curve
+  passed to `UnitPowerPercent`-style APIs that accept secret values), since the addon can't compare the number.
+* **Enemy count:** dummies never report "in combat" (`incombat=0`), so 0.17.3 also counts attackable plates in
+  range of the spec's spell. Check `inrange=` in the next log (needs "show all nameplates"); if it's always 0 /
+  hidden, range on nameplate units is blocked too.
 
 * Low-health Death Strike icon fades in below 50% health (curve covers 0-1 and 0-100 scales; unconfirmed).
 * `enemies=` in the debug log during combat: if it's always `nil`, enemy counting is blocked and the

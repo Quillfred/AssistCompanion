@@ -191,39 +191,66 @@ end
 -- hides that information, so rules that need an exact count simply stay quiet.
 -- For the debug log: what the enemy count saw. np = nameplates the game reports, then how many had
 -- a unit, were attackable and were in combat ("?" = hidden by the game).
+-- The spell whose range decides which nearby enemies count: the spec's (ns.countRangeSpell), else its
+-- melee spell (ns.meleeSpell).
+local function countSpell()
+  return (ns.countRangeSpell and specID and ns.countRangeSpell[specID])
+      or (ns.meleeSpell and specID and ns.meleeSpell[specID])
+end
+
+local function inRangeOf(spell, unit)
+  if not (spell and C_Spell and C_Spell.IsSpellInRange) then return nil end
+  return (try(C_Spell.IsSpellInRange, spell, unit))
+end
+
+-- For the debug log: what the enemy count saw. np = nameplates the game reports, then how many had
+-- a unit, were attackable, in combat, within range ("hidden" = the game wouldn't say).
 local function enemyDiagnosis()
   if not (C_NamePlate and C_NamePlate.GetNamePlates) then return "np=noapi" end
   local ok, plates = pcall(C_NamePlate.GetNamePlates)
   if not ok or type(plates) ~= "table" then return "np=?" end
-  local units, attack, combat, hidden = 0, 0, 0, 0
+  local units, attack, combat, range, hidden = 0, 0, 0, 0, 0
+  local spell = countSpell()
   for _, plate in ipairs(plates) do
     local unit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
     if unit then
       units = units + 1
-      local a, c = try(UnitCanAttack, "player", unit), try(UnitAffectingCombat, unit)
-      if a == nil or c == nil then hidden = hidden + 1 end
+      local a, c, r = try(UnitCanAttack, "player", unit), try(UnitAffectingCombat, unit), inRangeOf(spell, unit)
+      if a == nil or c == nil or (spell and r == nil) then hidden = hidden + 1 end
       if a then attack = attack + 1 end
       if c then combat = combat + 1 end
+      if r then range = range + 1 end
     end
   end
-  return ("np=%d units=%d attackable=%d incombat=%d hidden=%d"):format(#plates, units, attack, combat, hidden)
+  return ("np=%d units=%d attackable=%d incombat=%d inrange=%d hidden=%d"):format(#plates, units, attack, combat,
+    range, hidden)
 end
 
+-- Counts attackable, living enemies with visible nameplates that are in combat OR within range of the
+-- spec's spell. (Owner's logs: training dummies never report "in combat", not even the one being hit;
+-- range is what matters for AoE anyway.) nil if the game hides the answer for all of them.
 local function countEnemies()
   if not (C_NamePlate and C_NamePlate.GetNamePlates) then return nil end
   local plates = try(C_NamePlate.GetNamePlates)
   if type(plates) ~= "table" then return nil end
-  local n = 0
+  local spell = countSpell()
+  local n, unknown = 0, false
   for _, plate in ipairs(plates) do
     local unit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
     if unit then
       local attack = try(UnitCanAttack, "player", unit)
-      local combat = try(UnitAffectingCombat, unit)
       local dead = try(UnitIsDead, unit)
-      if attack == nil or combat == nil then return nil end
-      if attack and combat and not dead then n = n + 1 end
+      if attack == nil then
+        unknown = true
+      elseif attack and not dead then
+        local combat = try(UnitAffectingCombat, unit)
+        local near = inRangeOf(spell, unit)
+        if combat or near then n = n + 1
+        elseif combat == nil and near == nil then unknown = true end
+      end
     end
   end
+  if n == 0 and unknown then return nil end
   return n
 end
 
