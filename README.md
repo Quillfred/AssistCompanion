@@ -20,6 +20,8 @@ The addon only displays information. You press every button yourself.
 | Blood | **Vampiric Blood** is never suggested (no defensive is) | **Vampiric Blood** in combat whenever it's ready |
 | Augmentation | **Ebon Might** is only recast after it drops (optimal refreshes with ~4s left) | **Ebon Might** when it's ready with about 4s left, timed from your casts (Eruption, empowers and Breath of Eons extend it) |
 | Augmentation | **Breath of Eons** isn't in the highlight's list (it has Deep Breath, which Breath of Eons replaces) | Deep Breath suggestions show as **Breath of Eons**; it also shows when ready, after Ebon Might and Prescience |
+| Augmentation | **Tip the Scales** and **Time Skip** are never suggested in game (both are in the highlight's list) | **Tip the Scales** before Fire Breath; **Time Skip** once the empowers are spent, away from Breath of Eons |
+| Augmentation | The highlight never says which **empower rank** to use | A number on **Fire Breath** (1 while Upheaval is ready, else 3) and **Upheaval** (1) |
 | Augmentation | **Prescience** is only cast when none is active, so its second charge sits capped | In a group, **Prescience** when both charges are ready |
 | Frost | At exactly 3 targets the highlight never uses Frostscythe (its rule starts above 3) | **Frostscythe** instead of Obliterate |
 | Frost | **Empower Rune Weapon** is suggested while you're still running in (it has no range check, Pillar does) | Empower Rune Weapon **grayed out and red** until you're in melee |
