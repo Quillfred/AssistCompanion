@@ -10,7 +10,10 @@ local function newFrame()
   local function tex()
     local t = { shown = true, size = {} }
     function t:SetSize(w, h) self.size = { w, h } end
-    function t:SetPoint() end
+    function t:SetPoint(point, rel, x, y)
+      self.pts = self.pts or {}
+      if type(rel) == "table" then self.pts[point] = { x or 0, y or 0 } end
+    end
     function t:SetTexCoord() end
     function t:SetColorTexture(r, g, b) self.color = { r, g, b } end
     function t:SetDrawLayer() end
@@ -532,6 +535,23 @@ expect("Text box: unlocked placeholder when text alerts on", "Text alerts", disp
 expect("Text box: no stray yellow square on placeholder", false, display.border.shown)
 SlashCmdList.ASSISTCOMPANION("lock"); step()
 expect("Text box: locked with no alert -> hidden", false, display.shown)
+
+-- 2PX BLACK BORDERS ---------------------------------------------------------
+expect("Black border: main icon has one", true, nf.black ~= nil)
+expect("Black border: main icon is black", "0,0,0", nf.black and table.concat(nf.black.color, ",") or nil)
+expect("Black border: main icon 2px", "-2,2", nf.black and table.concat(nf.black.pts.TOPLEFT, ","))
+expect("Black border: colored border sits outside it", "-4,4", table.concat(nf.border.pts.TOPLEFT, ","))
+AssistCompanionDB.openerIcon = true
+state.spec = 251; state.target = nil; state.overrides = {}
+state.known = { [47568]=true, [51271]=true, [1249658]=true, [49020]=true, [279302]=true }
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 2000; step()
+expect("Black border: opener icons have them", true, ob.blacks[1].shown and ob.blacks[6].shown)
+expect("Black border: opener border is black 2px", "-2,2", table.concat(ob.blacks[2].pts.TOPLEFT, ","))
+expect("Black border: opener gold sits outside it", "-4,4", table.concat(ob.border.pts.TOPLEFT, ","))
+combat(true); for _, id in ipairs({47568, 51271, 1249658, 49020}) do cast(id) end; step()
+expect("Black border: empty opener slots hide their border", false, ob.blacks[6].shown)
+combat(false); AssistCompanionDB.openerIcon = false
 
 -- secret values: power returns a secret -> treated as unknown, no error
 issecretvalue = function(v) return v == "SECRET" end

@@ -356,13 +356,24 @@ end
 local nf = CreateFrame("Frame", "AssistCompanionNext", UIParent, "BackdropTemplate")
 makeMovable(nf, "nextPoint")
 
-nf.border = nf:CreateTexture(nil, "BORDER")
+-- 2px black border hugging an icon, drawn above any colored border (which sits outside it).
+local BLACK_EDGE = 2
+local function blackBorder(parent, icon)
+  local b = parent:CreateTexture(nil, "BORDER", nil, 1)
+  b:SetColorTexture(0, 0, 0, 1)
+  b:SetPoint("TOPLEFT", icon, -BLACK_EDGE, BLACK_EDGE)
+  b:SetPoint("BOTTOMRIGHT", icon, BLACK_EDGE, -BLACK_EDGE)
+  return b
+end
+
+nf.border = nf:CreateTexture(nil, "BORDER", nil, 0) -- colored (gold/blue), outside the black edge
 nf.border:SetColorTexture(1, 0.82, 0, 1)
 nf.icon = nf:CreateTexture(nil, "ARTWORK")
 nf.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 nf.icon:SetPoint("CENTER")
-nf.border:SetPoint("TOPLEFT", nf.icon, -2, 2)
-nf.border:SetPoint("BOTTOMRIGHT", nf.icon, 2, -2)
+nf.black = blackBorder(nf, nf.icon)
+nf.border:SetPoint("TOPLEFT", nf.icon, -BLACK_EDGE - 2, BLACK_EDGE + 2)
+nf.border:SetPoint("BOTTOMRIGHT", nf.icon, BLACK_EDGE + 2, -BLACK_EDGE - 2)
 -- GCD swipe over the icon. Cooldown timings can be "secret" in combat, but cooldown
 -- frames are allowed to display secret values, so we pass them straight through and
 -- never read or compare them ourselves.
@@ -522,18 +533,19 @@ local OPENER_COMBAT_WINDOW = 25 -- seconds after the pull before the opener hide
 local opener = { steps = {}, index = 1 }
 
 local ob = CreateFrame("Frame", "AssistCompanionOpener", UIParent, "BackdropTemplate")
-ob:SetSize(OPENER_SLOTS * 34 + 20, 62)
+ob:SetSize(44 + (OPENER_SLOTS - 1) * 30 + OPENER_SLOTS * 8 + 8, 62)
 makeMovable(ob, "openerPoint")
 ob.label = ob:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 ob.label:SetPoint("RIGHT", ob, "LEFT", -4, 0) -- beside the bar, so it can't overlap anything above
 ob.label:SetJustifyH("RIGHT")
-ob.slots = {}
+ob.slots, ob.blacks = {}, {}
 for i = 1, OPENER_SLOTS do
   local t = ob:CreateTexture(nil, "ARTWORK")
   t:SetTexCoord(0.07, 0.93, 0.07, 0.93)
   ob.slots[i] = t
+  ob.blacks[i] = blackBorder(ob, t)
 end
-ob.border = ob:CreateTexture(nil, "BORDER")
+ob.border = ob:CreateTexture(nil, "BORDER", nil, 0) -- gold on the current step, outside the black edge
 ob.border:SetColorTexture(1, 0.82, 0, 0.9)
 
 local function buildOpener()
@@ -593,7 +605,7 @@ local function renderOpener()
   local visible = db.opener and #steps > 0 and opener.index <= #steps
     and ((not inCombat and hostileTarget()) or (inCombat and GetTime() - combatStart <= OPENER_COMBAT_WINDOW))
   if not visible then ob:SetShown(not db.locked) return nil end
-  local x = 4
+  local x = 6
   for i = 1, OPENER_SLOTS do
     local t, step = ob.slots[i], steps[opener.index + i - 1]
     t:ClearAllPoints()
@@ -604,15 +616,17 @@ local function renderOpener()
       t:SetTexture(spellIcon(step.id))
       t:SetAlpha(i == 1 and 1 or 0.65)
       t:Show()
+      ob.blacks[i]:Show()
       if i == 1 then
         ob.border:ClearAllPoints()
-        ob.border:SetPoint("TOPLEFT", t, -2, 2)
-        ob.border:SetPoint("BOTTOMRIGHT", t, 2, -2)
+        ob.border:SetPoint("TOPLEFT", t, -BLACK_EDGE - 2, BLACK_EDGE + 2)
+        ob.border:SetPoint("BOTTOMRIGHT", t, BLACK_EDGE + 2, -BLACK_EDGE - 2)
         ob.border:Show()
       end
-      x = x + size + 4
+      x = x + size + 8 -- room for black edges and the current step's gold border
     else
       t:Hide()
+      ob.blacks[i]:Hide()
     end
   end
   ob.label:SetText(("Opener\n%d/%d"):format(opener.index, #steps))
