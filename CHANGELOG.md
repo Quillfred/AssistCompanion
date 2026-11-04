@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.14.0
+
+* **Augmentation: empower rank on the icon.** Fire Breath and Upheaval show the rank to hold them to: Fire Breath **1** while Upheaval is ready, otherwise **3**; Upheaval **1**. No number right after Tip the Scales (the next empower is instant at max rank). Turn it off under Augmentation in the options menu.
+
 ## 0.13.0
 
 * **Augmentation Evoker** support:

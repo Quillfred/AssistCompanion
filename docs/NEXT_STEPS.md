@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.13.0** (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.14.0** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -46,7 +46,13 @@ Not yet seen in the live game: check the panel's layout, scrolling, and that che
    Deep Breath -> Breath of Eons; `ns.onCast` tracks Ebon Might's expiry; findings in `docs/FINDINGS.md`).
    Not measured (see "Measuring it" below). In-game checks: does the highlight return Deep Breath (357210) or
    Breath of Eons (403631)? Does `UNIT_SPELLCAST_SUCCEEDED` fire for empowered spells (Fire Breath, Upheaval)?
-   Without it, the Ebon Might estimate runs short and the refresh shows early. Original notes:
+   Without it, the Ebon Might estimate runs short and the refresh shows early.
+   **0.14.0:** empower rank badge on Fire Breath / Upheaval (`ns.empowerRank`, option `empowerRank`).
+   **Open:** the owner saw the highlight never suggest **Time Skip** or **Tip the Scales**, although both are in
+   its game-data list (Tip the Scales if Fire Breath is ready; Time Skip unconditional, step 11). Waiting for
+   the owner's `/ac debug` log: if the highlight never suggests them, add them to the cooldown-ready template
+   (Tip the Scales when Fire Breath is ready; Time Skip after Tip the Scales and the empowers are spent, and not
+   within 15s of Breath of Eons); if a rule hides them, fix that. Original notes:
    * **What exists online (checked Nov 2026):** no published optimal-vs-highlight comparison.
      Icy Veins' easy-mode guide calls the highlight "acceptable with no real loss of performance" (a judgment,
      not a sim): https://astro.k.icy-veins.com/wow/augmentation-evoker-pve-dps-easy-mode. Icy Veins' sim page

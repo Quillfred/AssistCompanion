@@ -23,6 +23,7 @@ local DEFAULTS = {
   opener = true,           -- show the opening sequence before and at the start of a pull
   openerIcon = true,       -- the next-cast icon follows the opener while it's running
   gcdSwipe = true,         -- global cooldown swipe on the next-cast icon
+  empowerRank = true,      -- empower rank badge on Fire Breath / Upheaval (Rules.lua: ns.empowerRank)
   healthIcon = true,       -- Blood: Death Strike icon that fades in as your health drops
   healthFull = 35,         -- health % at or below which it's fully visible
   healthNone = 50,         -- health % at or above which it's invisible
@@ -523,6 +524,11 @@ end
 nf.key = nf:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
 nf.key:SetPoint("TOPRIGHT", nf.icon, "TOPRIGHT", -2, -2)
 nf.key:SetJustifyH("RIGHT")
+-- Empower rank to hold the spell to (bottom left), when the spec says (ns.empowerRank).
+nf.rank = nf:CreateFontString(nil, "OVERLAY", "NumberFontNormalLarge")
+nf.rank:SetPoint("BOTTOMLEFT", nf.icon, "BOTTOMLEFT", 3, 2)
+nf.rank:SetJustifyH("LEFT")
+nf.rank:SetTextColor(1, 0.82, 0)
 nf.note = nf:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 nf.note:SetPoint("TOP", nf.icon, "BOTTOM", 0, -4)
 nf.note:SetTextColor(0.6, 0.85, 1)
@@ -559,6 +565,7 @@ local function showNext(ctx, alert, note)
   end
   if not db.nextIcon or not spell or not iconVisibleNow() then
     nf.note:SetText("")
+    nf.rank:SetText("")
     nf:SetShown(not db.locked)
     return nil, "hidden"
   end
@@ -566,6 +573,13 @@ local function showNext(ctx, alert, note)
   nf.icon:SetTexture(spellIcon(spell))
   nf.border:SetShown(corrected)
   nf.key:SetText(keybindFor(spell) or "")
+  local rank
+  local rankFor = db.empowerRank and not idle and ns.empowerRank and specID and ns.empowerRank[specID]
+  if rankFor then
+    local ok, r = pcall(rankFor, ctx, spell)
+    if ok then rank = r end
+  end
+  nf.rank:SetText(rank and tostring(rank) or "")
   -- Shading, in priority order (same colors as Blizzard's action bars):
   --   red   = wait / out of range
   --   blue  = not enough runes or runic power
@@ -587,7 +601,7 @@ local function showNext(ctx, alert, note)
   nf:Show()
   local mode = idle and "idle" or (alert and alert.opener and "opener") or wait and "wait"
     or (alert and "correction") or "highlight"
-  return spell, mode
+  return spell, mode, rank
 end
 
 ---------------------------------------------------------------------------
@@ -892,12 +906,12 @@ local function tick()
       iconOnly = alert and alert.iconOnly and alert.spell == openerStep.id or nil,
     }
   end
-  local shown, mode = showNext(ctx, iconAlert, note)
+  local shown, mode, rank = showNext(ctx, iconAlert, note)
   showText(alert)
 
   if db.debug then
     -- Log every change of the main icon, with why it shows that spell.
-    local key = tostring(mode) .. ":" .. tostring(shown)
+    local key = tostring(mode) .. ":" .. tostring(shown) .. ":" .. tostring(rank)
     if key ~= lastIconKey then
       lastIconKey = key
       local why = mode
@@ -905,7 +919,7 @@ local function tick()
       if mode ~= "highlight" and ctx.next and ctx.next ~= shown then
         why = why .. ", highlight said " .. spellName(ctx.next)
       end
-      dlog("icon: %s (%s)", shown and spellName(shown) or "none", why)
+      dlog("icon: %s%s (%s)", shown and spellName(shown) or "none", rank and (" rank " .. rank) or "", why)
     end
     -- Status once a second while fighting or targeting an enemy.
     debugElapsed = debugElapsed + 1
@@ -1133,7 +1147,7 @@ SlashCmdList.ASSISTCOMPANION = function(input)
   elseif cmd == "test" then
     testUntil = GetTime() + 4
     local sample = (specID == 252) and ns.S.BLIGHTFALL or ns.S.BREATH
-    nf.icon:SetTexture(spellIcon(sample)); nf.border:Show(); nf.key:SetText("F")
+    nf.icon:SetTexture(spellIcon(sample)); nf.border:Show(); nf.key:SetText("F"); nf.rank:SetText("")
     nf.icon:SetVertexColor(1, 1, 1); nf.icon:SetDesaturated(false); nf.note:SetText("Reminders appear here")
     nf:Show()
   elseif cmd == "" or cmd == "options" or cmd == "config" then

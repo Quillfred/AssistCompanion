@@ -58,6 +58,7 @@ local S = {
   FIRE_BREATH_FOM     = 382266, -- with Font of Magic
   UPHEAVAL            = 396286,
   UPHEAVAL_FOM        = 408092,
+  TIP_THE_SCALES      = 370553,
 }
 ns.S = S
 
@@ -289,6 +290,47 @@ ns.rules[1473] = {
   },
 }
 
+-- Empower rank to hold Fire Breath / Upheaval to (the highlight never says). From SimC's optimal list:
+--   Fire Breath: rank 1 while Upheaval is ready (get to Upheaval sooner), else rank 3
+--   Upheaval: rank 1
+--   right after Tip the Scales: none (the next empower is instant at max rank)
+-- Upheaval's cooldown (40s, game data) is read out of combat and timed from your casts in combat.
+-- Talents that speed it up during Ebon Might make it come back sooner than we think, so at worst
+-- we say rank 3 where rank 1 was a little better.
+local UPHEAVAL_COOLDOWN = 40
+local FIRE_BREATHS = { [S.FIRE_BREATH] = true, [S.FIRE_BREATH_FOM] = true }
+local UPHEAVALS = { [S.UPHEAVAL] = true, [S.UPHEAVAL_FOM] = true }
+
+local function lastOf(ctx, set)
+  local t
+  for id in pairs(set) do
+    local c = ctx.lastCast[id]
+    if c and (not t or c > t) then t = c end
+  end
+  return t
+end
+
+local function upheavalReady(ctx)
+  local id = ctx.override(S.UPHEAVAL) or S.UPHEAVAL -- Font of Magic swaps the button's spell
+  local cd = ctx.onCooldown(id)
+  if cd ~= nil then return not cd end
+  local last = lastOf(ctx, UPHEAVALS)
+  return not last or ctx.now - last >= UPHEAVAL_COOLDOWN
+end
+
+ns.empowerRank = {
+  [1473] = function(ctx, spell)
+    if not FIRE_BREATHS[spell] and not UPHEAVALS[spell] then return nil end
+    local tip = ctx.lastCast[S.TIP_THE_SCALES]
+    if tip then
+      local used = math.max(lastOf(ctx, FIRE_BREATHS) or 0, lastOf(ctx, UPHEAVALS) or 0)
+      if tip > used then return nil end -- Tip the Scales is waiting: instant, max rank
+    end
+    if UPHEAVALS[spell] then return 1 end
+    return upheavalReady(ctx) and 1 or 3
+  end,
+}
+
 -- Talent replacements the highlight's data doesn't know about: when it suggests the first spell and
 -- you have the second, show the second (its button is the one you press).
 ns.replacedBy = {
@@ -432,6 +474,7 @@ end
 -- The cooldown-ready spells are added below.
 ns.trackCooldowns = {
   [251] = { S.PILLAR_OF_FROST },
+  [1473] = { S.UPHEAVAL, S.UPHEAVAL_FOM }, -- for the Fire Breath rank
 }
 
 for spec, list in pairs(ns.readyCooldowns) do
@@ -482,6 +525,8 @@ ns.specOptions = {
               desc = "A separate Death Strike icon that fades in as your health drops (/ac hp sets the thresholds)." } },
   [251] = { { key = "cooldownReminder", name = "Trinket, potion and racial reminder", spell = S.PILLAR_OF_FROST,
               desc = "Text under the icon for 4 seconds after Pillar of Frost." } },
+  [1473] = { { key = "empowerRank", name = "Empower rank on the icon", spell = S.FIRE_BREATH,
+               desc = "A number on Fire Breath and Upheaval saying which rank to hold them to: Fire Breath 1 while Upheaval is ready, else 3; Upheaval 1. Hidden right after Tip the Scales (instant, max rank)." } },
 }
 
 -- Melee spell used for "is my target in melee range?"
