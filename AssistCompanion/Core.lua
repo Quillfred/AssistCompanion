@@ -92,6 +92,49 @@ local function cachePowerMax()
   if m and m > 0 then powerMaxCache = m end
 end
 
+---------------------------------------------------------------------------
+-- Cooldown tracking. Cooldowns are hidden from addons in combat, but readable out of
+-- combat. We note when each tracked spell will be ready whenever we can read it, and keep
+-- that answer through combat. readyAt[id] = GetTime() when ready (0 = ready now).
+---------------------------------------------------------------------------
+local readyAt = {}
+local GCD_GRACE = 1.6 -- cooldowns this short are just the global cooldown
+
+local function num(v) v = readable(v) return type(v) == "number" and v or nil end
+
+local function snapshotCooldown(id)
+  -- Charge spells (e.g. Empower Rune Weapon): ready if a charge is available.
+  if C_Spell and C_Spell.GetSpellCharges then
+    local ok, info = pcall(C_Spell.GetSpellCharges, id)
+    if ok and type(info) == "table" and readable(info) then
+      local cur, maxc = num(info.currentCharges), num(info.maxCharges)
+      if cur and maxc and maxc > 1 then
+        if cur > 0 then readyAt[id] = 0 return end
+        local st, du = num(info.cooldownStartTime), num(info.cooldownDuration)
+        if st and du then readyAt[id] = st + du end
+        return
+      end
+    end
+  end
+  if C_Spell and C_Spell.GetSpellCooldown then
+    local ok, info = pcall(C_Spell.GetSpellCooldown, id)
+    if ok and type(info) == "table" and readable(info) then
+      local st, du = num(info.startTime), num(info.duration)
+      if st and du then
+        if st == 0 or du <= GCD_GRACE then readyAt[id] = 0 else readyAt[id] = st + du end
+      end
+    end
+  end
+end
+
+-- true = on cooldown, false = ready, nil = unknown. A second of grace so a spell coming
+-- off cooldown right now still counts as ready.
+local function onCooldown(id)
+  local r = readyAt[id]
+  if r == nil then return nil end
+  return r - GetTime() > 1.0
+end
+
 -- Counts hostile, in-combat enemies with visible nameplates. Returns nil if the game
 -- hides that information, so rules that need an exact count simply stay quiet.
 local function countEnemies()
@@ -387,9 +430,19 @@ local function showNext(ctx, alert, note)
   nf.icon:SetTexture(spellIcon(spell))
   nf.border:SetShown(corrected)
   nf.key:SetText(keybindFor(spell) or "")
+  -- Shading, in priority order (same colors as Blizzard's action bars):
+  --   red   = wait / out of range
+  --   blue  = not enough runes or runic power
+  --   gray  = unusable for another reason
   local range = inRangeFor(spell)
+  local usable, noPower
+  if C_Spell and C_Spell.IsSpellUsable then usable, noPower = try(C_Spell.IsSpellUsable, spell) end
   if wait or range == false then
     nf.icon:SetVertexColor(1, 0.3, 0.3)
+  elseif noPower then
+    nf.icon:SetVertexColor(0.5, 0.5, 1)
+  elseif usable == false then
+    nf.icon:SetVertexColor(0.4, 0.4, 0.4)
   else
     nf.icon:SetVertexColor(1, 1, 1)
   end
@@ -515,6 +568,14 @@ local function renderOpener()
      and GetTime() - opener.lastAdvance >= OPENER_IDLE_RESET then
     buildOpener() -- opener only; cast history is cleared by real combat drops, deaths and encounter ends
   end
+  -- Keep cooldown knowledge fresh for the opener's spells (readable out of combat; in combat
+  -- this keeps the last known value unless the game happens to allow reading it).
+  for k = opener.index, #steps do snapshotCooldown(steps[k].id) end
+  -- Skip steps that are still on cooldown (e.g. Pillar after a quick reset on a dummy),
+  -- so they don't hold up the rest of the opener.
+  while opener.index <= #steps and onCooldown(steps[opener.index].id) do
+    opener.index = opener.index + 1
+  end
   local visible = db.opener and #steps > 0 and opener.index <= #steps
     and ((not inCombat and hostileTarget()) or (inCombat and GetTime() - combatStart <= OPENER_COMBAT_WINDOW))
   if not visible then ob:SetShown(not db.locked) return nil end
@@ -554,7 +615,7 @@ end
 ---------------------------------------------------------------------------
 -- Main loop
 ---------------------------------------------------------------------------
-local ctx = { lastCast = lastCast, knows = knows, override = override }
+local ctx = { lastCast = lastCast, knows = knows, override = override, onCooldown = onCooldown }
 local elapsed, debugElapsed = 0, 0
 local testUntil = 0
 
@@ -564,6 +625,9 @@ local function tick()
 
   ctx.db = db
   ctx.now = GetTime()
+  if ns.trackCooldowns and specID and ns.trackCooldowns[specID] then
+    for _, id in ipairs(ns.trackCooldowns[specID]) do snapshotCooldown(id) end
+  end
   ctx.next = nextSpell()
   ctx.power = power()
   ctx.powerMax = powerMaxCache

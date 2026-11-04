@@ -430,6 +430,74 @@ SlashCmdList.ASSISTCOMPANION("gcd")
 expect("GCD: /ac gcd hides swipe", false, gcdFrame.shown)
 SlashCmdList.ASSISTCOMPANION("gcd")
 
+-- RESOURCE SHADING ON THE NEXT-CAST ICON ----------------------------------
+state.usable, state.noPower = {}, {}
+C_Spell.IsSpellUsable = function(id) return state.usable[id] ~= false, state.noPower[id] or false end
+AssistCompanionDB.openerIcon = false
+state.spec = 252; state.known = { [207317] = true }; state.pet = true; state.overrides = {}
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+state.bars = {}; state.target = nil; state.next = 55090; state.rp = 10; state.plates = 1; state.barRange = true; state.inRange = true
+now = now + 800; step()
+expect("Shading: usable -> normal", 1, nf.icon.color[3] == 1 and nf.icon.color[1] or 0)
+state.usable[55090] = false; state.noPower[55090] = true; step()
+expect("Shading: not enough runes -> blue", "0.5,0.5,1", table.concat(nf.icon.color, ","))
+state.noPower[55090] = false; step()
+expect("Shading: unusable for other reason -> gray", "0.4,0.4,0.4", table.concat(nf.icon.color, ","))
+state.noPower[55090] = true; state.barRange = false; state.inRange = false; step()
+expect("Shading: out of range beats no-power (red)", "1,0.3,0.3", table.concat(nf.icon.color, ","))
+state.barRange = true; state.inRange = true; state.usable, state.noPower = {}, {}
+
+-- OPENER SKIPS SPELLS STILL ON COOLDOWN ------------------------------------
+state.cd, state.charges = {}, {}
+C_Spell.GetSpellCooldown = function(id)
+  local c = state.cd[id]
+  if c == "SECRET" then return { startTime = "SECRET", duration = "SECRET" } end
+  if c then return { startTime = c[1], duration = c[2] } end
+  return { startTime = 0, duration = 0 }
+end
+C_Spell.GetSpellCharges = function(id)
+  local c = state.charges[id]
+  if c then return { currentCharges = c[1], maxCharges = c[2], cooldownStartTime = c[3], cooldownDuration = c[4] } end
+end
+AssistCompanionDB.openerIcon = true
+state.spec = 251; state.target = nil; state.overrides = {}; state.inRange = true
+state.known = { [47568]=true, [51271]=true, [439843]=true, [1249658]=true, [49020]=true, [279302]=true }
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 900
+-- dummy: Pillar used 10s ago (45s cooldown); ERW has 1 of 2 charges
+state.cd[51271] = { now - 10, 45 }; state.charges[47568] = { 1, 2, now - 5, 90 }
+step()
+expect("CD skip: ERW with a charge left stays first", "icon:47568", nf.icon.texture)
+cast(47568); step()
+expect("CD skip: Pillar on cooldown is skipped", "icon:439843", nf.icon.texture)
+expect("CD skip: opener moves on past Pillar", "Opener\n3/9", ob.label.text)
+-- GCD-length cooldown isn't treated as "on cooldown"
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); state.cd = { [51271] = { now - 0.2, 1.5 } }; state.charges = {}
+now = now + 20; step()
+cast(47568); step()
+expect("CD skip: GCD-only cooldown does not skip Pillar", "icon:51271", nf.icon.texture)
+-- cooldown read out of combat is remembered when combat hides it
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 20
+state.cd = { [51271] = { now, 45 } }; step()          -- out of combat: readable, 45s left
+combat(true); state.cd = { [51271] = "SECRET" }; step()
+expect("CD skip: in combat, opener still starts at ERW", "icon:47568", nf.icon.texture)
+cast(47568); step()
+expect("CD skip: Pillar still skipped in combat", "icon:439843", nf.icon.texture)
+combat(false)
+-- Breath icon respects Breath's real cooldown after a combat drop on a dummy
+AssistCompanionDB.openerIcon = false
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 20
+state.cd = { [1249658] = { now - 30, 120 } }; step()   -- Breath used 30s ago
+combat(true); cast(51271); state.next = 49020; step()
+expect("Breath: not shown while Breath is on its real cooldown", "icon:49020", nf.icon.texture)
+combat(false)
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 20
+state.cd = {}; step()                                    -- wipe: game reset the cooldown
+combat(true); cast(51271); step()
+expect("Breath: shown when the game says Breath is ready", "icon:1249658", nf.icon.texture)
+combat(false)
+C_Spell.GetSpellCooldown, C_Spell.GetSpellCharges = nil, nil
+
 -- secret values: power returns a secret -> treated as unknown, no error
 issecretvalue = function(v) return v == "SECRET" end
 state.spec = 252; events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")

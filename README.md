@@ -16,7 +16,7 @@ The addon only displays information. You press every button yourself.
 | Frost | At exactly 3 targets the highlight never uses Frostscythe (its rule starts above 3) | **Frostscythe** instead of Obliterate |
 | Frost | **Empower Rune Weapon** is suggested while you're still running in (it has no range check, Pillar does) | Empower Rune Weapon **grayed out and red** until you're in melee |
 
-Corrections have a gold border. While an opener is running, the icon follows the opener instead and has a blue border. The icon turns red when your target is out of range. See [`docs/FINDINGS.md`](docs/FINDINGS.md) for the sims and game data behind each rule.
+Corrections have a gold border. While an opener is running, the icon follows the opener instead and has a blue border. Like Blizzard's action bars, the icon turns **red** when your target is out of range, **blue** when you don't have enough runes or runic power, and **dark gray** when it can't be used for another reason. A global cooldown swipe runs over it. See [`docs/FINDINGS.md`](docs/FINDINGS.md) for the sims and game data behind each rule.
 
 ## Install
 
@@ -51,7 +51,8 @@ The keybind on the icon comes from Blizzard's action bar bindings. For bar addon
 
 * Midnight hides some combat information from addons. Counting nearby enemies (used for the 3-target and 1–3 vs 4+ choices) may not work in combat; when it doesn't, those parts stay quiet.
 * The openers come from SimC's optimal single-target rotation for SimC's default builds. Steps for spells you don't have are skipped.
-* When combat drops (or you die, or an encounter ends) the opener restarts and every ability is treated as off cooldown, as after a raid wipe. Opener spells pressed out of combat rewind after 10 seconds.
+* When combat drops (or you die, or an encounter ends) the opener restarts. Opener spells pressed out of combat rewind after 10 seconds.
+* Cooldowns are hidden from addons in combat, so the addon reads them out of combat and remembers them. Opener steps still on cooldown (e.g. Pillar of Frost after a quick reset on a dummy) are skipped, and the Breath icon only shows when Breath is ready. After a raid wipe the game resets cooldowns, and the addon sees that.
 * This has been tested against a mocked WoW API (see below), not yet in the live game. Please report anything that behaves differently.
 
 ## Tests

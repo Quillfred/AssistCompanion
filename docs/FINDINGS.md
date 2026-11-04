@@ -62,7 +62,7 @@ Out of range before a pull, Pillar fails its range check, so the highlight sugge
 
 From Blizzard's generated API documentation:
 
-* Readable in combat: `C_AssistedCombat.GetNextCastSpell`, `UnitPower("player", …)`, `C_Spell.GetOverrideSpell`, `C_Spell.IsSpellInRange`, `C_ActionBar.FindSpellActionButtons`, `C_ActionBar.IsActionInRange`, your own `UNIT_SPELLCAST_SUCCEEDED`.
+* Readable in combat: `C_Spell.IsSpellUsable` (usable / not enough resources), `C_AssistedCombat.GetNextCastSpell`, `UnitPower("player", …)`, `C_Spell.GetOverrideSpell`, `C_Spell.IsSpellInRange`, `C_ActionBar.FindSpellActionButtons`, `C_ActionBar.IsActionInRange`, your own `UNIT_SPELLCAST_SUCCEEDED`.
 * Secret in combat unless a spell is exempt: auras (`C_UnitAuras`), cooldowns (`C_Spell.GetSpellCooldown`).
 * The addon treats any secret value as "unknown" and stays quiet rather than guessing.
 * Cooldown frames may display secret values: `Cooldown:SetCooldown` and `Cooldown:SetCooldownFromDurationObject` accept them, and `C_Spell.GetSpellCooldownDuration` returns a duration object. The GCD swipe (spell 61304) passes these straight through without reading them.

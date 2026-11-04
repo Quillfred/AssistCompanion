@@ -14,6 +14,7 @@
 --   ctx.knows(id)   true if you have that spell/talent
 --   ctx.override(id) the spell currently on that ability's button (e.g. Dark Transformation -> Blightfall)
 --   ctx.lastCast[id] GetTime() of your last successful cast of that spell this session
+--   ctx.onCooldown(id) true/false if the game told us (out of combat) whether it's on cooldown, else nil
 --   ctx.db          saved settings (thresholds, toggles)
 
 local _, ns = ...
@@ -125,7 +126,9 @@ ns.rules[251] = {
       if not pillar or ctx.now - pillar > PILLAR_DURATION then return end
       local breath = ctx.lastCast[S.BREATH]
       if breath and breath >= pillar then return end                       -- already used this window
-      if breath and ctx.now - breath < BREATH_COOLDOWN then return end     -- still on cooldown
+      local cd = ctx.onCooldown(S.BREATH)                                  -- read from the game out of combat
+      if cd == true then return end
+      if cd == nil and breath and ctx.now - breath < BREATH_COOLDOWN then return end -- fallback: our own timing
       return { spell = S.BREATH, iconOnly = true } -- just the 48x48 Breath icon, no text
     end,
   },
@@ -171,6 +174,11 @@ ns.openers[252] = {                     -- Unholy
   { id = S.DEATH_COIL },
   { id = S.PUTREFY },
   { id = S.DEATH_COIL },
+}
+
+-- Spells whose cooldowns rules need (read out of combat, remembered through combat).
+ns.trackCooldowns = {
+  [251] = { S.BREATH, S.PILLAR_OF_FROST },
 }
 
 -- Secondary reminder shown under the main alert (never replaces it).
