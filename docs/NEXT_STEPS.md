@@ -88,13 +88,12 @@ Not yet seen in the live game: check the panel's layout, scrolling, and that che
    **Done in 0.17.0 (owner approved):** talent effects on timing (corrected: Nozdormu Adept is -2s, not -4s):
    Tomorrow, Today (Time Skip +1s channel: ~27s of recovery instead of 18), Instability Matrix (empowers -0-6s
    own cooldown per cast, ~3s average), Interwoven Threads (all cooldowns -10%), Dream of Spring (Emerald
-   Blossom extends Ebon Might 1s), Nozdormu Adept (Prescience cooldown -4s), Overlord (Breath of Eons casts
+   Blossom extends Ebon Might 1s), Nozdormu Adept (Prescience cooldown -2s), Overlord (Breath of Eons casts
    Eruptions on up to 3 targets: invisible Ebon Might extensions and Accretion), Wingleader (Mass Eruption
    -1.5s Breath of Eons per target). The debug log lists them at each combat start (`talents:`). The owner
    uses Overlord.
-   **Open:** the Ebon Might estimate runs at least 8s short in the owner's log, so the `ebonmight` refresh rule
-   never fires. Next log: compare `em=` on the status lines with when the highlight asks for Ebon Might again
-   (it only does once the buff is down and Ebon Might is off cooldown). Original notes:
+   **Resolved in 0.16.6:** the Ebon Might estimate used to run ~8s short; mastery (aura duration) and average
+   extension crits fixed it (replay within ~0.5s of the real drop). Original notes:
    * **What exists online (checked Nov 2026):** no published optimal-vs-highlight comparison.
      Icy Veins' easy-mode guide calls the highlight "acceptable with no real loss of performance" (a judgment,
      not a sim): https://astro.k.icy-veins.com/wow/augmentation-evoker-pve-dps-easy-mode. Icy Veins' sim page
