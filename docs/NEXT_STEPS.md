@@ -97,4 +97,6 @@ prefers: 48px icon, text alerts off, HIGH strata, icons always shown (not when d
   (`tools/README.md`). Talent build lists came from Noxxic's talent pages (`nox/aoe_builds.json`,
   `nox/candidate_builds.json`), scraped from `https://www.noxxic.com/wow/guide/<spec>/talent-builds`.
 * Lua 5.1 for tests: `apt-get install -y lua5.1`.
-* Commits end with the session's attribution lines; push to `main`.
+* Commits end with the session's attribution lines. Push to the session's branch, then open a pull request
+  into `main` and merge it once CI passes. The owner wants Claude to handle all pull requests and merges
+  without asking.
