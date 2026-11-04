@@ -48,11 +48,12 @@ Not yet seen in the live game: check the panel's layout, scrolling, and that che
    Breath of Eons (403631)? Does `UNIT_SPELLCAST_SUCCEEDED` fire for empowered spells (Fire Breath, Upheaval)?
    Without it, the Ebon Might estimate runs short and the refresh shows early.
    **0.14.0:** empower rank badge on Fire Breath / Upheaval (`ns.empowerRank`, option `empowerRank`).
-   **Open:** the owner saw the highlight never suggest **Time Skip** or **Tip the Scales**, although both are in
-   its game-data list (Tip the Scales if Fire Breath is ready; Time Skip unconditional, step 11). Waiting for
-   the owner's `/ac debug` log: if the highlight never suggests them, add them to the cooldown-ready template
-   (Tip the Scales when Fire Breath is ready; Time Skip after Tip the Scales and the empowers are spent, and not
-   within 15s of Breath of Eons); if a rule hides them, fix that. Original notes:
+   **0.14.0 also:** Tip the Scales and Time Skip as cooldown-ready rules. The owner's debug log confirmed the
+   in-game highlight never suggests them (nor Breath of Eons / Deep Breath), and that empowered spells do fire
+   `UNIT_SPELLCAST_SUCCEEDED` (details in `docs/FINDINGS.md`).
+   **Open:** the Ebon Might estimate runs at least 8s short in the owner's log, so the `ebonmight` refresh rule
+   never fires. Next log: compare `em=` on the status lines with when the highlight asks for Ebon Might again
+   (it only does once the buff is down and Ebon Might is off cooldown). Original notes:
    * **What exists online (checked Nov 2026):** no published optimal-vs-highlight comparison.
      Icy Veins' easy-mode guide calls the highlight "acceptable with no real loss of performance" (a judgment,
      not a sim): https://astro.k.icy-veins.com/wow/augmentation-evoker-pve-dps-easy-mode. Icy Veins' sim page

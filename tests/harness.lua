@@ -904,7 +904,7 @@ state.known = { [395152]=true, [409311]=true, [403631]=true }
 state.next = 361469; state.group = false; state.rangeAsked = {}
 events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
 events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 300; step()
-expect("Aug: rule order", "ebonmight,breatheons,prescience",
+expect("Aug: rule order", "ebonmight,breatheons,tipthescales,timeskip,prescience",
   (function() local t = {} for _, r in ipairs(ns.rules[1473]) do t[#t+1] = r.key end return table.concat(t, ",") end)())
 expect("Aug: out of combat -> plain highlight", "icon:361469", nf.icon.texture)
 expect("Aug: no melee check for a ranged spec", false, state.rangeAsked and state.rangeAsked[49020] or false)
@@ -973,6 +973,50 @@ expect("Rank: option off -> no badge", "", nf.rank.text)
 AssistCompanionDB.empowerRank = true
 expect("Rank: option listed under Augmentation", true, (function()
   for _, o in ipairs(ns.specOptions[1473]) do if o.key == "empowerRank" then return true end end return false end)())
+-- Tip the Scales and Time Skip (never suggested by the in-game highlight; owner's debug log)
+state.known = { [395152]=true, [409311]=true, [403631]=true, [370553]=true, [404977]=true }
+events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
+now = now + 300; cast(403631)                           -- Breath of Eons just used: 120s away
+ns.ebonMight.expires = 0                                -- keep the Ebon Might refresh out of these
+state.next = 357208; step()
+expect("Tip: highlight says Fire Breath, Tip ready -> Tip the Scales", "icon:370553", nf.icon.texture)
+expect("Tip: it's a correction", true, nf.border.shown)
+state.next = 431443; step()
+expect("Time Skip: filler, Breath of Eons 120s away -> Time Skip", "icon:404977", nf.icon.texture)
+state.next = 396286; step()
+expect("Time Skip: not over the highlight's Upheaval", "icon:396286", nf.icon.texture)
+state.next = 357208; cast(370553); step()
+expect("Tip: used -> Fire Breath, instant (no rank)", "icon:357208", nf.icon.texture)
+expect("Tip: no rank badge while Tip waits", "", nf.rank.text)
+state.next = 431443; step()
+expect("Time Skip: not while Tip the Scales is waiting for its empower", "icon:404977", nf.icon.texture)
+-- (still shown: Breath of Eons is far away, which is enough without Chronoboon)
+state.known[1260484] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+expect("Time Skip with Chronoboon: Tip waiting -> no Time Skip", "icon:431443", nf.icon.texture)
+cast(357208); step()
+expect("Time Skip with Chronoboon: Tip spent and on cooldown -> Time Skip", "icon:404977", nf.icon.texture)
+cast(404977); step()
+expect("Time Skip: used -> highlight", "icon:431443", nf.icon.texture)
+now = now + 100; state.next = 357208; step()
+expect("Tip: not back before its 120s cooldown", "icon:357208", nf.icon.texture)
+now = now + 21; cast(403631); ns.ebonMight.expires = 0; step() -- (Breath of Eons is back too: use it)
+expect("Tip: back after 120s", "icon:370553", nf.icon.texture)
+state.known[1260484] = nil
+now = now + 200; state.next = 431443; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+expect("Time Skip: Breath of Eons ready -> Breath of Eons first", "icon:403631", nf.icon.texture)
+cast(403631); now = now + 110; step()
+expect("Time Skip: Breath of Eons due in 10s, Tip ready -> hold Time Skip", "icon:431443", nf.icon.texture)
+-- debug log: Ebon Might estimate on the status line, rule errors logged once
+local function dbgHas(pat) for _, l in ipairs(AssistCompanionDB.debugLog or {}) do if l:find(pat, 1, true) then return true end end return false end
+AssistCompanionDB.debugLog = {}; AssistCompanionDB.debug = true
+table.insert(ns.rules[1473], 1, { key = "broken", name = "Broken", check = function() error("boom") end })
+for _ = 1, 12 do step() end
+expect("Debug: Augmentation status shows the Ebon Might estimate", true, dbgHas(" em="))
+expect("Debug: a rule error is logged", true, dbgHas("rule broken error"))
+local n = 0 for _, l in ipairs(AssistCompanionDB.debugLog) do if l:find("rule broken error", 1, true) then n = n + 1 end end
+expect("Debug: ...only once", 1, n)
+expect("Debug: other rules still run after a broken one", "icon:431443", nf.icon.texture)
+table.remove(ns.rules[1473], 1); AssistCompanionDB.debug = false
 combat(false); state.group = false
 state.spec = 1473; panel.scripts.OnShow(panel)
 expect("Options: Evoker listed with Augmentation", true, branchRow("spec:1473") ~= nil and branchRow("class:EVOKER") ~= nil)

@@ -160,6 +160,13 @@ local function onCooldown(id)
   return r - GetTime() > 1.0
 end
 
+-- Seconds until ready as the game last told us (0 = ready), or nil if we don't know.
+local function readyIn(id)
+  local r = readyAt[id]
+  if r == nil then return nil end
+  return math.max(0, r - GetTime())
+end
+
 -- Counts hostile, in-combat enemies with visible nameplates. Returns nil if the game
 -- hides that information, so rules that need an exact count simply stay quiet.
 local function countEnemies()
@@ -842,8 +849,10 @@ end
 ---------------------------------------------------------------------------
 -- Main loop
 ---------------------------------------------------------------------------
-local ctx = { lastCast = lastCast, knows = knows, override = override, onCooldown = onCooldown, charges = charges }
+local ctx = { lastCast = lastCast, knows = knows, override = override, onCooldown = onCooldown, readyIn = readyIn,
+              charges = charges }
 local elapsed, debugElapsed = 0, 0
+local ruleErrorLogged = {}
 local lastIconKey
 local testUntil = 0
 
@@ -887,6 +896,10 @@ local function tick()
       if ns.ruleEnabled(specID, rule.key) then
         local ok, result = pcall(rule.check, ctx)
         if ok and result then alert, alertKey = result, rule.key break end
+        if not ok and not ruleErrorLogged[rule.key] then
+          ruleErrorLogged[rule.key] = true -- once per rule per session, so a broken rule can't flood the log
+          dlog("rule %s error: %s", rule.key, tostring(result))
+        end
       end
     end
     local reminder = ns.reminders[specID]
@@ -927,13 +940,19 @@ local function tick()
       debugElapsed = 0
       if combatOrTarget() then
         local bb = charges(50842)
-        dlog("status: highlight=%s rp=%s/%s%s runes=%s enemies=%s melee=%s opener=%s%s%s",
+        local extra = ""
+        local status = ns.debugStatus and specID and ns.debugStatus[specID]
+        if status then
+          local ok, s = pcall(status, ctx)
+          if ok and s then extra = " " .. s end
+        end
+        dlog("status: highlight=%s rp=%s/%s%s runes=%s enemies=%s melee=%s opener=%s%s%s%s",
           ctx.next and (spellName(ctx.next) .. " " .. ctx.next) or "none",
           tostring(ctx.power), tostring(ctx.powerMax), powerMaxCache and "" or "(fb)",
           tostring(ctx.runes), tostring(ctx.enemies), tostring(ctx.inMelee),
           openerStep and (opener.index .. "/" .. #opener.steps) or "off",
           bb and (" bloodboil=" .. bb) or "",
-          (specID == 252) and (" DT->" .. tostring(override(ns.S.DARK_TRANSFORMATION))) or "")
+          (specID == 252) and (" DT->" .. tostring(override(ns.S.DARK_TRANSFORMATION))) or "", extra)
       end
     end
   end

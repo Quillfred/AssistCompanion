@@ -59,6 +59,8 @@ local S = {
   UPHEAVAL            = 396286,
   UPHEAVAL_FOM        = 408092,
   TIP_THE_SCALES      = 370553,
+  TIME_SKIP           = 404977,
+  CHRONOBOON          = 1260484, -- Chronowarden: Tip the Scales' cooldown is shorter
 }
 ns.S = S
 
@@ -331,6 +333,12 @@ ns.empowerRank = {
   end,
 }
 
+-- Extra text for the once-a-second debug status line.
+ns.debugStatus = {
+  -- em = our Ebon Might estimate (seconds left), to compare with when the highlight asks for it again
+  [1473] = function(ctx) return ("em=%.1f"):format(math.max(0, ebonMight.expires - ctx.now)) end,
+}
+
 -- Talent replacements the highlight's data doesn't know about: when it suggests the first spell and
 -- you have the second, show the second (its button is the one you press).
 ns.replacedBy = {
@@ -401,9 +409,12 @@ ns.openers[250] = {                     -- Blood
 --   Blood:  Vampiric Blood, Raise Dead (both missing; no defensive is in the list).
 --           Optimal: both on cooldown.
 --   Unholy: none (Raise Dead is its permanent pet, in the list).
---   Augmentation: Breath of Eons (not in the list; but it replaces Deep Breath, which is, so the
---           in-game highlight may point at it already: see ns.replacedBy). Optimal: on cooldown,
---           after Prescience and Ebon Might.
+--   Augmentation: Breath of Eons (not in the list; it replaces Deep Breath, which is, but the owner's
+--           debug log shows the highlight doesn't suggest it either way). Tip the Scales and Time Skip
+--           ARE in the list, but the same log shows the in-game highlight never suggests them.
+--           Optimal: Breath of Eons on cooldown after Prescience and Ebon Might; Tip the Scales right
+--           before Fire Breath; Time Skip when Breath of Eons is 15+ s away or Tip the Scales is on
+--           cooldown (with Chronoboon only the latter).
 --   Devastation: none. Dragonrage, Tip the Scales, Deep Breath, Fire Breath and Eternity
 --           Surge are all in the list, with no automation-only entries. Its gaps are
 --           conditions and button overrides (see docs/NEXT_STEPS.md, step 2).
@@ -435,6 +446,34 @@ ns.readyCooldowns = {
           .. "The highlight's list has Deep Breath, which Breath of Eons replaces; if it suggests that, the icon shows Breath of Eons.",
       when = function(ctx) return ctx.next ~= S.EBON_MIGHT and ctx.next ~= S.PRESCIENCE end,
     },
+    {
+      key = "tipthescales", name = "Tip the Scales", spell = S.TIP_THE_SCALES,
+      cooldown = 120, -- game data (370553); Chronoboon shortens it, so the icon may come back late
+      desc = "Shows Tip the Scales when the highlight asks for Fire Breath and Tip the Scales is ready. "
+          .. "The game's list has it right before Fire Breath, but the in-game highlight never suggests it.",
+      when = function(ctx) return ctx.next == S.FIRE_BREATH or ctx.next == S.FIRE_BREATH_FOM end,
+    },
+    {
+      key = "timeskip", name = "Time Skip", spell = S.TIME_SKIP,
+      cooldown = 180, -- game data (404977)
+      desc = "Shows Time Skip once Fire Breath and Upheaval are spent, when Breath of Eons is 15+ seconds away "
+          .. "or Tip the Scales is on cooldown (with Chronoboon: only then). The in-game highlight never suggests it.",
+      when = function(ctx)
+        local n = ctx.next
+        -- after the highlight's Ebon Might, Prescience and empowers: only on filler
+        if n == S.EBON_MIGHT or n == S.PRESCIENCE or n == S.FIRE_BREATH or n == S.FIRE_BREATH_FOM
+            or n == S.UPHEAVAL or n == S.UPHEAVAL_FOM then
+          return false
+        end
+        local tip = ctx.lastCast[S.TIP_THE_SCALES]
+        local fb = math.max(ctx.lastCast[S.FIRE_BREATH] or 0, ctx.lastCast[S.FIRE_BREATH_FOM] or 0)
+        local tipWaiting = tip and tip > fb
+        local tipDown = ctx.knows(S.TIP_THE_SCALES) and ns.cooldownLeft(ctx, S.TIP_THE_SCALES, 120) >= 6
+        if tipDown and not tipWaiting then return true end
+        if ctx.knows(S.CHRONOBOON) then return false end
+        return not ctx.knows(S.BREATH_OF_EONS) or ns.cooldownLeft(ctx, S.BREATH_OF_EONS, 120) >= 15
+      end,
+    },
   },
   [250] = {                                                  -- Blood
     after = "boneshield",
@@ -452,6 +491,16 @@ local function cooldownReady(ctx, spell, cooldown)
   return not last or ctx.now - last >= cooldown
 end
 ns.cooldownReady = cooldownReady
+
+-- Seconds until the spell is ready, same sources as cooldownReady (0 = ready).
+local function cooldownLeft(ctx, spell, cooldown)
+  local r = ctx.readyIn and ctx.readyIn(spell)
+  if r ~= nil then return r end
+  local last = ctx.lastCast[spell]
+  if not last then return 0 end
+  return math.max(0, cooldown - (ctx.now - last))
+end
+ns.cooldownLeft = cooldownLeft
 
 local function readyCooldownRule(entry)
   return {
