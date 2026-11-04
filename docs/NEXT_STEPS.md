@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.16.0** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.16.1** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -71,8 +71,11 @@ Not yet seen in the live game: check the panel's layout, scrolling, and that che
    **0.15.2:** "x2" after the keybind when the Tip the Scales macro should be pressed (macro option only).
    **0.15.3:** the real `up=0` cause (highlight still shows Upheaval right after the cast; learning now waits 3s),
    Tip the Scales learns a speed factor from early presses (`tx=`), `haste=` logged. `upb=396286` confirmed.
-   **Open:** confirm `up=` counts down now; see whether `tx=` settles and whether it matches haste (if Tip the
-   Scales' cooldown is hasted, model haste instead of learning).
+   **0.16.1:** cancelled empowers undone (`UNIT_SPELLCAST_EMPOWER_STOP`, `ns.onCastCancelled`); learned factors
+   averaged, implausible readings dropped. `up=` confirmed counting down (seventh log). Haste is ~8% and hidden
+   in combat, so it doesn't explain the Tip the Scales gap; `tx=` learning stays.
+   **Open:** check the empower-cancel event reports `complete` readably in game (look for "empower cancelled" in
+   the log after cancelling a Fire Breath).
    **Open:** the Ebon Might estimate runs at least 8s short in the owner's log, so the `ebonmight` refresh rule
    never fires. Next log: compare `em=` on the status lines with when the highlight asks for Ebon Might again
    (it only does once the buff is down and Ebon Might is off cooldown). Original notes:
