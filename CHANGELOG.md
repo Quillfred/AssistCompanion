@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.16.4
+
+* **Augmentation: learned cooldown speeds are remembered** between sessions (saved with your settings), so the first Fire Breath / Upheaval and Tip the Scales of a session are timed right. They start over when Accretion, Chronoboon or Temporal Burst changes.
+
 ## 0.16.3
 
 * **Minimap button shortcuts:** **Shift-click** starts or stops the debug log (the icon is red while it's recording), **Ctrl-click** clears the debug log. The tooltip lists all the clicks.
