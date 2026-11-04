@@ -15,6 +15,7 @@ local DEFAULTS = {
   locked = true,
   iconSize = 48,           -- next-cast icon size in pixels
   nextIcon = true,         -- show the next-cast icon
+  alwaysShow = true,       -- show it even with no target / out of combat (for a future options menu)
   showText = false,        -- show text alerts as well (off: the icon carries the corrections)
   unholyRP = 80,           -- warn at or above this runic power when the highlight wants a rune spender
   cooldownReminder = true, -- Frost: trinkets/potion/racial reminder when Pillar goes out
@@ -422,11 +423,17 @@ local function showNext(ctx, alert, note)
     nf.border:SetColorTexture(1, 0.82, 0, 1)
   end
   if alert and alert.iconOnly then note = nil end -- e.g. Breath: just the icon, nothing else
-  if not db.nextIcon or not spell or not combatOrTarget() then
+  local idle = false
+  if db.alwaysShow and db.nextIcon and not spell then
+    -- No suggestion right now: keep the last one on screen, grayed out.
+    spell, idle, corrected, wait = nf.lastSpell, true, false, false
+  end
+  if not db.nextIcon or not spell or (not db.alwaysShow and not combatOrTarget()) then
     nf.note:SetText("")
     nf:SetShown(not db.locked)
     return
   end
+  if not idle then nf.lastSpell = spell end
   nf.icon:SetTexture(spellIcon(spell))
   nf.border:SetShown(corrected)
   nf.key:SetText(keybindFor(spell) or "")
@@ -446,7 +453,7 @@ local function showNext(ctx, alert, note)
   else
     nf.icon:SetVertexColor(1, 1, 1)
   end
-  nf.icon:SetDesaturated(wait)
+  nf.icon:SetDesaturated(wait or idle)
   nf.note:SetText(note or "")
   nf:Show()
 end

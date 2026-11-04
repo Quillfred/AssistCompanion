@@ -283,7 +283,18 @@ cast(1249658); step()
 expect("Next icon: reminder shows once Breath is used", "Pillar: use trinkets, potion and racial", nf.note.text)
 -- no target, out of combat: hidden
 state.target = false; now = now + 30; step()
-expect("Next icon: hidden with no target out of combat", false, nf.shown)
+expect("Always show: visible with no target out of combat", true, nf.shown)
+expect("Always show: default on", true, AssistCompanionDB.alwaysShow)
+local lastIcon = nf.icon.texture
+state.next = nil; step()
+expect("Always show: no suggestion keeps last icon", lastIcon, nf.icon.texture)
+expect("Always show: kept icon is grayed out", true, nf.icon.desat)
+expect("Always show: still visible", true, nf.shown)
+state.next = 49020; step()
+expect("Always show: new suggestion not grayed", false, nf.icon.desat)
+AssistCompanionDB.alwaysShow = false; step()
+expect("Always show off: hidden with no target out of combat", false, nf.shown)
+AssistCompanionDB.alwaysShow = true
 state.target = nil
 
 -- KEYBIND FALLBACK: a bar addon with its own bindings (e.g. EllesmereUI bar 9) ----
