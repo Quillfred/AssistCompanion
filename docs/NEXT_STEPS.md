@@ -121,8 +121,10 @@ prefers: 48px icon, text alerts off, HIGH strata, icons always shown (not when d
   into `main` and merge it once CI passes. The owner wants Claude to handle all pull requests and merges
   without asking.
 * **CurseForge releases** (project 1783748, `## X-Curse-Project-ID` in the TOC): add the version's notes to
-  `CHANGELOG.md`, bump `## Version:` in the TOC, merge, then push a tag `v<version>` on `main`
-  (`-beta1` / `-alpha1` suffix = beta / alpha file). `.github/workflows/release.yml` checks the tag matches the
+  `CHANGELOG.md`, bump `## Version:` in the TOC, merge, then start the release workflow
+  (`-beta1` / `-alpha1` suffix = beta / alpha file). Claude sessions can't push tags (pushes are limited to the
+  session branch), so trigger `release.yml` with `workflow_dispatch` (GitHub MCP `actions_run_trigger`, input
+  `tag`, ref `main`); the job creates and pushes the tag itself. Pushing a `v*` tag by hand also works. `.github/workflows/release.yml` checks the tag matches the
   TOC, runs the tests, and runs the BigWigs packager (`.pkgmeta` ships only the `AssistCompanion` folder) to
   upload to CurseForge (`CF_API_KEY` repository secret) and attach the zip to a GitHub release.
 * After every update to GitHub (each merge into `main`), send the owner a zip of the addon in the chat:
