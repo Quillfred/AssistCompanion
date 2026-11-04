@@ -1127,6 +1127,16 @@ expect("Temporal Burst: not read in combat", "0.25/31.5", (function()
   return ns.temporalBurst.max .. "/" .. ns.temporalBurst.seconds end)())
 tbRead("by 30%, decreasing over 34.1 sec.", now + 60)
 
+-- Owner's eleventh log: rank 3 shown with ~1-2s of Ebon Might left (it would land outside it)
+now = now + 300; augReset(); cast(395152); cast(396286); state.next = 357208 -- Ebon Might on cooldown
+ns.ebonMight.expires = now + 10; step()
+expect("Rank: Upheaval far, Ebon Might 10s left -> rank 3", "3", nf.rank.text)
+ns.ebonMight.expires = now + 1.8; step()
+expect("Rank: Ebon Might under 2.5s left -> rank 1 (lands inside it)", "1", nf.rank.text)
+ns.ebonMight.expires = now - 1; step()
+expect("Rank: Ebon Might already gone -> rank 3 again", "3", nf.rank.text)
+ns.ebonMight.expires = now + 1000
+
 -- Clear Empower Cooldown resets Fire Breath and Upheaval
 now = now + 300; augReset(); ns.ebonMight.expires = now + 100
 cast(396286); now = now + 5; step()
