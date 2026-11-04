@@ -1,8 +1,8 @@
 ## Interface: 120105
 ## Title: Assist Companion
-## Notes: Shows the Assisted Highlight suggestion as one icon with a keybind, corrected where Blizzard's rules are wrong, plus an opener bar. Frost and Unholy Death Knight.
+## Notes: Shows the Assisted Highlight suggestion as one icon with a keybind, corrected where Blizzard's rules are wrong, plus an opener bar. Blood, Frost and Unholy Death Knight.
 ## Author: Quillfred
-## Version: 0.8.1
+## Version: 0.9.0
 ## SavedVariables: AssistCompanionDB
 ## Category: Combat
 

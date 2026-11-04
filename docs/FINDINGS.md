@@ -2,6 +2,27 @@
 
 All numbers come from SimulationCraft (`midnight` branch, commit `36e21fe`, game data 12.1.5.70688), Patchwerk, 300 s fights. "Assisted Highlight" means SimC's `use_blizzard_action_list=1`, which plays the in-game highlight's priority as read from the game's `AssistedCombatStep` / `AssistedCombatRule` data.
 
+## Blood
+
+Optimal rotation (its best build per fight) vs the in-game highlight (its best build), then the highlight with the addon's three corrections added on top (`tools/blood_rules_sim.py`; the plain highlight list reproduces the `use_blizzard_action_list=1` numbers within 0.4%):
+
+| | 1 target | 3 targets | 5 targets |
+|---|---|---|---|
+| Highlight: DPS vs optimal | −13.1% | −19.3% | −18.5% |
+| Highlight: damage taken / s (optimal) | 12.9M (9.6M) | 10.6M (4.5M) | 7.8M (2.6M) |
+| **+ corrections: DPS vs optimal** | **−4.8%** | **−10.7%** | **−9.4%** |
+| **+ corrections: damage taken / s** | **11.7M** | **6.3M** | **4.2M** |
+
+What drives the gap (highlight vs optimal casts):
+
+* **Blood Boil:** 7–13 vs 52–56. The highlight only casts it to apply Blood Plague with 2 charges. Blood Boil has 2 charges and a fixed 7.5s recharge (not hasted), so the addon counts charges from your casts.
+* **Bone Shield:** ~90% uptime vs 100%. The highlight refreshes on stack count (≤6) only, so the 30s duration can run out. Death's Caress: 0 casts vs 5–7. The addon times the 30s from your Marrowrend / Death's Caress casts.
+* **Runic power waste:** 7.5% (3 targets) and 12% (5 targets) vs 0%. The highlight's Death Strike rules are "≤50% health" or "≥80 runic power".
+
+The highlight's data stores Heart Strike as Rune Strike (316239), which Heart Strike replaces. SimC's highlight sims also press Vampiric Blood on cooldown, which the in-game highlight never suggests; no defensive is ever suggested.
+
+Health is secret in combat, but `UnitHealthPercent(unit, usePredicted, curve)` evaluates a curve on it, and `Texture:SetAlpha` accepts secret values from addon code, so the low-health icon's alpha is set by the game. The docs don't say whether the health input is 0–1 or 0–100, so the curve covers both.
+
 ## Unholy: Outbreak / Blightfall loop
 
 The highlight's second rule for Unholy (game data step 15428) is "cast Outbreak (77575) while you have aura 1271975 (Blightfall)". That aura's only effect is to turn Dark Transformation into Blightfall (1271967) until you press it. Outbreak doesn't remove the aura, so the rule stays true and the highlight suggests Outbreak after every press.

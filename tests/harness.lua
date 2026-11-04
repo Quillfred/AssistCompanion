@@ -39,6 +39,7 @@ local function newFrame()
   function f:CreateFontString() return fs() end
   function f:SetSize() end
   function f:SetMovable() end
+  function f:SetAlpha(a) self.alpha = a end
   function f:SetFrameStrata(x) self.strata = x end
   function f:SetFrameLevel(x) self.level = x end
   function f:GetFrameLevel() return self.level or 1 end
@@ -85,7 +86,7 @@ C_Spell = {
   GetOverrideSpell = function(id) return state.overrides[id] or id end,
   GetSpellTexture = function(id) return "icon:" .. id end,
   GetSpellName = function(id) return "spell" .. id end,
-  IsSpellInRange = function() return state.inRange end,
+  IsSpellInRange = function(id) state.rangeAsked = state.rangeAsked or {}; state.rangeAsked[id] = true; return state.inRange end,
 }
 C_ActionBar = {
   FindSpellActionButtons = function(id) return state.bars[id] and { state.bars[id] } or {} end,
@@ -552,6 +553,108 @@ expect("Black border: opener gold sits outside it", "-4,4", table.concat(ob.bord
 combat(true); for _, id in ipairs({47568, 51271, 1249658, 49020}) do cast(id) end; step()
 expect("Black border: empty opener slots hide their border", false, ob.blacks[6].shown)
 combat(false); AssistCompanionDB.openerIcon = false
+
+-- BLOOD ---------------------------------------------------------------------
+-- curve mock: linear interpolation, clamped at the ends (as documented)
+C_CurveUtil = { CreateCurve = function()
+  local c = { pts = {} }
+  function c:SetType(t) self.type = t end
+  function c:AddPoint(x, y) self.pts[#self.pts + 1] = { x, y } end
+  function c:Evaluate(x)
+    local p = self.pts
+    table.sort(p, function(a, b) return a[1] < b[1] end)
+    if x <= p[1][1] then return p[1][2] end
+    for i = 2, #p do
+      if x <= p[i][1] then
+        local a, b = p[i - 1], p[i]
+        return a[2] + (b[2] - a[2]) * (x - a[1]) / (b[1] - a[1])
+      end
+    end
+    return p[#p][2]
+  end
+  return c
+end }
+Enum.LuaCurveType = { Linear = 0 }
+state.hp, state.hpScale = 1.0, 1
+function UnitHealthPercent(unit, predicted, curve)
+  if state.hpSecret then return "SECRET_ALPHA" end
+  return curve:Evaluate(state.hp * state.hpScale)
+end
+local hf = AssistCompanionHealth
+AssistCompanionDB.openerIcon = false
+state.spec = 250; state.pet = true; state.overrides = {}; state.target = nil; state.inRange = true; state.barRange = true
+state.known = { [195182]=true, [195292]=true, [49998]=true, [50842]=true, [206930]=true, [46585]=true, [43265]=true }
+state.charges = { [50842] = { 2, 2, 0, 0 } }
+C_Spell.GetSpellCharges = function(id)
+  local c = state.charges and state.charges[id]
+  if c then return { currentCharges = c[1], maxCharges = c[2], cooldownStartTime = c[3], cooldownDuration = c[4] } end
+end
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 3000
+state.next = 206930; state.rp = 10; state.rangeAsked = {}; step()
+expect("Blood: melee range uses Heart Strike", true, state.rangeAsked[206930] or false)
+expect("Blood: melee range doesn't use Obliterate", false, state.rangeAsked[49020] or false)
+expect("Blood: 2 Blood Boil charges -> Blood Boil over Heart Strike", "icon:50842", nf.icon.texture)
+state.next = 316239; step()
+expect("Blood: Rune Strike ID (Heart Strike in game data) also corrected", "icon:50842", nf.icon.texture)
+-- combat hides charges: count from casts
+combat(true); state.charges = nil
+cast(50842); cast(50842); step()
+expect("Blood: both charges used -> Heart Strike stays", "icon:316239", nf.icon.texture)
+now = now + 7.6; step()
+expect("Blood: one charge back after 7.5s", "icon:50842", nf.icon.texture)
+state.inRange = false; step()
+expect("Blood: out of melee -> no Blood Boil", "icon:316239", nf.icon.texture)
+state.inRange = true
+-- runic power cap -> Death Strike (max 100 in mock -> threshold 80)
+state.rp = 85; step()
+expect("Blood: 85 RP -> Death Strike", "icon:49998", nf.icon.texture)
+state.rp = 70; step()
+expect("Blood: 70 RP -> no Death Strike override", "icon:50842", nf.icon.texture)
+-- Bone Shield timing
+cast(195182); now = now + 20; state.next = 49998; state.rp = 40; step()
+expect("Blood: 20s after Marrowrend -> no refresh yet", "icon:49998", nf.icon.texture)
+now = now + 6; step()
+expect("Blood: 26s after Marrowrend -> refresh with Marrowrend", "icon:195182", nf.icon.texture)
+state.runesLeft = 1; UnitPower = function(u, t) if t == 5 then return state.runesLeft end return state.rp end; step()
+expect("Blood: low runes -> Death's Caress instead", "icon:195292", nf.icon.texture)
+state.next = 195182; step()
+expect("Blood: highlight already says Marrowrend -> no override", "icon:195182", nf.icon.texture)
+state.next = 49998; now = now + 15; step()
+expect("Blood: long expired (highlight handles it) -> no override", "icon:49998", nf.icon.texture)
+cast(195292); now = now + 26; step()
+expect("Blood: Death's Caress also counts as the refresh", "icon:195292", nf.icon.texture)
+function UnitPower() return state.rp end
+combat(false)
+-- Opener
+state.pet = false; events.scripts.OnEvent(events, "UNIT_PET", "player"); state.target = nil; now = now + 100; step()
+expect("Blood opener: starts with Death's Caress", "icon:195292", ob.slots[1].texture)
+expect("Blood opener: then Raise Dead when no ghoul", "icon:46585", ob.slots[2].texture)
+state.pet = true; events.scripts.OnEvent(events, "UNIT_PET", "player"); step()
+expect("Blood opener: ghoul out -> skips Raise Dead", "icon:195182", ob.slots[2].texture)
+-- Low-health Death Strike icon (alpha driven by the game's curve)
+step()
+expect("HP icon: shown for Blood", true, hf.shown)
+expect("HP icon: Death Strike", "icon:49998", hf.icon.texture)
+for _, c in ipairs({ { 1.0, 1, 0, "full health (0-1 scale)" }, { 0.6, 1, 0, "60% (0-1 scale)" },
+                     { 0.3, 1, 1, "30% (0-1 scale)" }, { 0.425, 1, 0.5, "42.5% fades in (0-1 scale)" },
+                     { 1.0, 100, 0, "full health (0-100 scale)" }, { 0.6, 100, 0, "60% (0-100 scale)" },
+                     { 0.3, 100, 1, "30% (0-100 scale)" }, { 0.05, 100, 1, "5% (0-100 scale)" } }) do
+  state.hp, state.hpScale = c[1], c[2]; step()
+  expect("HP icon alpha at " .. c[4], c[3], math.floor(hf.alpha * 100 + 0.5) / 100)
+end
+state.hpSecret = true; step()
+expect("HP icon: hidden (secret) alpha passed straight to the game", "SECRET_ALPHA", hf.alpha)
+state.hpSecret = false
+SlashCmdList.ASSISTCOMPANION("hp 20 30"); state.hp, state.hpScale = 0.25, 1; step()
+expect("HP icon: /ac hp 20 30 moves the thresholds", 0.5, math.floor(hf.alpha * 100 + 0.5) / 100)
+SlashCmdList.ASSISTCOMPANION("hp 35 50")
+local saved = UnitHealthPercent; UnitHealthPercent = nil; step()
+expect("HP icon: API missing -> invisible, no error", 0, hf.alpha)
+UnitHealthPercent = saved
+state.spec = 251; events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED"); step()
+expect("HP icon: not shown for Frost", false, hf.shown)
+C_Spell.GetSpellCharges = nil
 
 -- secret values: power returns a secret -> treated as unknown, no error
 issecretvalue = function(v) return v == "SECRET" end

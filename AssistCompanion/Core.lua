@@ -22,6 +22,10 @@ local DEFAULTS = {
   opener = true,           -- show the opening sequence before and at the start of a pull
   openerIcon = true,       -- the next-cast icon follows the opener while it's running
   gcdSwipe = true,         -- global cooldown swipe on the next-cast icon
+  healthIcon = true,       -- Blood: Death Strike icon that fades in as your health drops
+  healthFull = 35,         -- health % at or below which it's fully visible
+  healthNone = 50,         -- health % at or above which it's invisible
+  healthPoint = { "CENTER", "UIParent", "CENTER", 60, -100 },
   disabled = {},           -- rule keys turned off with /ac toggle <key>
   debug = false,
 }
@@ -163,12 +167,70 @@ end
 local inCombat, combatStart = false, 0
 local function combatOrTarget() return inCombat or hostileTarget() end
 
--- Is the current target in melee range? Uses Obliterate's range (works for both DK specs).
+-- Is the current target in melee range? Uses a melee spell of your spec (Rules.lua: ns.meleeSpell).
 -- Returns nil when there's no hostile target or the game won't say.
 local function inMelee()
   if not (C_Spell and C_Spell.IsSpellInRange) then return nil end
   if not hostileTarget() then return nil end
-  return (try(C_Spell.IsSpellInRange, 49020, "target"))
+  local spell = (ns.meleeSpell and specID and ns.meleeSpell[specID]) or 49020
+  return (try(C_Spell.IsSpellInRange, spell, "target"))
+end
+
+local RUNES = (Enum and Enum.PowerType and Enum.PowerType.Runes) or 5
+local function runes() return (try(UnitPower, "player", RUNES)) end
+
+---------------------------------------------------------------------------
+-- Charge tracking (Rules.lua: ns.chargeTrack). Charges are hidden in combat, so we read
+-- them out of combat and then count your own casts against a fixed recharge time. Talents
+-- that speed recharges up only make the real count higher, so this never claims a charge
+-- you don't have.
+---------------------------------------------------------------------------
+local chargeState = {} -- id -> { charges, max, nextAt }
+
+local function chargeInfo(id)
+  local t = ns.chargeTrack and specID and ns.chargeTrack[specID] and ns.chargeTrack[specID][id]
+  if not t then return nil end
+  local st = chargeState[id]
+  if not st then st = { charges = t.max, max = t.max, nextAt = nil }; chargeState[id] = st end
+  return st, t
+end
+
+local function syncCharges()
+  local list = ns.chargeTrack and specID and ns.chargeTrack[specID]
+  if not list then return end
+  local now = GetTime()
+  for id, t in pairs(list) do
+    local st = chargeInfo(id)
+    -- Readable (usually out of combat)? Take the game's numbers.
+    if C_Spell and C_Spell.GetSpellCharges then
+      local ok, info = pcall(C_Spell.GetSpellCharges, id)
+      if ok and type(info) == "table" and readable(info) then
+        local cur, maxc = readable(info.currentCharges), readable(info.maxCharges)
+        local cst, cdu = readable(info.cooldownStartTime), readable(info.cooldownDuration)
+        if type(cur) == "number" and type(maxc) == "number" then
+          st.charges, st.max = cur, maxc
+          st.nextAt = (cur < maxc and type(cst) == "number" and type(cdu) == "number") and (cst + cdu) or nil
+        end
+      end
+    end
+    -- Otherwise advance our own count.
+    while st.charges < st.max and st.nextAt and now >= st.nextAt do
+      st.charges = st.charges + 1
+      st.nextAt = (st.charges < st.max) and (st.nextAt + t.recharge) or nil
+    end
+  end
+end
+
+local function spendCharge(id)
+  local st, t = chargeInfo(id)
+  if not st then return end
+  if st.charges >= st.max or not st.nextAt then st.nextAt = GetTime() + t.recharge end
+  st.charges = math.max(0, st.charges - 1)
+end
+
+local function charges(id)
+  local st = chargeInfo(id)
+  return st and st.charges or nil
 end
 
 local function spellIcon(id)
@@ -634,8 +696,65 @@ local function renderOpener()
   return steps[opener.index]
 end
 
+---------------------------------------------------------------------------
+-- Low-health icon (Rules.lua: ns.healthIcon, e.g. Death Strike for Blood). Your health is
+-- hidden from addons in combat, but the game will evaluate a curve on it and the result can
+-- drive a texture's alpha. So the GAME fades this icon in as your health drops; the addon
+-- never sees the number. The curve covers both 0-1 and 0-100 health scales, since the API
+-- docs don't say which UnitHealthPercent uses.
+---------------------------------------------------------------------------
+local hf = CreateFrame("Frame", "AssistCompanionHealth", UIParent, "BackdropTemplate")
+makeMovable(hf, "healthPoint")
+hf.icon = hf:CreateTexture(nil, "ARTWORK")
+hf.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+hf.icon:SetPoint("CENTER")
+hf.black = blackBorder(hf, hf.icon)
+hf.glow = hf:CreateTexture(nil, "BORDER", nil, 0)
+hf.glow:SetColorTexture(0.9, 0.1, 0.1, 1)
+hf.glow:SetPoint("TOPLEFT", hf.icon, -BLACK_EDGE - 2, BLACK_EDGE + 2)
+hf.glow:SetPoint("BOTTOMRIGHT", hf.icon, BLACK_EDGE + 2, -BLACK_EDGE - 2)
+hf.key = hf:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+hf.key:SetPoint("TOPRIGHT", hf.icon, "TOPRIGHT", -2, -2)
+
+local healthCurve, healthCurveFor
+-- Fully visible at or below `full` %, invisible at or above `none` %, fading in between.
+local function buildHealthCurve(full, none)
+  if not (C_CurveUtil and C_CurveUtil.CreateCurve) then return nil end
+  local ok, c = pcall(C_CurveUtil.CreateCurve)
+  if not ok or not c then return nil end
+  if c.SetType and Enum and Enum.LuaCurveType then pcall(c.SetType, c, Enum.LuaCurveType.Linear) end
+  local f, n = full / 100, none / 100
+  -- 0-1 scale
+  c:AddPoint(0, 1); c:AddPoint(f, 1); c:AddPoint(n, 0); c:AddPoint(0.999, 0)
+  -- 0-100 scale (x = 1.0 is read as full health on the 0-1 scale, so it stays hidden there)
+  c:AddPoint(1.0, 0); c:AddPoint(1.001, 1); c:AddPoint(full, 1); c:AddPoint(none, 0); c:AddPoint(100, 0)
+  return c
+end
+
+local function layoutHealth()
+  local s = db.iconSize
+  hf:SetSize(s + 8, s + 8)
+  hf.icon:SetSize(s, s)
+  placeFrame(hf, "healthPoint")
+end
+
+local function updateHealthIcon()
+  local cfg = ns.healthIcon and specID and ns.healthIcon[specID]
+  if not cfg or not db.healthIcon or not knows(cfg.spell) then hf:Hide() return end
+  local key = db.healthFull .. ":" .. db.healthNone
+  if healthCurveFor ~= key then healthCurve, healthCurveFor = buildHealthCurve(db.healthFull, db.healthNone), key end
+  hf.icon:SetTexture(spellIcon(cfg.spell))
+  hf.key:SetText(keybindFor(cfg.spell) or "")
+  hf:Show()
+  if not db.locked then hf:SetAlpha(1) return end -- fully visible while positioning
+  if not healthCurve or not UnitHealthPercent then hf:SetAlpha(0) return end
+  local ok, alpha = pcall(UnitHealthPercent, "player", true, healthCurve)
+  if not ok or alpha == nil or not pcall(hf.SetAlpha, hf, alpha) then hf:SetAlpha(0) end
+end
+
 local function layoutAll()
   layoutNext()
+  layoutHealth()
   placeFrame(frame, "point")
   placeFrame(ob, "openerPoint")
 end
@@ -643,7 +762,7 @@ end
 ---------------------------------------------------------------------------
 -- Main loop
 ---------------------------------------------------------------------------
-local ctx = { lastCast = lastCast, knows = knows, override = override, onCooldown = onCooldown }
+local ctx = { lastCast = lastCast, knows = knows, override = override, onCooldown = onCooldown, charges = charges }
 local elapsed, debugElapsed = 0, 0
 local testUntil = 0
 
@@ -656,9 +775,13 @@ local function tick()
   if ns.trackCooldowns and specID and ns.trackCooldowns[specID] then
     for _, id in ipairs(ns.trackCooldowns[specID]) do snapshotCooldown(id) end
   end
+  syncCharges()
+  updateHealthIcon()
   ctx.next = nextSpell()
   ctx.power = power()
   ctx.powerMax = powerMaxCache
+  ctx.runes = runes()
+  ctx.inCombat = inCombat
   ctx.enemies = countEnemies()
   ctx.inMelee = inMelee()
 
@@ -739,6 +862,7 @@ local function refresh(event)
   clearBindingCache()
   specID = currentSpecID()
   cachePowerMax()
+  wipe(chargeState) -- re-read charges for the (possibly new) spec
   if inCombat then return end
   if event ~= "SPELLS_CHANGED" or opener.index == 1 then
     buildOpener()
@@ -763,6 +887,7 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
       -- Casting it just started its cooldown, which may be hidden in combat. Forget the old
       -- "ready" answer so rules fall back to timing from this cast until we can read it again.
       readyAt[id] = nil
+      spendCharge(id)
       advanceOpener(id)
     end
   elseif event == "PLAYER_REGEN_DISABLED" then
@@ -793,10 +918,21 @@ SLASH_ASSISTCOMPANION2 = "/assistcompanion"
 SlashCmdList.ASSISTCOMPANION = function(input)
   local cmd, arg = (input or ""):lower():match("^(%S*)%s*(.-)$")
   if cmd == "unlock" then
-    db.locked = false; layoutAll(); nf:Show(); ob:Show(); frame:SetShown(db.showText)
+    db.locked = false; layoutAll(); nf:Show(); ob:Show(); frame:SetShown(db.showText); updateHealthIcon()
     say("Unlocked. Drag the next-cast icon and the opener bar, then type /ac lock.")
   elseif cmd == "lock" then
     db.locked = true; layoutAll(); say("Locked.")
+  elseif cmd == "hp" then
+    local full, none = arg:match("^(%d+)%s+(%d+)$")
+    full, none = tonumber(full), tonumber(none)
+    if full and none and full < none and none <= 99 then
+      db.healthFull, db.healthNone = full, none
+      say(("Death Strike icon: fully visible at %d%% health, hidden above %d%%."):format(full, none))
+    else
+      db.healthIcon = not db.healthIcon
+      say("Low-health Death Strike icon " .. (db.healthIcon and "on." or "off."))
+    end
+    updateHealthIcon()
   elseif cmd == "gcd" then
     db.gcdSwipe = not db.gcdSwipe; updateGCD()
     say("GCD swipe " .. (db.gcdSwipe and "on." or "off."))
@@ -845,6 +981,7 @@ SlashCmdList.ASSISTCOMPANION = function(input)
   elseif cmd == "reset" then
     db.point = CopyTable(DEFAULTS.point); db.openerPoint = CopyTable(DEFAULTS.openerPoint)
     db.nextPoint = CopyTable(DEFAULTS.nextPoint); db.iconSize = DEFAULTS.iconSize
+    db.healthPoint = CopyTable(DEFAULTS.healthPoint)
     db.scale = DEFAULTS.scale; layoutAll(); say("Position and size reset.")
   else
     say("commands:")
@@ -853,6 +990,7 @@ SlashCmdList.ASSISTCOMPANION = function(input)
     say("/ac icon  - toggle the next-cast icon (/ac icon 48 sets its size, now " .. db.iconSize .. ")")
     say("/ac text  - toggle text alerts (now " .. (db.showText and "on" or "off") .. ")")
     say("/ac gcd  - toggle the GCD swipe on the icon")
+    say("/ac hp  - Blood: toggle the low-health Death Strike icon (/ac hp 35 50 sets full/hidden health %)")
     say("/ac rp <n>  - Unholy: warn at this runic power (now " .. db.unholyRP .. ")")
     say("/ac cds  - Frost: toggle trinket/potion/racial reminder")
     say("/ac opener  - toggle the opener bar (/ac opener reset to restart it)")

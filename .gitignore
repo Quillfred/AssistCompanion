@@ -3,3 +3,4 @@ simc/
 nox/
 simout*/
 __pycache__/
+luac.out

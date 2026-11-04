@@ -36,6 +36,14 @@ local S = {
   OBLITERATE          = 49020,
   FROSTSCYTHE         = 207230,
   EMPOWER_RUNE_WEAPON = 47568,
+  -- Blood
+  MARROWREND          = 195182,
+  DEATHS_CARESS       = 195292,
+  DEATH_STRIKE        = 49998,
+  BLOOD_BOIL          = 50842,
+  HEART_STRIKE        = 206930,
+  RUNE_STRIKE         = 316239, -- the highlight's data uses this ID; Heart Strike replaces it
+  DEATH_AND_DECAY     = 43265,
 }
 ns.S = S
 
@@ -95,6 +103,66 @@ ns.rules[252] = {
         text = "Spend runic power",
         sub = ("%d RP. Death Coil on 1-3 targets, Epidemic on 4+"):format(p),
       }
+    end,
+  },
+}
+
+---------------------------------------------------------------------------
+-- Blood Death Knight (spec 250)
+-- Simmed against the in-game highlight with these three corrections on top (1/3/5 targets):
+-- DPS loss vs optimal 13/19/19% -> 5/11/9%, damage taken 12.9/10.6/7.8M -> 11.7/6.3/4.2M per sec.
+---------------------------------------------------------------------------
+local BONE_SHIELD_DURATION = 30 -- game data: Bone Shield (195181)
+local BONE_SHIELD_REFRESH = 25  -- refresh with ~5s left, like the optimal rotation
+
+local function isHeartStrike(ctx, id)
+  if not id then return false end
+  return id == S.HEART_STRIKE or id == S.RUNE_STRIKE
+      or id == ctx.override(S.RUNE_STRIKE) or id == ctx.override(S.HEART_STRIKE)
+end
+
+ns.rules[250] = {
+  {
+    key = "boneshield",
+    name = "Bone Shield refresh",
+    -- The highlight refreshes Bone Shield by stack count only, so it often lets the 30s
+    -- timer run out (Bone Shield ~90% uptime instead of 100%). We time it from your casts.
+    check = function(ctx)
+      if not ctx.inCombat or not ctx.knows(S.MARROWREND) then return end
+      if ctx.next == S.MARROWREND or ctx.next == S.DEATHS_CARESS then return end
+      local a, b = ctx.lastCast[S.MARROWREND], ctx.lastCast[S.DEATHS_CARESS]
+      local last = (a and b) and math.max(a, b) or a or b
+      if not last then return end
+      local age = ctx.now - last
+      if age < BONE_SHIELD_REFRESH or age > BONE_SHIELD_DURATION + 5 then return end
+      if ctx.runes and ctx.runes < 2 and ctx.knows(S.DEATHS_CARESS) then
+        return { spell = S.DEATHS_CARESS, text = "Refresh Bone Shield", sub = "Death's Caress (low on runes)" }
+      end
+      return { spell = S.MARROWREND, text = "Refresh Bone Shield", sub = "Marrowrend before it expires" }
+    end,
+  },
+  {
+    key = "rpcap",
+    name = "Death Strike at runic power cap",
+    -- Optimal spends Death Strike within 20 runic power of max; the highlight wastes 7-12% in AoE.
+    check = function(ctx)
+      local p = ctx.power
+      if not p or ctx.next == S.DEATH_STRIKE then return end
+      if p < (ctx.powerMax or 100) - 20 then return end
+      return { spell = S.DEATH_STRIKE, text = "Death Strike", sub = ("Runic power %d, don't cap"):format(p) }
+    end,
+  },
+  {
+    key = "bloodboil",
+    name = "Blood Boil charges",
+    -- The highlight only casts Blood Boil to apply Blood Plague (7-13 casts vs 52-56 optimal).
+    -- Use a charge instead of Heart Strike whenever one is available.
+    check = function(ctx)
+      if not isHeartStrike(ctx, ctx.next) then return end
+      if ctx.inMelee == false then return end -- Blood Boil hits within 10 yards
+      local c = ctx.charges(S.BLOOD_BOIL)
+      if not c or c < 1 then return end
+      return { spell = S.BLOOD_BOIL, text = "Blood Boil", sub = "Use the charge instead of Heart Strike" }
     end,
   },
 }
@@ -176,9 +244,38 @@ ns.openers[252] = {                     -- Unholy
   { id = S.DEATH_COIL },
 }
 
+ns.openers[250] = {                     -- Blood
+  { id = S.DEATHS_CARESS },             -- before the pull (ranged; applies Bone Shield)
+  { id = 46585, skipIfPet = true },     -- Raise Dead
+  { id = S.MARROWREND },
+  { id = S.MARROWREND },
+  { id = S.BLOOD_BOIL },
+  { id = S.DEATH_AND_DECAY },
+  { id = S.BLOOD_BOIL },
+  { id = S.HEART_STRIKE },
+  { id = S.DEATH_STRIKE },
+}
+
 -- Spells whose cooldowns rules need (read out of combat, remembered through combat).
 ns.trackCooldowns = {
   [251] = { S.BREATH, S.PILLAR_OF_FROST },
+}
+
+-- Charges counted from your own casts (hidden in combat). recharge = seconds per charge.
+ns.chargeTrack = {
+  [250] = { [S.BLOOD_BOIL] = { max = 2, recharge = 7.5 } }, -- game data: 2 charges, 7.5s, not hasted
+}
+
+-- Melee spell used for "is my target in melee range?"
+ns.meleeSpell = {
+  [250] = S.HEART_STRIKE,
+  [251] = S.OBLITERATE,
+  [252] = S.SCOURGE_STRIKE,
+}
+
+-- Low-health icon: fades in as your health drops (the game evaluates your hidden health).
+ns.healthIcon = {
+  [250] = { spell = S.DEATH_STRIKE },
 }
 
 -- Secondary reminder shown under the main alert (never replaces it).

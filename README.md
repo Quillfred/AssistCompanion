@@ -1,6 +1,6 @@
 # Assist Companion
 
-A World of Warcraft (retail, Midnight 12.1.5) addon for **Frost and Unholy Death Knight** that sits alongside Blizzard's **Assisted Highlight**.
+A World of Warcraft (retail, Midnight 12.1.5) addon for **Blood, Frost and Unholy Death Knight** that sits alongside Blizzard's **Assisted Highlight**.
 
 It shows the highlight's suggested spell as one icon with its keybind, the way a "single button" display does but without the Single-Button Assistant's global cooldown penalty. Where the highlight's own rules are known to be wrong, the icon shows the correct spell instead. It also shows an opener bar before and at the start of a pull.
 
@@ -10,6 +10,9 @@ The addon only displays information. You press every button yourself.
 
 | Spec | Highlight problem | Assist Companion shows |
 |---|---|---|
+| Blood | Bone Shield is only refreshed by stack count, so its 30s timer runs out (~90% uptime) | **Marrowrend** (or **Death's Caress** when low on runes) with ~5s left |
+| Blood | Blood Boil is only cast to apply Blood Plague (7–13 casts vs 52–56 optimal) | **Blood Boil** instead of Heart Strike whenever a charge is available |
+| Blood | Runic power overcaps in AoE (7–12% wasted) | **Death Strike** within 20 runic power of max |
 | Unholy | With the **Blightfall** talent, the highlight asks for **Outbreak** forever after Dark Transformation (its rule checks the Blightfall buff, which Outbreak never clears) | **Blightfall** |
 | Unholy | Runic power only gets spent on procs, so it overcaps (about 15% wasted in 5-target sims) | **Death Coil** (1–3 targets) or **Epidemic** (4+) at 80+ runic power |
 | Frost | **Breath of Sindragosa** is never suggested (about 7% DPS) | **Breath** during Pillar of Frost, as a bare 48px icon |
@@ -17,6 +20,8 @@ The addon only displays information. You press every button yourself.
 | Frost | **Empower Rune Weapon** is suggested while you're still running in (it has no range check, Pillar does) | Empower Rune Weapon **grayed out and red** until you're in melee |
 
 Corrections have a gold border. While an opener is running, the icon follows the opener instead and has a blue border. Like Blizzard's action bars, the icon turns **red** when your target is out of range, **blue** when you don't have enough runes or runic power, and **dark gray** when it can't be used for another reason. A global cooldown swipe runs over it. See [`docs/FINDINGS.md`](docs/FINDINGS.md) for the sims and game data behind each rule.
+
+**Blood low-health icon:** a separate Death Strike icon fades in as your health drops (fully visible at 35%, hidden above 50%). Health is hidden from addons in combat, so the game itself sets the icon's transparency from your health; the addon never reads it.
 
 ## Install
 
@@ -35,6 +40,7 @@ If the game says the addon is out of date, tick **Load out of date AddOns** on t
 | `/ac test` | Show a sample icon |
 | `/ac icon` | Turn the next-cast icon on or off. `/ac icon 56` sets its size (default 48) |
 | `/ac text` | Turn text alerts on or off (off by default) |
+| `/ac hp` | Blood: turn the low-health Death Strike icon on or off. `/ac hp 35 50` sets fully-visible / hidden health % |
 | `/ac gcd` | Turn the global cooldown swipe on the icon on or off (on by default) |
 | `/ac opener` | Turn the opener bar on or off. `/ac opener reset` restarts it. `/ac opener icon` stops the next-cast icon following the opener |
 | `/ac rp 80` | Unholy: runic power level that triggers a spend warning |

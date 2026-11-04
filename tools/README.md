@@ -3,6 +3,7 @@
 Scripts used to produce the numbers in `docs/FINDINGS.md`. They expect, next to this folder:
 
 * `simc/`: a SimulationCraft checkout (`midnight` branch) built with `cmake -S simc -B simc/build -DBUILD_GUI=OFF -DSC_NO_NETWORKING=ON && ninja -C simc/build simc`
+* `table_data.json`: per-spec results and talent strings written while building the rankings page (Blood scripts; set `SIM_ROOT` if it lives elsewhere)
 * `nox/`: talent build data (`aoe_builds.json`, `candidate_builds.json`) gathered from Noxxic's talent pages
 
 | Script | What it does |
@@ -11,3 +12,5 @@ Scripts used to produce the numbers in `docs/FINDINGS.md`. They expect, next to 
 | `screen_ah_builds.py` | Finds each spec's best talent build when following the highlight (`TARGETS=1/5`) |
 | `cleave3.py` | 3-target cleave: best build for each rotation, then full-precision sims |
 | `decode_talents.py` | Lists the talents in an in-game export string: `python3 decode_talents.py <string>` |
+| `blood_sims.py` | Blood: optimal vs highlight at 1/3/5 targets (casts, runic power waste, Bone Shield uptime, damage taken) |
+| `blood_rules_sim.py` | Blood: the highlight's own priority with the addon's corrections added, to measure what they're worth |
