@@ -29,6 +29,8 @@ local DEFAULTS = {
   healthFull = 35,         -- health % at or below which it's fully visible
   healthNone = 50,         -- health % at or above which it's invisible
   healthPoint = { "CENTER", "UIParent", "CENTER", 60, -100 },
+  minimapButton = true,    -- minimap button (left-click: options, right-click: lock/unlock)
+  minimapAngle = 225,      -- its position around the minimap, degrees
   disabled = {},           -- rules turned off, as "<specID>:<key>" (options menu or /ac toggle <key>)
   debug = false,
 }
@@ -1064,17 +1066,17 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
       end
     end
     layoutAll()
-    if ns.initOptions then
-      ns.initOptions({
-        db = function() return db end,
-        specID = function() return specID end,
-        layoutAll = layoutAll,
-        updateGCD = updateGCD,
-        updateHealthIcon = updateHealthIcon,
-        buildOpener = buildOpener,
-        logSize = function() return db.debugLog and #db.debugLog or 0, LOG_MAX end,
-      })
-    end
+    local core = {
+      db = function() return db end,
+      specID = function() return specID end,
+      layoutAll = layoutAll,
+      updateGCD = updateGCD,
+      updateHealthIcon = updateHealthIcon,
+      buildOpener = buildOpener,
+      logSize = function() return db.debugLog and #db.debugLog or 0, LOG_MAX end,
+    }
+    if ns.initOptions then ns.initOptions(core) end
+    if ns.initMinimap then ns.initMinimap(core) end
   elseif event == "SPELL_UPDATE_COOLDOWN" then
     updateGCD()
   elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
@@ -1205,6 +1207,10 @@ SlashCmdList.ASSISTCOMPANION = function(input)
     nf.icon:SetTexture(spellIcon(sample)); nf.border:Show(); nf.key:SetText("F"); nf.rank:SetText("")
     nf.icon:SetVertexColor(1, 1, 1); nf.icon:SetDesaturated(false); nf.note:SetText("Reminders appear here")
     nf:Show()
+  elseif cmd == "minimap" then
+    db.minimapButton = not db.minimapButton
+    if ns.updateMinimap then ns.updateMinimap() end
+    say("Minimap button " .. (db.minimapButton and "shown." or "hidden. /ac minimap shows it again."))
   elseif cmd == "" or cmd == "options" or cmd == "config" then
     if ns.openOptions and ns.openOptions() then return end
     say("The options menu isn't available. /ac help lists the commands.")
@@ -1228,6 +1234,7 @@ SlashCmdList.ASSISTCOMPANION = function(input)
     say("/ac rules | toggle <key>  - list or turn off rules")
     say("/ac debug  - log what the addon sees to its saved file (/ac debug chat also prints it)")
     say("/ac log  - show debug log size (/ac log clear empties it)")
+    say("/ac minimap  - show or hide the minimap button")
     say("/ac scale <n> | reset")
   end
 end

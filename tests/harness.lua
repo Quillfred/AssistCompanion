@@ -61,7 +61,7 @@ local function newFrame()
   function f:SetShown(v) self.shown = v and true or false end
   function f:SetScript(n, fn) self.scripts[n] = fn end
   function f:ClearAllPoints() end
-  function f:SetPoint() end
+  function f:SetPoint(...) self.point = { ... } end
   function f:SetScale() end
   function f:EnableMouse() end
   function f:SetBackdrop() end
@@ -80,7 +80,10 @@ local function newFrame()
   function f:GetVerticalScrollRange() return 0 end
   function f:GetVerticalScroll() return 0 end
   function f:SetVerticalScroll() end
-  function f:Click() if self.scripts.OnClick then self.scripts.OnClick(self, "LeftButton") end end
+  function f:Click(b) if self.scripts.OnClick then self.scripts.OnClick(self, b or "LeftButton") end end
+  function f:RegisterForClicks() end
+  function f:RegisterForDrag() end
+  function f:SetHighlightTexture() end
   return f
 end
 local frames = {}
@@ -130,9 +133,16 @@ Settings = {
   OpenToCategory = function(id) settings.opened = id end,
 }
 
+Minimap = newFrame()
+function Minimap:GetWidth() return 140 end
+function Minimap:GetCenter() return 1000, 500 end
+function Minimap:GetEffectiveScale() return 1 end
+local cursor = { 0, 0 }
+function GetCursorPosition() return cursor[1], cursor[2] end
+
 -- load addon files with a shared namespace
 local ns = {}
-for _, file in ipairs({ "Rules.lua", "Core.lua", "Options.lua" }) do
+for _, file in ipairs({ "Rules.lua", "Core.lua", "Options.lua", "Minimap.lua" }) do
   local chunk = assert(loadfile(dir .. "/" .. file))
   chunk("AssistCompanion", ns)
 end
@@ -887,6 +897,37 @@ local size = AssistCompanionDB.iconSize
 for _, w in ipairs(ns.optionsWidgets) do if w.label and w.label.text == "Icon size" then w.plus:Click() end end
 expect("Options: icon size + button", size + 4, AssistCompanionDB.iconSize)
 AssistCompanionDB.iconSize = size
+-- MINIMAP BUTTON ---------------------------------------------------------------
+local mb = ns.minimapButton()
+local function at() return math.floor(mb.point[4] + 0.5) .. "," .. math.floor(mb.point[5] + 0.5) end
+expect("Minimap: button made and shown by default", true, mb ~= nil and mb.shown)
+expect("Minimap: default spot (225 degrees, bottom left)", "-53,-53", at())
+settings.opened = nil; mb:Click("LeftButton")
+expect("Minimap: left-click opens the options", 77, settings.opened)
+local wasLocked = AssistCompanionDB.locked
+mb:Click("RightButton")
+expect("Minimap: right-click unlocks frames", false, AssistCompanionDB.locked)
+mb:Click("RightButton")
+expect("Minimap: right-click again locks them", true, AssistCompanionDB.locked)
+AssistCompanionDB.locked = wasLocked
+cursor[1], cursor[2] = 1100, 500                                  -- right of the minimap centre
+mb.scripts.OnDragStart(mb); mb.scripts.OnUpdate(mb, 0.1)
+expect("Minimap: dragging moves it around the edge (to the right)", "75,0", at())
+expect("Minimap: ...and remembers the angle", 0, math.floor(AssistCompanionDB.minimapAngle + 0.5))
+mb.scripts.OnDragStop(mb)
+expect("Minimap: drag stops following the cursor", nil, mb.scripts.OnUpdate)
+function GetMinimapShape() return "SQUARE" end
+AssistCompanionDB.minimapAngle = 45; ns.updateMinimap()
+expect("Minimap: square minimap -> sits in the corner", "75,75", at())
+GetMinimapShape = nil; AssistCompanionDB.minimapAngle = 225; ns.updateMinimap()
+SlashCmdList.ASSISTCOMPANION("minimap")
+expect("Minimap: /ac minimap hides it", false, mb.shown)
+local mmCheck = widget("Minimap button")
+mmCheck.checked = true; mmCheck:Click()
+expect("Minimap: options checkbox shows it again", true, mb.shown and AssistCompanionDB.minimapButton)
+settings.opened = nil; AssistCompanion_OnAddonCompartmentClick()
+expect("Minimap: addon compartment entry opens the options", 77, settings.opened)
+
 -- old saved settings carry over
 AssistCompanionDB.disabled = { raisedead = true }; AssistCompanionDB.alwaysShow = false; AssistCompanionDB.showMode = nil
 events.scripts.OnEvent(events, "ADDON_LOADED", "AssistCompanion")

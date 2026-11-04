@@ -42,7 +42,7 @@ If the game says the addon is out of date, tick **Load out of date AddOns** on t
 
 ## Options menu
 
-Type **`/ac`**, or open **Esc → Options → AddOns → Assist Companion**.
+Click the **minimap button**, type **`/ac`**, or open **Esc → Options → AddOns → Assist Companion** (also in the minimap's addon menu).
 
 * **Icons:** show or hide the next-cast icon, and when to show it (always, in combat or with an enemy targeted, or only in combat); show while dead; global cooldown swipe; text alerts; lock or unlock frames for moving; icon size and scale; test icon; reset positions.
 * **Opener:** opener bar on or off, whether the next-cast icon follows it, restart it.
@@ -54,6 +54,7 @@ Type **`/ac`**, or open **Esc → Options → AddOns → Assist Companion**.
 | Command | What it does |
 |---|---|
 | `/ac` | Open the options menu. `/ac help` lists the commands |
+| `/ac minimap` | Show or hide the minimap button (left-click: options, right-click: lock/unlock, drag: move) |
 | `/ac unlock`, `/ac lock` | Move the next-cast icon and opener bar |
 | `/ac test` | Show a sample icon |
 | `/ac icon` | Turn the next-cast icon on or off. `/ac icon 56` sets its size (default 48) |
