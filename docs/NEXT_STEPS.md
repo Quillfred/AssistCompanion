@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.14.2** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.14.3** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -56,6 +56,9 @@ Not yet seen in the live game: check the panel's layout, scrolling, and that che
    Upheaval, `ebonfirst` rule. Status line: `em= emcd= up= x=`. From the owner's second log (`docs/FINDINGS.md`).
    **0.14.2:** speed-ups apply to the cooldown-ready rules too (Breath of Eons was held ~23s), and the Upheaval
    estimate reads only the button's spell (it was always 0). From the owner's third log.
+   **0.14.3:** cooldown reads ignored in combat (empowers read "ready" right after the cast, so `up=` was
+   always 0), and `ebonfirst` now holds empowers up to 6s for Ebon Might with an Eruption / Chrono Flames
+   filler. From the owner's fourth log.
    **Open:** the Ebon Might estimate runs at least 8s short in the owner's log, so the `ebonmight` refresh rule
    never fires. Next log: compare `em=` on the status lines with when the highlight asks for Ebon Might again
    (it only does once the buff is down and Ebon Might is off cooldown). Original notes:

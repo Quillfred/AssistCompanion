@@ -1069,8 +1069,16 @@ expect("Learn: next Upheaval, 1.4s left -> rank 1", "1", nf.rank.text)
 -- Ebon Might before empowers
 now = now + 300; augReset()
 local e0 = now; cast(395152)                                     -- Ebon Might: 10s, cooldown 30s
-now = e0 + 27; state.next = 357208; step()
-expect("Ebon first: Ebon Might 3s from ready -> Fire Breath", "icon:357208", nf.icon.texture)
+now = e0 + 23; state.next = 357208; step()
+expect("Ebon first: Ebon Might 7s from ready -> Fire Breath (too long to hold)", "icon:357208", nf.icon.texture)
+now = e0 + 27; step()
+expect("Ebon first: Ebon Might 3s from ready, buff gone -> hold: Eruption to fill", "icon:395160", nf.icon.texture)
+state.usable[395160] = false; state.overrides[361469] = 431443; step()
+expect("Ebon first: no essence for Eruption -> Chrono Flames to fill", "icon:431443", nf.icon.texture)
+state.usable[395160] = nil; state.overrides[361469] = nil
+ns.ebonMight.expires = now + 10; step()
+expect("Ebon first: buff still up when Ebon Might is back -> Fire Breath", "icon:357208", nf.icon.texture)
+ns.ebonMight.expires = 0
 now = e0 + 29; step()
 expect("Ebon first: Ebon Might 1s from ready, buff run out -> Ebon Might first", "icon:395152", nf.icon.texture)
 expect("Ebon first: as a correction", true, nf.border.shown)
@@ -1097,6 +1105,15 @@ combat(false); now = now + 300; augReset(); ns.ebonMight.expires = now + 1000; s
 combat(true); C_Spell.GetSpellCooldown = function() return { startTime = "SECRET", duration = "SECRET" } end -- hidden in combat
 cast(396286); state.next = 357208; step()
 expect("Rank: right after Upheaval (Font of Magic ID reads ready) -> Fire Breath rank 3", "3", nf.rank.text)
+-- Owner's fourth log: in combat the game read Upheaval as "ready" right after the cast (an empower's
+-- cooldown starts on release), so up= stayed 0. In-combat reads are now ignored.
+C_Spell.GetSpellCooldown = function() return { startTime = 0, duration = 0, modRate = 1 } end -- readable, "ready"
+now = now + 60; cast(396286); state.next = 357208; step(); step()
+expect("Rank: in-combat 'ready' read right after Upheaval is ignored -> rank 3", "3", nf.rank.text)
+-- ...and out of combat in the first seconds after casting it (a pre-pull empower)
+combat(false); now = now + 60; cast(396286); step()
+combat(true); state.next = 357208; step()
+expect("Rank: pre-pull Upheaval read 'ready' before its cooldown started -> rank 3", "3", nf.rank.text)
 C_Spell.GetSpellCooldown = nil; state.next = 431443
 
 -- debug log: Ebon Might estimate on the status line, rule errors logged once

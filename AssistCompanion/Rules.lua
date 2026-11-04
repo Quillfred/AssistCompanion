@@ -61,7 +61,8 @@ local S = {
   TIP_THE_SCALES      = 370553,
   TIME_SKIP           = 404977,
   TEMPORAL_BURST      = 431695, -- Chronowarden
-  CLEAR_EMPOWER_COOLDOWN = 397374, -- "[DNT] Clear Empower Cooldown": resets Fire Breath and Upheaval
+  CLEAR_EMPOWER_COOLDOWN = 397374,
+  LIVING_FLAME        = 361469, -- Chrono Flames (431443) replaces it on the button for Chronowarden -- "[DNT] Clear Empower Cooldown": resets Fire Breath and Upheaval
   CHRONOBOON          = 1260484, -- Chronowarden: Tip the Scales' cooldown is shorter
 }
 ns.S = S
@@ -243,6 +244,8 @@ ns.rules[251] = {
 local EM_DURATION, EM_PANDEMIC = 10, 3
 local EM_REFRESH = 4     -- optimal refreshes with 40% (4s) left
 local EM_COOLDOWN = 30   -- game data (395152)
+local EM_HOLD = 6        -- hold an empower for Ebon Might if it's back within this many seconds
+local GCD = 1.5
 local EM_EXTEND = {
   [S.ERUPTION] = 1, [S.ERUPTION_2] = 1,
   [S.FIRE_BREATH] = 2, [S.FIRE_BREATH_FOM] = 2, [S.UPHEAVAL] = 2, [S.UPHEAVAL_FOM] = 2,
@@ -411,17 +414,23 @@ ns.rules[1473] = {
     key = "ebonfirst",
     name = "Ebon Might before empowers",
     spell = S.EBON_MIGHT,
-    desc = "When the highlight asks for Fire Breath or Upheaval in the last 1.5 seconds before Ebon Might comes off cooldown (and it has run out or is about to), "
-        .. "shows Ebon Might first: empowers should go out inside Ebon Might, and they extend it.",
+    desc = "When the highlight asks for Fire Breath or Upheaval but Ebon Might will have run out and comes back within "
+        .. "about 6 seconds, holds the empower: Eruption or Chrono Flames to fill the wait, then Ebon Might, then the empower "
+        .. "(empowers should go out inside Ebon Might, and they extend it).",
     check = function(ctx)
       if not ctx.inCombat or not ctx.knows(S.EBON_MIGHT) then return end
       if not EMPOWERS[ctx.next] then return end
-      if ebonMight.expires - ctx.now > EM_REFRESH then return end
-      -- Only while it's about to come off cooldown: once it's ready, the highlight asks for it
-      -- itself if the buff is down (so if it says an empower instead, the buff is still up).
+      -- Only while it's still on cooldown: once it's ready, the highlight asks for it itself if the
+      -- buff is down (so if it says an empower instead, the buff is still up).
       local cd = cooldownLeft(ctx, EBON_MIGHT_IDS, EM_COOLDOWN)
-      if cd <= 0 or cd > 1.5 then return end
-      return { spell = S.EBON_MIGHT, text = "Ebon Might first", sub = "Then the empower, inside Ebon Might" }
+      if cd <= 0 or cd > EM_HOLD then return end
+      if ebonMight.expires - ctx.now > cd + 0.5 then return end -- still up when Ebon Might is back
+      if cd <= GCD then
+        return { spell = S.EBON_MIGHT, text = "Ebon Might first", sub = "Then the empower, inside Ebon Might" }
+      end
+      -- More than a global cooldown to wait: fill it.
+      local filler = ctx.usable(S.ERUPTION) and S.ERUPTION or (ctx.override(S.LIVING_FLAME) or S.LIVING_FLAME)
+      return { spell = filler, text = "Hold the empower", sub = ("Ebon Might back in %.0fs"):format(cd) }
     end,
   },
   {

@@ -123,18 +123,29 @@ end
 -- that answer through combat. readyAt[id] = GetTime() when ready (0 = ready now).
 ---------------------------------------------------------------------------
 local readyAt = {}
+local inCombat, combatStart = false, 0
 local GCD_GRACE = 1.6 -- cooldowns this short are just the global cooldown
 
 local function num(v) v = readable(v) return type(v) == "number" and v or nil end
 
 local function snapshotCooldown(id)
+  -- Only out of combat. In combat cooldowns are hidden, and the reads that aren't can mislead: an
+  -- empowered spell's cooldown only starts when you release it, so right after the cast event it
+  -- reads "ready" (owner's log: Upheaval read ready all fight). Keep what we read before the pull.
+  if inCombat then return end
+  -- Same for a "ready" read in the first seconds after casting it (e.g. a pre-pull empower).
+  local cast = lastCast[id]
+  local justCast = cast and GetTime() - cast < 5
   -- Charge spells (e.g. Empower Rune Weapon): ready if a charge is available.
   if C_Spell and C_Spell.GetSpellCharges then
     local ok, info = pcall(C_Spell.GetSpellCharges, id)
     if ok and type(info) == "table" and readable(info) then
       local cur, maxc = num(info.currentCharges), num(info.maxCharges)
       if cur and maxc and maxc > 1 then
-        if cur > 0 then readyAt[id] = 0 return end
+        if cur > 0 then
+          if not justCast then readyAt[id] = 0 end
+          return
+        end
         local st, du = num(info.cooldownStartTime), num(info.cooldownDuration)
         if st and du then readyAt[id] = st + du end
         return
@@ -146,7 +157,11 @@ local function snapshotCooldown(id)
     if ok and type(info) == "table" and readable(info) then
       local st, du = num(info.startTime), num(info.duration)
       if st and du then
-        if st == 0 or du <= GCD_GRACE then readyAt[id] = 0 else readyAt[id] = st + du end
+        if st == 0 or du <= GCD_GRACE then
+          if not justCast then readyAt[id] = 0 end
+        else
+          readyAt[id] = st + du
+        end
       end
     end
   end
@@ -191,7 +206,6 @@ local function hostileTarget()
   return try(UnitExists, "target") and try(UnitCanAttack, "player", "target") and not try(UnitIsDead, "target")
 end
 
-local inCombat, combatStart = false, 0
 local function combatOrTarget() return inCombat or hostileTarget() end
 
 -- Should the next-cast icon be on screen right now? (db.showMode)
@@ -857,7 +871,12 @@ end
 -- Main loop
 ---------------------------------------------------------------------------
 local ctx = { lastCast = lastCast, knows = knows, override = override, onCooldown = onCooldown, readyIn = readyIn,
-              charges = charges, description = spellDescription }
+              charges = charges, description = spellDescription,
+              -- true/false: usable now (resources etc., not cooldown); nil if the game won't say
+              usable = function(id)
+                if not (C_Spell and C_Spell.IsSpellUsable) then return nil end
+                return (try(C_Spell.IsSpellUsable, id))
+              end }
 local elapsed, debugElapsed = 0, 0
 local ruleErrorLogged = {}
 local lastIconKey
