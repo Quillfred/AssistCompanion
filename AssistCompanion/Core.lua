@@ -304,6 +304,13 @@ local function spellIcon(id)
   return 134400 -- question mark
 end
 
+-- A spell's tooltip text with numbers filled in (nil if hidden or unavailable).
+local function spellDescription(id)
+  if not (id and C_Spell and C_Spell.GetSpellDescription) then return nil end
+  local d = try(C_Spell.GetSpellDescription, id)
+  return type(d) == "string" and d ~= "" and d or nil
+end
+
 local function spellName(id)
   if not id then return "none" end
   if C_Spell and C_Spell.GetSpellName then
@@ -850,7 +857,7 @@ end
 -- Main loop
 ---------------------------------------------------------------------------
 local ctx = { lastCast = lastCast, knows = knows, override = override, onCooldown = onCooldown, readyIn = readyIn,
-              charges = charges }
+              charges = charges, description = spellDescription }
 local elapsed, debugElapsed = 0, 0
 local ruleErrorLogged = {}
 local lastIconKey
@@ -888,6 +895,9 @@ local function tick()
   ctx.inCombat = inCombat
   ctx.enemies = countEnemies()
   ctx.inMelee = inMelee()
+
+  local onTick = ns.onTick and specID and ns.onTick[specID]
+  if onTick then pcall(onTick, ctx) end
 
   local alert, note, alertKey
   local rules = specID and ns.rules[specID]

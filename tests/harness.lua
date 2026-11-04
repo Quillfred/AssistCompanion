@@ -904,7 +904,7 @@ state.known = { [395152]=true, [409311]=true, [403631]=true }
 state.next = 361469; state.group = false; state.rangeAsked = {}
 events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
 events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 300; step()
-expect("Aug: rule order", "ebonmight,breatheons,tipthescales,timeskip,prescience",
+expect("Aug: rule order", "ebonmight,ebonfirst,breatheons,tipthescales,timeskip,prescience",
   (function() local t = {} for _, r in ipairs(ns.rules[1473]) do t[#t+1] = r.key end return table.concat(t, ",") end)())
 expect("Aug: out of combat -> plain highlight", "icon:361469", nf.icon.texture)
 expect("Aug: no melee check for a ranged spec", false, state.rangeAsked and state.rangeAsked[49020] or false)
@@ -1006,17 +1006,94 @@ now = now + 200; state.next = 431443; events.scripts.OnEvent(events, "TRAIT_CONF
 expect("Time Skip: Breath of Eons ready -> Breath of Eons first", "icon:403631", nf.icon.texture)
 cast(403631); now = now + 110; step()
 expect("Time Skip: Breath of Eons due in 10s, Tip ready -> hold Time Skip", "icon:431443", nf.icon.texture)
+-- Cooldown speed-ups and learning (owner's second debug log). Breath of Eons, Tip the Scales and
+-- Time Skip come off cooldown between these sections; turn them off so they don't take the icon.
+for _, k in ipairs({ "breatheons", "tipthescales", "timeskip" }) do ns.setRuleEnabled(1473, k, false) end
+local function augReset()
+  ns.augCooldowns.empowerFactor, ns.augCooldowns.empowerReset = 1, 0
+  for k in pairs(ns.augCooldowns.readyNow) do ns.augCooldowns.readyNow[k] = nil end
+  ns.ebonMight.expires = 0
+end
+state.known = { [395152]=true, [409311]=true, [403631]=true, [370553]=true, [404977]=true }
+events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
+now = now + 400; augReset(); cast(403631); cast(370553); cast(357208); cast(395152) -- BoE, Tip, Fire Breath, Ebon Might spent
+ns.ebonMight.expires = now + 100                                -- keep the Ebon Might rules quiet here
+local u0 = now; cast(396286)                                    -- Upheaval: 40s
+now = u0 + 20; state.next = 357208; step()
+expect("Speed: Upheaval 20s into 40s -> Fire Breath rank 3", "3", nf.rank.text)
+cast(404977); now = u0 + 22.1; state.next = 357208; step()        -- Time Skip: +18s over its 2s channel
+expect("Speed: Time Skip brings Upheaval back -> rank 1", "1", nf.rank.text)
+-- Temporal Burst: +30% recovery after Tip the Scales, fading over 30s
+state.known[431695] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
+now = now + 300; augReset(); ns.ebonMight.expires = now + 100
+cast(370553); cast(357208); local u1 = now; cast(396286)         -- Tip, Fire Breath (uses it), Upheaval
+now = u1 + 30; step()                                            -- 30s + 4.5s from Temporal Burst = 34.5 of 40
+expect("Speed: Temporal Burst, 5.5s left -> rank 3", "3", nf.rank.text)
+now = u1 + 34.6; step()                                          -- 39.1 of 40: within 1.5s
+expect("Speed: Temporal Burst, 0.9s left -> rank 1", "1", nf.rank.text)
+state.known[431695] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
+-- Temporal Burst's size and fade time come from its tooltip (out of combat)
+local function tbRead(text, t, keep)
+  if not keep then ns.temporalBurst.readAt = nil end
+  ns.onTick[1473]({ inCombat = false, now = t, description = function() return text end })
+  return ns.temporalBurst.max .. "/" .. ns.temporalBurst.seconds
+end
+expect("Temporal Burst: owner's tooltip -> 30% over 34.1s", "0.3/34.1", tbRead(
+  "Tip the Scales overloads you with temporal energy, increasing your haste, movement speed, and cooldown recovery rate by 30%, decreasing over 34.1 sec.", now))
+expect("Temporal Burst: comma decimals and a space before %", "0.25/31.5", tbRead(
+  "Erhöht Tempo, Bewegungsgeschwindigkeit und Abklingrate um 25 %, nimmt über 31,5 Sek. ab.", now + 10))
+expect("Temporal Burst: unreadable tooltip keeps the last values", "0.25/31.5", tbRead(nil, now + 20))
+expect("Temporal Burst: not re-read within 5s", "0.25/31.5", tbRead("by 30%, decreasing over 30 sec.", now + 22, true))
+expect("Temporal Burst: not read in combat", "0.25/31.5", (function()
+  ns.temporalBurst.readAt = nil
+  ns.onTick[1473]({ inCombat = true, now = now + 40, description = function() return "by 30%, over 30 sec." end })
+  return ns.temporalBurst.max .. "/" .. ns.temporalBurst.seconds end)())
+tbRead("by 30%, decreasing over 34.1 sec.", now + 60)
+
+-- Clear Empower Cooldown resets Fire Breath and Upheaval
+now = now + 300; augReset(); ns.ebonMight.expires = now + 100
+cast(396286); now = now + 5; step()
+expect("Reset: Upheaval just used -> rank 3", "3", nf.rank.text)
+cast(397374); step()
+expect("Reset: Clear Empower Cooldown -> Upheaval ready -> rank 1", "1", nf.rank.text)
+-- Learning: the highlight showing Upheaval means it's ready
+now = now + 300; augReset(); ns.ebonMight.expires = now + 100
+local u2 = now; cast(396286)
+now = u2 + 29.2; state.next = 396286; step()                     -- (step adds 0.2s: 29.4)
+expect("Learn: Upheaval ready after 29.4s -> factor 40/29.4", 1.36, math.floor(ns.augCooldowns.empowerFactor * 100 + 0.5) / 100)
+local u3 = now; cast(396286)
+now = u3 + 27.5; state.next = 357208; step()                     -- 27.5 * 1.36 = 37.4: 2.6s left
+expect("Learn: next Upheaval, 2.6s left -> rank 3", "3", nf.rank.text)
+now = u3 + 28.4; step()                                          -- 38.6: 1.4s left
+expect("Learn: next Upheaval, 1.4s left -> rank 1", "1", nf.rank.text)
+-- Ebon Might before empowers
+now = now + 300; augReset()
+local e0 = now; cast(395152)                                     -- Ebon Might: 10s, cooldown 30s
+now = e0 + 27; state.next = 357208; step()
+expect("Ebon first: Ebon Might 3s from ready -> Fire Breath", "icon:357208", nf.icon.texture)
+now = e0 + 29; step()
+expect("Ebon first: Ebon Might 1s from ready, buff run out -> Ebon Might first", "icon:395152", nf.icon.texture)
+expect("Ebon first: as a correction", true, nf.border.shown)
+now = e0 + 31; step()
+expect("Ebon first: Ebon Might ready but the highlight says Fire Breath (buff up) -> Fire Breath", "icon:357208", nf.icon.texture)
+-- The highlight asking for Ebon Might means the buff is down
+ns.ebonMight.expires = now + 20; state.next = 395152; step()
+expect("Ebon Might: highlight asks for it -> our estimate says it's down", true, ns.ebonMight.expires <= now)
+state.next = 431443
+
 -- debug log: Ebon Might estimate on the status line, rule errors logged once
 local function dbgHas(pat) for _, l in ipairs(AssistCompanionDB.debugLog or {}) do if l:find(pat, 1, true) then return true end end return false end
 AssistCompanionDB.debugLog = {}; AssistCompanionDB.debug = true
 table.insert(ns.rules[1473], 1, { key = "broken", name = "Broken", check = function() error("boom") end })
 for _ = 1, 12 do step() end
 expect("Debug: Augmentation status shows the Ebon Might estimate", true, dbgHas(" em="))
+expect("Debug: ...and the cooldown estimates", true, dbgHas(" up=") and dbgHas(" emcd=") and dbgHas(" x="))
 expect("Debug: a rule error is logged", true, dbgHas("rule broken error"))
 local n = 0 for _, l in ipairs(AssistCompanionDB.debugLog) do if l:find("rule broken error", 1, true) then n = n + 1 end end
 expect("Debug: ...only once", 1, n)
 expect("Debug: other rules still run after a broken one", "icon:431443", nf.icon.texture)
 table.remove(ns.rules[1473], 1); AssistCompanionDB.debug = false
+for _, k in ipairs({ "breatheons", "tipthescales", "timeskip" }) do ns.setRuleEnabled(1473, k, true) end
 combat(false); state.group = false
 state.spec = 1473; panel.scripts.OnShow(panel)
 expect("Options: Evoker listed with Augmentation", true, branchRow("spec:1473") ~= nil and branchRow("class:EVOKER") ~= nil)
