@@ -35,6 +35,7 @@ If the game says the addon is out of date, tick **Load out of date AddOns** on t
 | `/ac test` | Show a sample icon |
 | `/ac icon` | Turn the next-cast icon on or off. `/ac icon 56` sets its size (default 48) |
 | `/ac text` | Turn text alerts on or off (off by default) |
+| `/ac gcd` | Turn the global cooldown swipe on the icon on or off (on by default) |
 | `/ac opener` | Turn the opener bar on or off. `/ac opener reset` restarts it. `/ac opener icon` stops the next-cast icon following the opener |
 | `/ac rp 80` | Unholy: runic power level that triggers a spend warning |
 | `/ac cds` | Frost: turn the "use trinkets, potion and racial" reminder during Pillar on or off |

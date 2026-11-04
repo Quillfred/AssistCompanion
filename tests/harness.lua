@@ -38,6 +38,16 @@ local function newFrame()
   function f:SetMovable() end
   function f:SetFrameStrata(x) self.strata = x end
   function f:SetFrameLevel(x) self.level = x end
+  function f:GetFrameLevel() return self.level or 1 end
+  function f:SetAllPoints() end
+  function f:SetDrawEdge() end
+  function f:SetDrawBling() end
+  function f:SetHideCountdownNumbers() end
+  function f:SetCooldown(st, d, m)
+    if st == "SECRET_COMPARE_TRAP" then error("addon compared a secret") end
+    self.cd = { start = st, duration = d, via = "SetCooldown" }
+  end
+  function f:SetCooldownFromDurationObject(obj) self.cd = { obj = obj, via = "duration" } end
   function f:SetToplevel(x) self.toplevel = x end
   function f:SetClampedToScreen() end
   function f:Show() self.shown = true end
@@ -98,7 +108,10 @@ for _, file in ipairs({ "Rules.lua", "Core.lua" }) do
   chunk("AssistCompanion", ns)
 end
 local display, ob, nf = AssistCompanionFrame, AssistCompanionOpener, AssistCompanionNext
-local driver, events = frames[4], frames[5]
+local driver, events
+for _, f in ipairs(frames) do
+  if f.scripts.OnEvent then events = f elseif f.scripts.OnUpdate and not driver and f ~= nf then driver = f end
+end
 events.scripts.OnEvent(events, "ADDON_LOADED", "AssistCompanion")
 expect_default_text = AssistCompanionDB.showText
 expect_default_size = AssistCompanionDB.iconSize
@@ -367,6 +380,31 @@ expect("Reset: still advanced after 5s", "Opener\n2/8", ob.label.text)
 now = now + 6; step()
 expect("Reset: reset after 10s idle out of combat", "Opener\n1/8", ob.label.text)
 AssistCompanionDB.openerIcon = false
+
+-- GCD SWIPE ----------------------------------------------------------------
+local gcdFrame = nf.gcd
+expect("GCD: swipe frame exists on the icon", true, gcdFrame ~= nil)
+C_Spell.GetSpellCooldownDuration = function(id) if id == 61304 then return { kind = "durationObject" } end end
+events.scripts.OnEvent(events, "SPELL_UPDATE_COOLDOWN")
+expect("GCD: uses duration object when available", "duration", gcdFrame.cd and gcdFrame.cd.via)
+expect("GCD: shown when enabled", true, gcdFrame.shown)
+-- fallback path with secret values: passed through untouched, never compared
+C_Spell.GetSpellCooldownDuration = nil
+C_Spell.GetSpellCooldown = function(id) return { startTime = "SECRET", duration = "SECRET", modRate = 1 } end
+events.scripts.OnEvent(events, "SPELL_UPDATE_COOLDOWN")
+expect("GCD: fallback SetCooldown", "SetCooldown", gcdFrame.cd.via)
+expect("GCD: secret start passed straight through", "SECRET", gcdFrame.cd.start)
+-- swipe refreshes on your own casts too
+gcdFrame.cd = nil; cast(49020)
+expect("GCD: refreshed on cast", "SetCooldown", gcdFrame.cd and gcdFrame.cd.via)
+-- API missing entirely: no error
+C_Spell.GetSpellCooldown = nil; gcdFrame.cd = nil
+local okNoApi = pcall(events.scripts.OnEvent, events, "SPELL_UPDATE_COOLDOWN")
+expect("GCD: no cooldown API -> no error", true, okNoApi)
+-- toggle off
+SlashCmdList.ASSISTCOMPANION("gcd")
+expect("GCD: /ac gcd hides swipe", false, gcdFrame.shown)
+SlashCmdList.ASSISTCOMPANION("gcd")
 
 -- secret values: power returns a secret -> treated as unknown, no error
 issecretvalue = function(v) return v == "SECRET" end

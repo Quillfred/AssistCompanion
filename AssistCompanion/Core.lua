@@ -20,6 +20,7 @@ local DEFAULTS = {
   cooldownReminder = true, -- Frost: trinkets/potion/racial reminder when Pillar goes out
   opener = true,           -- show the opening sequence before and at the start of a pull
   openerIcon = true,       -- the next-cast icon follows the opener while it's running
+  gcdSwipe = true,         -- global cooldown swipe on the next-cast icon
   disabled = {},           -- rule keys turned off with /ac toggle <key>
   debug = false,
 }
@@ -318,6 +319,34 @@ nf.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 nf.icon:SetPoint("CENTER")
 nf.border:SetPoint("TOPLEFT", nf.icon, -2, 2)
 nf.border:SetPoint("BOTTOMRIGHT", nf.icon, 2, -2)
+-- GCD swipe over the icon. Cooldown timings can be "secret" in combat, but cooldown
+-- frames are allowed to display secret values, so we pass them straight through and
+-- never read or compare them ourselves.
+local GCD_SPELL = 61304 -- the game's global cooldown spell
+nf.gcd = CreateFrame("Cooldown", nil, nf, "CooldownFrameTemplate")
+nf.gcd:SetAllPoints(nf.icon)
+nf.gcd:SetDrawEdge(false)
+nf.gcd:SetDrawBling(false)
+nf.gcd:SetHideCountdownNumbers(true)
+nf.gcd:SetFrameLevel(nf:GetFrameLevel() + 1)
+
+local function updateGCD()
+  if not db or not db.gcdSwipe then nf.gcd:Hide() return end
+  nf.gcd:Show()
+  -- Preferred: duration object (Midnight API).
+  if C_Spell and C_Spell.GetSpellCooldownDuration and nf.gcd.SetCooldownFromDurationObject then
+    local ok, dur = pcall(C_Spell.GetSpellCooldownDuration, GCD_SPELL)
+    if ok and dur ~= nil and pcall(nf.gcd.SetCooldownFromDurationObject, nf.gcd, dur, true) then return end
+  end
+  -- Fallback: start/duration (possibly secret) passed straight to the cooldown frame.
+  if C_Spell and C_Spell.GetSpellCooldown then
+    local ok, info = pcall(C_Spell.GetSpellCooldown, GCD_SPELL)
+    if ok and type(info) == "table" then
+      pcall(nf.gcd.SetCooldown, nf.gcd, info.startTime, info.duration, info.modRate)
+    end
+  end
+end
+
 nf.key = nf:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
 nf.key:SetPoint("TOPRIGHT", nf.icon, "TOPRIGHT", -2, -2)
 nf.key:SetJustifyH("RIGHT")
@@ -603,6 +632,7 @@ events:RegisterEvent("SPELLS_CHANGED")
 events:RegisterEvent("PLAYER_REGEN_ENABLED")
 events:RegisterEvent("PLAYER_REGEN_DISABLED")
 events:RegisterEvent("PLAYER_DEAD")
+events:RegisterEvent("SPELL_UPDATE_COOLDOWN")
 events:RegisterEvent("ENCOUNTER_END")
 events:RegisterEvent("UPDATE_BINDINGS")
 events:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
@@ -625,7 +655,10 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
       if db[k] == nil then db[k] = type(v) == "table" and CopyTable(v) or v end
     end
     layoutAll()
+  elseif event == "SPELL_UPDATE_COOLDOWN" then
+    updateGCD()
   elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
+    updateGCD()
     local id = readable(spellID)
     if id then
       lastCast[id] = GetTime()
@@ -663,6 +696,9 @@ SlashCmdList.ASSISTCOMPANION = function(input)
     say("Unlocked. Drag the next-cast icon and the opener bar, then type /ac lock.")
   elseif cmd == "lock" then
     db.locked = true; layoutAll(); say("Locked.")
+  elseif cmd == "gcd" then
+    db.gcdSwipe = not db.gcdSwipe; updateGCD()
+    say("GCD swipe " .. (db.gcdSwipe and "on." or "off."))
   elseif cmd == "text" then
     db.showText = not db.showText; say("Text alerts " .. (db.showText and "on." or "off."))
   elseif cmd == "icon" then
@@ -715,6 +751,7 @@ SlashCmdList.ASSISTCOMPANION = function(input)
     say("/ac test  - show a sample icon")
     say("/ac icon  - toggle the next-cast icon (/ac icon 48 sets its size, now " .. db.iconSize .. ")")
     say("/ac text  - toggle text alerts (now " .. (db.showText and "on" or "off") .. ")")
+    say("/ac gcd  - toggle the GCD swipe on the icon")
     say("/ac rp <n>  - Unholy: warn at this runic power (now " .. db.unholyRP .. ")")
     say("/ac cds  - Frost: toggle trinket/potion/racial reminder")
     say("/ac opener  - toggle the opener bar (/ac opener reset to restart it)")
