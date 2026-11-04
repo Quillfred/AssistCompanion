@@ -14,6 +14,9 @@ local function db() return C.db() end
 -- Square minimaps (some UI packs) get the square's edge instead of a circle.
 local function place()
   if not button then return end
+  -- A button-collector addon (e.g. a minimap button bar) has taken it over: its position is theirs.
+  -- (Owner's report: re-placing it on clicks pulled it out of such a bar, out of sight.)
+  if button:GetParent() ~= Minimap then return end
   local angle = math.rad(db().minimapAngle or 225)
   local x, y = math.cos(angle), math.sin(angle)
   local r = (Minimap:GetWidth() or 140) / 2 + 5
@@ -36,12 +39,14 @@ local function cursorAngle()
   return math.deg(math.atan2(py - my, px - mx)) % 360
 end
 
-function ns.updateMinimap()
+-- Colour (red while the debug log records) and visibility. `reposition` only when the button is
+-- first made or shown again: clicks must not move it.
+function ns.updateMinimap(reposition)
   if not button then return end
-  button:SetShown(db().minimapButton and true or false)
-  -- red while the debug log is recording
   if db().debug then button.icon:SetVertexColor(1, 0.35, 0.35) else button.icon:SetVertexColor(1, 1, 1) end
-  place()
+  local show = db().minimapButton and true or false
+  if show ~= button:IsShown() then button:SetShown(show) end
+  if reposition then place() end
 end
 
 local function build()
@@ -103,7 +108,7 @@ end
 function ns.initMinimap(core)
   C = core
   if not button and Minimap then build() end
-  ns.updateMinimap()
+  ns.updateMinimap(true)
 end
 
 -- Blizzard's addon compartment (minimap addon menu), set up in the TOC (## AddonCompartmentFunc).

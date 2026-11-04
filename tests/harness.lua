@@ -72,7 +72,9 @@ local function newFrame()
   function f:SetChecked(v) self.checked = v end
   function f:GetChecked() return self.checked end
   function f:SetText(x) self.text = x end
-  function f:SetParent() end
+  function f:SetParent(p) self.parent = p end
+  function f:GetParent() return self.parent end
+  function f:IsShown() return self.shown end
   function f:SetWidth() end
   function f:SetHeight(h) self.height = h end
   function f:SetScrollChild(c) self.child = c end
@@ -87,7 +89,9 @@ local function newFrame()
   return f
 end
 local frames = {}
-function CreateFrame(_, name) local f = newFrame(); frames[#frames + 1] = f; if name then _G[name] = f end; return f end
+function CreateFrame(_, name, parent)
+  local f = newFrame(); f.parent = parent; frames[#frames + 1] = f; if name then _G[name] = f end; return f
+end
 UIParent = {}
 function GetTime() return now end
 function print(...) printed[#printed + 1] = table.concat({ ... }, " ") end
@@ -935,10 +939,22 @@ expect("Minimap: ctrl-click clears the debug log", 0, #AssistCompanionDB.debugLo
 ctrl = false; SlashCmdList.ASSISTCOMPANION("debug")
 expect("Minimap: /ac debug also turns the icon red", 0.35, mb.icon.color and mb.icon.color[2])
 SlashCmdList.ASSISTCOMPANION("debug"); AssistCompanionDB.debug = dbgWas; ns.updateMinimap()
+-- Owner's report: clicks moved the button out of a minimap button bar (another addon) out of sight.
+local before = at()
+shift = true; mb:Click("LeftButton"); shift = false; ctrl = true; mb:Click("LeftButton"); ctrl = false
+expect("Minimap: shift/ctrl-click don't move the button", before, at())
+local bar = newFrame(); mb:SetParent(bar); mb:SetPoint("TOPLEFT", bar, "TOPLEFT", 4, -4)
+shift = true; mb:Click("LeftButton"); shift = false; ctrl = true; mb:Click("LeftButton"); ctrl = false
+SlashCmdList.ASSISTCOMPANION("debug"); SlashCmdList.ASSISTCOMPANION("debug")
+expect("Minimap: in another addon's button bar, clicks leave it there", "TOPLEFT/4", mb.point[1] .. "/" .. mb.point[4])
+ns.updateMinimap(true)
+expect("Minimap: ...and so does a full update", "TOPLEFT/4", mb.point[1] .. "/" .. mb.point[4])
+expect("Minimap: ...and it stays shown", true, mb.shown)
+mb:SetParent(Minimap); ns.updateMinimap(true); AssistCompanionDB.debug = dbgWas; ns.updateMinimap()
 function GetMinimapShape() return "SQUARE" end
-AssistCompanionDB.minimapAngle = 45; ns.updateMinimap()
+AssistCompanionDB.minimapAngle = 45; ns.updateMinimap(true)
 expect("Minimap: square minimap -> sits in the corner", "75,75", at())
-GetMinimapShape = nil; AssistCompanionDB.minimapAngle = 225; ns.updateMinimap()
+GetMinimapShape = nil; AssistCompanionDB.minimapAngle = 225; ns.updateMinimap(true)
 SlashCmdList.ASSISTCOMPANION("minimap")
 expect("Minimap: /ac minimap hides it", false, mb.shown)
 local mmCheck = widget("Minimap button")

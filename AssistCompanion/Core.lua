@@ -1223,7 +1223,7 @@ SlashCmdList.ASSISTCOMPANION = function(input)
     nf:Show()
   elseif cmd == "minimap" then
     db.minimapButton = not db.minimapButton
-    if ns.updateMinimap then ns.updateMinimap() end
+    if ns.updateMinimap then ns.updateMinimap(true) end
     say("Minimap button " .. (db.minimapButton and "shown." or "hidden. /ac minimap shows it again."))
   elseif cmd == "" or cmd == "options" or cmd == "config" then
     if ns.openOptions and ns.openOptions() then return end

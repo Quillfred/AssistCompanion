@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.16.5
+
+* **Minimap button fix:** clicking it (shift-click, ctrl-click and others) made it disappear from a minimap button bar such as EllesmereUI's. Every click re-placed it on the minimap's edge, pulling it out of the bar. Clicks no longer move it, and if another addon has taken the button into its own bar, Assist Companion leaves its position alone.
+
 ## 0.16.4
 
 * **Augmentation: learned cooldown speeds are remembered** between sessions (saved with your settings), so the first Fire Breath / Upheaval and Tip the Scales of a session are timed right. They start over when Accretion, Chronoboon or Temporal Burst changes.
