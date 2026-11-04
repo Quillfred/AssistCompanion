@@ -1,5 +1,14 @@
 # Assist Companion
 
+## 0.16.6
+
+* **Augmentation: Ebon Might timing fixed.** The addon's estimate of when Ebon Might ends now counts:
+  * your **mastery**, which lengthens your helpful auras including Ebon Might (13.8% turns 10s into 11.4s), read from its tooltip;
+  * your **crit chance**: each extension can crit for 50% more.
+  
+  Replaying an earlier fight, the estimate now lands within half a second of when Ebon Might really ended (it used to be 8 seconds early), so the "refresh Ebon Might" and "Ebon Might before empowers" suggestions come at the right time.
+* **Debug log:** status lines show the mastery multiplier (`emdur=`) and crit (`crit=`) in use.
+
 ## 0.16.5
 
 * **Minimap button fix:** clicking it (shift-click, ctrl-click and others) made it disappear from a minimap button bar such as EllesmereUI's. Every click re-placed it on the minimap's edge, pulling it out of the bar. Clicks no longer move it, and if another addon has taken the button into its own bar, Assist Companion leaves its position alone.

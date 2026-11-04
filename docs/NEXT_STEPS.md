@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.16.5** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.16.6** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -80,8 +80,11 @@ Not yet seen in the live game: check the panel's layout, scrolling, and that che
    loaded only once the spellbook is ready. Eighth log clean (see FINDINGS). CurseForge beta on hold at the
    owner's request until everything is confirmed.
    **Confirmed (ninth log):** cancelled empowers are detected (`complete == false` is readable) and undone;
-   learned factors are saved. Remaining Augmentation unknown: the Ebon Might buff estimate (the game only shows
-   when it has dropped). CurseForge beta still on hold until the owner says everything is clear.
+   learned factors are saved.
+   **0.16.6:** Ebon Might estimate now includes mastery (aura duration, from the Timewalker tooltip) and average
+   extension crits; replaying the first log lands within ~0.5s of the real drop. To confirm in game: `emdur=`
+   should read ~1.14 and `crit=` ~21 out of combat, and `em=` should reach 0 about when the highlight asks for
+   Ebon Might once it's off cooldown. CurseForge beta still on hold until the owner says everything is clear.
    **Open:** the Ebon Might estimate runs at least 8s short in the owner's log, so the `ebonmight` refresh rule
    never fires. Next log: compare `em=` on the status lines with when the highlight asks for Ebon Might again
    (it only does once the buff is down and Ebon Might is off cooldown). Original notes:
