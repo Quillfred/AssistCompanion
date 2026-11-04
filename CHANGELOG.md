@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.16.8
+
+* **Augmentation: Fire Breath rank 1 when Ebon Might is about to end.** With under ~2.5 seconds of Ebon Might left, a rank 3 Fire Breath would land after it ends and lose its extension, so the icon says rank 1.
+
 ## 0.16.7
 
 * **Augmentation: Tip the Scales waits for Prescience and Ebon Might.** At the pull it could show while the highlight was still asking for Prescience. It now waits for those, like Breath of Eons does, so the empower it pairs with goes out inside Ebon Might.

@@ -665,12 +665,18 @@ ns.rules[1473] = {
 --   right after Tip the Scales: none (the next empower is instant at max rank)
 -- "Upheaval ready" allows 1.5s: a rank 1 Fire Breath takes about that long, so Upheaval is up after it.
 local UPHEAVAL_SOON = 1.5
+-- A rank 3 Fire Breath takes ~2-2.5s to charge. If Ebon Might ends before then, the breath lands
+-- outside it and its +2s extension is lost; a quick rank 1 lands inside and extends it (owner's log:
+-- rank 3 shown with ~1-2s of Ebon Might left).
+local RANK3_TIME = 2.5
 
 ns.empowerRank = {
   [1473] = function(ctx, spell)
     if not FIRE_BREATHS[spell] and not UPHEAVALS[spell] then return nil end
     if (tipState(ctx)) then return nil end -- Tip the Scales is waiting: instant, max rank
     if UPHEAVALS[spell] then return 1 end
+    local emLeft = ebonMight.expires - ctx.now
+    if emLeft > 0 and emLeft < RANK3_TIME then return 1 end -- land it inside Ebon Might
     return cooldownLeft(ctx, UPHEAVAL_IDS, UPHEAVAL_COOLDOWN, true) <= UPHEAVAL_SOON and 1 or 3
   end,
 }
