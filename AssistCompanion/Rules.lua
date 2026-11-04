@@ -36,6 +36,8 @@ local S = {
   OBLITERATE          = 49020,
   FROSTSCYTHE         = 207230,
   EMPOWER_RUNE_WEAPON = 47568,
+  -- Frost and Blood
+  RAISE_DEAD          = 46585, -- the 60s ghoul (Unholy's permanent pet is 46584)
   -- Blood
   MARROWREND          = 195182,
   DEATHS_CARESS       = 195292,
@@ -44,11 +46,11 @@ local S = {
   HEART_STRIKE        = 206930,
   RUNE_STRIKE         = 316239, -- the highlight's data uses this ID; Heart Strike replaces it
   DEATH_AND_DECAY     = 43265,
+  VAMPIRIC_BLOOD      = 55233,
 }
 ns.S = S
 
 local PILLAR_DURATION = 12   -- seconds (game data: Pillar of Frost id 51271)
-local BREATH_COOLDOWN = 120  -- seconds (game data); only used to avoid nagging while it's on cooldown
 
 -- Unholy rune spenders the highlight prefers over spending runic power.
 -- Whatever currently sits on the Scourge Strike button (Clawing Shadows, Vampiric Strike, ...)
@@ -185,22 +187,6 @@ ns.rules[251] = {
     end,
   },
   {
-    key = "breath",
-    name = "Breath of Sindragosa",
-    -- The in-game highlight never suggests Breath. Press it right after Pillar of Frost.
-    check = function(ctx)
-      if not ctx.knows(S.BREATH) then return end
-      local pillar = ctx.lastCast[S.PILLAR_OF_FROST]
-      if not pillar or ctx.now - pillar > PILLAR_DURATION then return end
-      local breath = ctx.lastCast[S.BREATH]
-      if breath and breath >= pillar then return end                       -- already used this window
-      local cd = ctx.onCooldown(S.BREATH)                                  -- read from the game out of combat
-      if cd == true then return end
-      if cd == nil and breath and ctx.now - breath < BREATH_COOLDOWN then return end -- fallback: our own timing
-      return { spell = S.BREATH, iconOnly = true } -- just the 48x48 Breath icon, no text
-    end,
-  },
-  {
     key = "frostscythe",
     name = "Frostscythe on 3 targets",
     -- The highlight's Frostscythe rule only starts above 3 enemies.
@@ -256,10 +242,101 @@ ns.openers[250] = {                     -- Blood
   { id = S.DEATH_STRIKE },
 }
 
--- Spells whose cooldowns rules need (read out of combat, remembered through combat).
-ns.trackCooldowns = {
-  [251] = { S.BREATH, S.PILLAR_OF_FROST },
+---------------------------------------------------------------------------
+-- Cooldowns the in-game highlight never suggests: missing from the spec's Assisted Combat
+-- list, or in it but marked "automation only" (SimC: "This is for Blizzard automation").
+-- Each entry becomes a rule that puts the spell on the next-cast icon (bare icon, gold
+-- border) while it's ready. Ready = the game said so out of combat; in combat, where
+-- cooldowns are hidden, timed from your own last cast.
+--
+--   after      (per spec) key of the rule these go after; nil = before all other rules
+--   key, name  rule key for /ac toggle, and its name in /ac rules
+--   spell      spell ID
+--   cooldown   seconds, game data. Only used to time it from your cast while combat hides the
+--              real cooldown; talents that shorten it make the icon come back late, never early.
+--   when(ctx)  optional extra condition
+--   anytime    true = also out of combat (default: in combat only)
+--
+-- Checked against simc/ActionPriorityLists/assisted_combat/*.simc (game build 12.1.5.70688):
+--   Frost:  Breath (automation only), Raise Dead (missing). Optimal: Breath during Pillar,
+--           Raise Dead on cooldown.
+--   Blood:  Vampiric Blood, Raise Dead (both missing; no defensive is in the list).
+--           Optimal: both on cooldown.
+--   Unholy: none (Raise Dead is its permanent pet, in the list).
+--   Devastation: none. Dragonrage, Tip the Scales, Deep Breath, Fire Breath and Eternity
+--           Surge are all in the list, with no automation-only entries. Its gaps are
+--           conditions and button overrides (see docs/NEXT_STEPS.md, step 2).
+---------------------------------------------------------------------------
+ns.readyCooldowns = {
+  [251] = {                                                  -- Frost
+    after = "erwrange",
+    {
+      key = "breath", name = "Breath of Sindragosa", spell = S.BREATH,
+      cooldown = 90, -- game data (1249658)
+      anytime = true, -- the Pillar window already limits it
+      -- Right after Pillar of Frost, once per Pillar.
+      when = function(ctx)
+        local pillar = ctx.lastCast[S.PILLAR_OF_FROST]
+        if not pillar or ctx.now - pillar > PILLAR_DURATION then return false end
+        local breath = ctx.lastCast[S.BREATH]
+        return not (breath and breath >= pillar)
+      end,
+    },
+    { key = "raisedead", name = "Raise Dead", spell = S.RAISE_DEAD, cooldown = 120 }, -- game data (46585)
+  },
+  [250] = {                                                  -- Blood
+    after = "boneshield",
+    { key = "vampiricblood", name = "Vampiric Blood", spell = S.VAMPIRIC_BLOOD, cooldown = 90 }, -- game data (55233)
+    { key = "raisedead", name = "Raise Dead", spell = S.RAISE_DEAD, cooldown = 120 },
+  },
 }
+
+-- true when the spell is off cooldown: the game's answer (read out of combat) if we have one,
+-- else timed from your last cast this session (never cast = ready).
+local function cooldownReady(ctx, spell, cooldown)
+  local cd = ctx.onCooldown(spell)
+  if cd ~= nil then return not cd end
+  local last = ctx.lastCast[spell]
+  return not last or ctx.now - last >= cooldown
+end
+ns.cooldownReady = cooldownReady
+
+local function readyCooldownRule(entry)
+  return {
+    key = entry.key,
+    name = entry.name .. " ready",
+    check = function(ctx)
+      if not ctx.knows(entry.spell) then return end
+      if not entry.anytime and not ctx.inCombat then return end
+      if ctx.next == entry.spell then return end -- the highlight already says it
+      if entry.when and not entry.when(ctx) then return end
+      if not cooldownReady(ctx, entry.spell, entry.cooldown) then return end
+      return { spell = entry.spell, iconOnly = true, text = entry.name, sub = "Ready" }
+    end,
+  }
+end
+
+-- Spells whose cooldowns rules need (read out of combat, remembered through combat).
+-- The cooldown-ready spells are added below.
+ns.trackCooldowns = {
+  [251] = { S.PILLAR_OF_FROST },
+}
+
+for spec, list in pairs(ns.readyCooldowns) do
+  local rules = ns.rules[spec] or {}
+  ns.rules[spec] = rules
+  local at = 1
+  if list.after then
+    for i, rule in ipairs(rules) do
+      if rule.key == list.after then at = i + 1 end
+    end
+  end
+  ns.trackCooldowns[spec] = ns.trackCooldowns[spec] or {}
+  for k, entry in ipairs(list) do
+    table.insert(rules, at + k - 1, readyCooldownRule(entry))
+    table.insert(ns.trackCooldowns[spec], entry.spell)
+  end
+end
 
 -- Charges counted from your own casts (hidden in combat). recharge = seconds per charge.
 ns.chargeTrack = {

@@ -524,7 +524,7 @@ cast(1249658); state.next = 49020; step()
 now = now + 60; cast(51271); step()                       -- next Pillar 60s later, Breath has ~60s left
 expect("Breath bug: not suggested while its cooldown is still running", "icon:49020", nf.icon.texture)
 now = now + 65; cast(51271); step()                       -- 125s after Breath: ready again
-expect("Breath bug: suggested again once 120s have passed", "icon:1249658", nf.icon.texture)
+expect("Breath bug: suggested again once its cooldown has passed", "icon:1249658", nf.icon.texture)
 combat(false)
 C_Spell.GetSpellCooldown, C_Spell.GetSpellCharges = nil, nil
 
@@ -601,6 +601,7 @@ state.next = 316239; step()
 expect("Blood: Rune Strike ID (Heart Strike in game data) also corrected", "icon:50842", nf.icon.texture)
 -- combat hides charges: count from casts
 combat(true); state.charges = nil
+cast(46585) -- Raise Dead at the pull, so its cooldown-ready icon stays out of these tests
 cast(50842); cast(50842); step()
 expect("Blood: both charges used -> Heart Strike stays", "icon:316239", nf.icon.texture)
 now = now + 7.6; step()
@@ -722,6 +723,77 @@ expect("Debug log: nothing logged while off", n, #log)
 SlashCmdList.ASSISTCOMPANION("log clear")
 expect("Debug log: /ac log clear empties it", 0, #AssistCompanionDB.debugLog)
 AssistCompanionDB.openerIcon = false
+
+-- COOLDOWN-READY TEMPLATE ---------------------------------------------------
+AssistCompanionDB.openerIcon = false
+state.spec = 250; state.pet = true; state.target = nil; state.overrides = {}; state.inRange = true
+state.known = { [195182]=true, [49998]=true, [50842]=true, [206930]=true, [46585]=true, [55233]=true }
+state.rp = 10; state.next = 49998; state.charges = nil
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 300; step()
+expect("Cooldowns: Blood rules include Vampiric Blood and Raise Dead",
+  "boneshield,vampiricblood,raisedead,rpcap,bloodboil",
+  (function() local t = {} for _, r in ipairs(ns.rules[250]) do t[#t+1] = r.key end return table.concat(t, ",") end)())
+expect("Cooldowns: Frost keeps Breath after the range check, then Raise Dead",
+  "erwrange,breath,raisedead,frostscythe",
+  (function() local t = {} for _, r in ipairs(ns.rules[251]) do t[#t+1] = r.key end return table.concat(t, ",") end)())
+expect("Cooldowns: tracked for Blood", "55233,46585", table.concat(ns.trackCooldowns[250], ","))
+expect("Cooldowns: Blood out of combat -> plain highlight", "icon:49998", nf.icon.texture)
+combat(true); step()
+expect("Cooldowns: Blood pull -> Vampiric Blood first", "icon:55233", nf.icon.texture)
+expect("Cooldowns: gold border on the cooldown icon", true, nf.border.shown)
+expect("Cooldowns: bare icon, no note", "", nf.note.text)
+cast(55233); step()
+expect("Cooldowns: Vampiric Blood used -> Raise Dead", "icon:46585", nf.icon.texture)
+cast(46585); step()
+expect("Cooldowns: both used -> back to the highlight", "icon:49998", nf.icon.texture)
+now = now + 89; step()
+expect("Cooldowns: Vampiric Blood not back before 90s", "icon:49998", nf.icon.texture)
+now = now + 2; step()
+expect("Cooldowns: Vampiric Blood back after 90s", "icon:55233", nf.icon.texture)
+cast(55233); now = now + 30; step()
+expect("Cooldowns: Raise Dead back after 120s", "icon:46585", nf.icon.texture)
+state.next = 46585; step()
+expect("Cooldowns: highlight already says it -> no correction border", false, nf.border.shown)
+state.next = 49998
+cast(195182); now = now + 26; step()
+expect("Cooldowns: Bone Shield refresh outranks a ready cooldown", "icon:195182", nf.icon.texture)
+cast(195182); step()
+SlashCmdList.ASSISTCOMPANION("toggle raisedead"); step()
+expect("Cooldowns: /ac toggle raisedead turns it off", "icon:49998", nf.icon.texture)
+SlashCmdList.ASSISTCOMPANION("toggle raisedead")
+combat(false)
+-- the game's out-of-combat answer wins over cast timing
+state.cd = { [46585] = { now - 10, 120 }, [55233] = { now - 85, 90 } }
+C_Spell.GetSpellCooldown = function(id)
+  local c = state.cd[id]
+  if c == "SECRET" then return { startTime = "SECRET", duration = "SECRET" } end
+  if c then return { startTime = c[1], duration = c[2], modRate = 1 } end
+  return { startTime = 0, duration = 0, modRate = 1 }
+end
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 1; step() -- wipes cast history
+combat(true); state.cd = { [46585] = "SECRET", [55233] = "SECRET" }; step()
+expect("Cooldowns: game said both on cooldown -> not shown after a combat drop", "icon:49998", nf.icon.texture)
+now = now + 5; step()
+expect("Cooldowns: remembered cooldown runs out in combat -> Vampiric Blood", "icon:55233", nf.icon.texture)
+combat(false)
+C_Spell.GetSpellCooldown = nil
+-- Frost: Raise Dead in combat, Breath during Pillar comes first
+state.spec = 251; state.known = { [1249658]=true, [51271]=true, [49020]=true, [46585]=true }
+state.next = 49020; state.plates = 1
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 300; step()
+combat(true); cast(51271); step()
+expect("Cooldowns: Frost Pillar -> Breath before Raise Dead", "icon:1249658", nf.icon.texture)
+cast(1249658); step()
+expect("Cooldowns: Frost Breath used -> Raise Dead", "icon:46585", nf.icon.texture)
+cast(46585); step()
+expect("Cooldowns: Frost both used -> highlight", "icon:49020", nf.icon.texture)
+now = now + 85; cast(51271); step()
+expect("Cooldowns: Frost Breath not back before 90s", "icon:49020", nf.icon.texture)
+now = now + 6; cast(51271); step()
+expect("Cooldowns: Frost Breath back after 90s (game data, was 120s)", "icon:1249658", nf.icon.texture)
+combat(false)
 
 -- HIDDEN WHILE DEAD ----------------------------------------------------------
 function UnitIsDeadOrGhost(u) return u == "player" and state.dead or false end

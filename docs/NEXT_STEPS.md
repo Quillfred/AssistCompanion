@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.10.0** (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.11.0** (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -16,7 +16,12 @@ conversation. Current addon version: **0.10.0** (see `AssistCompanion/AssistComp
 
 ## Plan (agreed order)
 
-1. **Cooldown-ready template, DKs + Devastation first.** Generalize Frost's Breath of Sindragosa rule
+1. **Done in 0.11.0 for DKs + Devastation:** `ns.readyCooldowns` in `Rules.lua` (per spec: spell, base cooldown,
+   optional `when`, `after` = rule key to slot in behind). Frost: Breath, Raise Dead. Blood: Vampiric Blood,
+   Raise Dead. Devastation and Unholy: none (checked, see `docs/FINDINGS.md`). Adding a spec = one table
+   entry, but non-DK specs also need Core.lua to read their own power (it only reads runic power
+   and runes), an `ns.meleeSpell` range spell, and the TOC notes updated.
+   Original plan text: **Cooldown-ready template, DKs + Devastation first.** Generalize Frost's Breath of Sindragosa rule
    (`Rules.lua`, rule `breath`, plus `ns.trackCooldowns`) into a data-driven template: per spec, a list of
    cooldowns the in-game highlight never suggests; show the icon when one is ready (cooldown read out of
    combat, timed from your own casts in combat, as Breath does since 0.7.2). DK: Breath of Sindragosa,
