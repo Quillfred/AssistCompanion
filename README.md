@@ -54,7 +54,7 @@ Click the **minimap button**, type **`/ac`**, or open **Esc → Options → AddO
 | Command | What it does |
 |---|---|
 | `/ac` | Open the options menu. `/ac help` lists the commands |
-| `/ac minimap` | Show or hide the minimap button (left-click: options, right-click: lock/unlock, drag: move) |
+| `/ac minimap` | Show or hide the minimap button (left-click: options, shift-click: start/stop the debug log, ctrl-click: clear it, right-click: lock/unlock, drag: move) |
 | `/ac unlock`, `/ac lock` | Move the next-cast icon and opener bar |
 | `/ac test` | Show a sample icon |
 | `/ac icon` | Turn the next-cast icon on or off. `/ac icon 56` sets its size (default 48) |

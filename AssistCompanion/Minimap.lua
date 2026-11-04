@@ -1,5 +1,6 @@
--- Assist Companion: minimap button (left-click: options, right-click: lock/unlock, drag: move it
--- around the minimap) and an entry in Blizzard's addon compartment (the minimap's addon menu).
+-- Assist Companion: minimap button (left-click: options, shift-click: start/stop the debug log,
+-- ctrl-click: clear the debug log, right-click: lock/unlock, drag: move it around the minimap) and an
+-- entry in Blizzard's addon compartment (the minimap's addon menu).
 
 local _, ns = ...
 
@@ -38,6 +39,8 @@ end
 function ns.updateMinimap()
   if not button then return end
   button:SetShown(db().minimapButton and true or false)
+  -- red while the debug log is recording
+  if db().debug then button.icon:SetVertexColor(1, 0.35, 0.35) else button.icon:SetVertexColor(1, 1, 1) end
   place()
 end
 
@@ -66,9 +69,14 @@ local function build()
   button:SetScript("OnClick", function(_, mouse)
     if mouse == "RightButton" then
       SlashCmdList.ASSISTCOMPANION(db().locked and "unlock" or "lock")
+    elseif IsShiftKeyDown and IsShiftKeyDown() then
+      SlashCmdList.ASSISTCOMPANION("debug")      -- start/stop the debug log
+    elseif IsControlKeyDown and IsControlKeyDown() then
+      SlashCmdList.ASSISTCOMPANION("log clear")  -- empty the debug log
     else
       ns.openOptions()
     end
+    ns.updateMinimap()
   end)
   button:SetScript("OnDragStart", function(self)
     self:SetScript("OnUpdate", function()
@@ -82,6 +90,9 @@ local function build()
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     GameTooltip:SetText("Assist Companion", 1, 1, 1)
     GameTooltip:AddLine("Left-click: options", nil, nil, nil, true)
+    GameTooltip:AddLine("Shift-click: " .. (db().debug and "stop" or "start") .. " the debug log", nil, nil, nil, true)
+    GameTooltip:AddLine(("Ctrl-click: clear the debug log (%d lines)"):format(db().debugLog and #db().debugLog or 0),
+      nil, nil, nil, true)
     GameTooltip:AddLine("Right-click: " .. (db().locked and "unlock frames to move them" or "lock frames"), nil, nil, nil, true)
     GameTooltip:AddLine("Drag: move this button", nil, nil, nil, true)
     GameTooltip:Show()

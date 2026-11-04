@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.16.2** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.16.3** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -14,7 +14,8 @@ conversation. Current addon version: **0.16.2** (0.13.0-beta1 on CurseForge) (se
 * **Rankings page** (claude.ai artifact, owner's account): sortable table of highlight vs optimal DPS per
   spec. **Out of date** for specs hit by the SimC button-override limitation (below).
 
-**Minimap button (0.16.0):** `AssistCompanion/Minimap.lua`, no libraries (left-click options, right-click lock/unlock,
+**Minimap button (0.16.0):** `AssistCompanion/Minimap.lua`, no libraries (left-click options, shift-click debug log on/off (icon red while on),
+ctrl-click clear the log, right-click lock/unlock,
 drag around the minimap, square minimaps handled; `db.minimapButton`, `db.minimapAngle`, `/ac minimap`) plus the
 addon compartment entry (`## AddonCompartmentFunc` in the TOC).
 
