@@ -1388,6 +1388,74 @@ local ends0 = (function() augReset(); for _, c in ipairs(casts) do now = r0 + 20
 expect("Ebon Might replay: without mastery and crit it ended far too early", true, ends0 < 30)
 augReset()
 
+-- The seven timing talents (only when talented)
+local function talented(id, on) state.known[id] = on or nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step() end
+ns.setRuleEnabled(1473, "breatheons", true)
+-- Tomorrow, Today: Time Skip 3s -> Breath of Eons back 27s early instead of 18s
+talented(412723, true); now = now + 400; augReset(); ns.ebonMight.expires = now + 1000
+local tt0 = now; cast(403631); now = tt0 + 26; cast(404977)
+now = tt0 + 92.5; state.next = 431443; step()
+expect("Tomorrow, Today: Breath of Eons not back at 92.5s", "icon:431443", nf.icon.texture)
+now = tt0 + 93.6; step()
+expect("Tomorrow, Today: Breath of Eons back after 120 - 27 = 93s", "icon:403631", nf.icon.texture)
+cast(403631); talented(412723, false)
+-- Wingleader (with Mass Eruption): the first Eruption after an empower takes 1.5s off Breath of Eons
+talented(441206, true); talented(438587, true); now = now + 400; augReset(); ns.ebonMight.expires = now + 1000
+local w0 = now; cast(403631)
+for i = 1, 4 do now = w0 + i * 10; cast(357208); now = now + 1; cast(395160); cast(395160) end -- 4 Mass Eruptions
+now = w0 + 113.5; state.next = 431443; step()
+expect("Wingleader: 4 Mass Eruptions -> Breath of Eons back 6s early (at 114s)", "icon:431443", nf.icon.texture)
+now = w0 + 114.2; step()
+expect("Wingleader: ...back at 114s", "icon:403631", nf.icon.texture)
+cast(403631); talented(441206, false); talented(438587, false)
+ns.setRuleEnabled(1473, "breatheons", false)
+-- Instability Matrix: ~3s off each empower's own cooldown
+now = now + 300; augReset(); ns.ebonMight.expires = now + 1000; cast(395152)
+local im0 = now; cast(396286); now = im0 + 36.6; state.next = 357208; step()
+expect("Instability Matrix: not talented, Upheaval 3.4s away -> rank 3", "3", nf.rank.text)
+talented(431484, true)
+expect("Instability Matrix: talented, 0.4s away -> rank 1", "1", nf.rank.text)
+talented(431484, false)
+-- Interwoven Threads: cooldowns -10% (Upheaval 36s)
+now = now + 300; augReset(); ns.ebonMight.expires = now + 1000; cast(395152)
+local iw0 = now; cast(396286); now = iw0 + 35; step()
+expect("Interwoven Threads: not talented, Upheaval 5s away -> rank 3", "3", nf.rank.text)
+talented(412713, true)
+expect("Interwoven Threads: talented, 1s away -> rank 1", "1", nf.rank.text)
+talented(412713, false)
+-- Dream of Spring: Emerald Blossom extends Ebon Might by 1s
+now = now + 300; augReset(); cast(395152); local e1 = ns.ebonMight.expires
+cast(355913)
+expect("Dream of Spring: not talented -> Emerald Blossom doesn't extend Ebon Might", e1, ns.ebonMight.expires)
+talented(414969, true); cast(355913)
+expect("Dream of Spring: talented -> +1s", e1 + 1, ns.ebonMight.expires)
+talented(414969, false)
+-- Overlord: Breath of Eons' hidden Eruption extends Ebon Might and counts for Accretion
+now = now + 300; augReset(); cast(395152); local o1 = ns.ebonMight.expires; cast(403631)
+expect("Overlord: not talented -> Breath of Eons +5s", o1 + 5, ns.ebonMight.expires)
+talented(410260, true); augReset(); cast(395152); o1 = ns.ebonMight.expires; cast(403631)
+expect("Overlord: talented -> +5s and +1s from its Eruption", o1 + 6, ns.ebonMight.expires)
+talented(407876, true); augReset(); ns.ebonMight.expires = now + 1000
+local ov0 = now; cast(396286); now = ov0 + 1; cast(403631); now = ov0 + 37.6; state.next = 357208; step()
+expect("Overlord + Accretion: its Eruption takes 1s off Upheaval (1.4s away -> rank 1)", "1", nf.rank.text)
+talented(410260, false)
+talented(407876, false)
+-- Nozdormu Adept: Prescience recharges in 10s instead of 12
+state.group = true; now = now + 300; augReset(); ns.ebonMight.expires = now + 1000; state.next = 431443
+cast(409311); now = now + 10.1; step()
+expect("Nozdormu Adept: not talented -> second Prescience charge not back at 10s", "icon:431443", nf.icon.texture)
+talented(431715, true); now = now + 15; step(); cast(409311); cast(409311); now = now + 20.1; step()
+cast(409311); now = now + 10.1; step()
+expect("Nozdormu Adept: talented -> back after 10s", "icon:409311", nf.icon.texture)
+talented(431715, false); state.group = false; state.next = 431443
+-- the talents are listed at the start of each fight in the debug log
+AssistCompanionDB.debugLog = {}; AssistCompanionDB.debug = true; talented(410260, true)
+combat(false); combat(true)
+local logged = false
+for _, l in ipairs(AssistCompanionDB.debugLog) do if l:find("talents: ", 1, true) and l:find("Overlord", 1, true) then logged = true end end
+expect("Debug: talents listed at combat start", true, logged)
+AssistCompanionDB.debug = false; talented(410260, false)
+
 -- debug log: Ebon Might estimate on the status line, rule errors logged once
 local function dbgHas(pat) for _, l in ipairs(AssistCompanionDB.debugLog or {}) do if l:find(pat, 1, true) then return true end end return false end
 AssistCompanionDB.debugLog = {}; AssistCompanionDB.debug = true

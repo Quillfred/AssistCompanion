@@ -63,7 +63,17 @@ local S = {
   TEMPORAL_BURST      = 431695, -- Chronowarden
   CLEAR_EMPOWER_COOLDOWN = 397374,
   ACCRETION           = 407876,
-  MASTERY_TIMEWALKER  = 406380, -- tooltip: "...your other helpful auras are increased by X%" -- each Eruption: Upheaval's remaining cooldown -1s (game data 411932)
+  MASTERY_TIMEWALKER  = 406380,
+  -- talents that change timings (game data values in the comments where they're used)
+  TOMORROW_TODAY      = 412723,
+  INSTABILITY_MATRIX  = 431484,
+  INTERWOVEN_THREADS  = 412713,
+  DREAM_OF_SPRING     = 414969,
+  EMERALD_BLOSSOM     = 355913,
+  NOZDORMU_ADEPT      = 431715,
+  OVERLORD            = 410260,
+  WINGLEADER          = 441206,
+  MASS_ERUPTION       = 438587, -- tooltip: "...your other helpful auras are increased by X%" -- each Eruption: Upheaval's remaining cooldown -1s (game data 411932)
   LIVING_FLAME        = 361469, -- Chrono Flames (431443) replaces it on the button for Chronowarden -- "[DNT] Clear Empower Cooldown": resets Fire Breath and Upheaval
   CHRONOBOON          = 1260484, -- Chronowarden: Tip the Scales' cooldown is shorter
 }
@@ -309,6 +319,36 @@ local EMPOWERS = { [S.FIRE_BREATH] = true, [S.FIRE_BREATH_FOM] = true, [S.UPHEAV
 -- Fire Breath or Upheaval after a cast, that spell is ready, which bounds how fast they recover.
 ---------------------------------------------------------------------------
 local TS_SECONDS, TS_EXTRA = 2, 9        -- 10x recovery = 9 extra seconds per second
+local TOMORROW_TODAY_EXTRA = 1           -- Tomorrow, Today: Time Skip channels 1s longer (412723: 1000 ms)
+local INSTABILITY_AVG = 3                -- Instability Matrix: each empower -0..6s off its own cooldown (431484)
+local INTERWOVEN_SCALE = 0.9             -- Interwoven Threads: your cooldowns -10% (412713)
+local WINGLEADER_CUT = 1.5               -- Wingleader: Mass Eruption -1.5s Breath of Eons per target (441206)
+
+-- Talents that change timings, refreshed every update (onCast has no ctx). Counts of enemies aren't
+-- readable, so Overlord and Wingleader assume one target: the estimate can only run long, not short.
+local tal = {}
+local function readTalents(ctx)
+  if not ctx.knows then return end
+  tal.tomorrow = ctx.knows(S.TOMORROW_TODAY)
+  tal.instability = ctx.knows(S.INSTABILITY_MATRIX)
+  tal.interwoven = ctx.knows(S.INTERWOVEN_THREADS)
+  tal.dreamOfSpring = ctx.knows(S.DREAM_OF_SPRING)
+  tal.overlord = ctx.knows(S.OVERLORD)
+  tal.wingleader = ctx.knows(S.WINGLEADER) and ctx.knows(S.MASS_ERUPTION)
+end
+ns.augTalents = tal
+
+-- Interwoven Threads shortens every cooldown.
+local function cdScale() return tal.interwoven and INTERWOVEN_SCALE or 1 end
+ns.augCdScale = cdScale
+
+-- Wingleader: Breath of Eons cooldown cuts from Mass Eruptions (the first Eruption after an empower).
+local boeCuts = {}
+local function wingleaderBetween(a, b)
+  local x = 0
+  for _, t in ipairs(boeCuts) do if t > a and t <= b then x = x + WINGLEADER_CUT end end
+  return x
+end
 -- Temporal Burst's size and fade time: game data says 30% over 30s, but the in-game tooltip can say
 -- otherwise (the owner's says 34.1s), so read both from the tooltip out of combat when we can.
 local tb = { seconds = 30, max = 0.30, readAt = nil }
@@ -338,7 +378,7 @@ local function extraBetween(ctx, a, b)
   local hasBurst = ctx.knows(S.TEMPORAL_BURST)
   for _, e in ipairs(speedEvents) do
     if e.kind == "ts" then
-      local s, f = math.max(a, e.t), math.min(b, e.t + TS_SECONDS)
+      local s, f = math.max(a, e.t), math.min(b, e.t + (e.dur or TS_SECONDS))
       if f > s then x = x + (f - s) * TS_EXTRA end
     elseif hasBurst then
       local s, f = math.max(a, e.t), math.min(b, e.t + tb.seconds)
@@ -390,29 +430,53 @@ local function cooldownLeft(ctx, ids, cooldown, isEmpower)
   local recovered = (ctx.now - last) + extraBetween(ctx, last, ctx.now)
   if isEmpower then recovered = recovered * aug.empowerFactor end
   if ids == UPHEAVAL_IDS then recovered = recovered + accretionSince(ctx, last) end
-  return math.max(0, cooldown - recovered)
+  if isEmpower and tal.instability then recovered = recovered + INSTABILITY_AVG end
+  return math.max(0, cooldown * cdScale() - recovered)
 end
 ns.augCooldownLeft = cooldownLeft
 
 -- Time Skip and Temporal Burst speed up every cooldown, so the cooldown-ready rules (Breath of Eons,
 -- Tip the Scales, Time Skip) use them too.
 ns.cooldownSpeedup = ns.cooldownSpeedup or {}
-ns.cooldownSpeedup[1473] = extraBetween
+ns.cooldownSpeedup[1473] = function(ctx, a, b, spell)
+  return extraBetween(ctx, a, b) + (spell == S.BREATH_OF_EONS and tal.wingleader and wingleaderBetween(a, b) or 0)
+end
+ns.cooldownScale = ns.cooldownScale or {}
+ns.cooldownScale[1473] = cdScale
 
 -- Called by Core.lua for each of your successful casts.
 ns.onCast = function(spec, id, now)
   if spec ~= 1473 then return end
   local left = ebonMight.expires - now
-  aug.undo = { id = id, expires = ebonMight.expires, tipConsumed = aug.tipConsumed }
+  aug.undo = { id = id, expires = ebonMight.expires, tipConsumed = aug.tipConsumed, massPending = aug.massPending }
+  local critMul = 1 + 0.5 * emMod.crit -- average with crits
+  local ext = EM_EXTEND[id]
+  if id == S.EMERALD_BLOSSOM and tal.dreamOfSpring then ext = 1 end -- Dream of Spring (414969): +1s
   if id == S.EBON_MIGHT then
     local duration = EM_DURATION * emMod.duration
     ebonMight.expires = now + duration + math.max(0, math.min(left, duration * EM_PANDEMIC))
   elseif id == S.BREATH_OF_EONS and left <= 0 then
-    ebonMight.expires = now + EM_EXTEND[id] * (1 + 0.5 * emMod.crit)
-  elseif EM_EXTEND[id] and left > 0 then
-    ebonMight.expires = ebonMight.expires + EM_EXTEND[id] * (1 + 0.5 * emMod.crit) -- average with crits
+    ebonMight.expires = now + ext * critMul
+  elseif ext and left > 0 then
+    ebonMight.expires = ebonMight.expires + ext * critMul
   end
-  if id == S.TIME_SKIP then speedEvents[#speedEvents + 1] = { kind = "ts", t = now } end
+  if id == S.BREATH_OF_EONS and tal.overlord then
+    -- Overlord: Breath of Eons casts Eruption on the first (up to 3) enemies it hits. They aren't your
+    -- casts, but each extends Ebon Might and counts for Accretion. One assumed (enemies unknown).
+    ebonMight.expires = ebonMight.expires + EM_EXTEND[S.ERUPTION] * critMul
+    eruptions[#eruptions + 1] = now
+  end
+  if tal.wingleader then
+    if EMPOWERS[id] then aug.massPending = true                     -- the next Eruption is a Mass Eruption
+    elseif (id == S.ERUPTION or id == S.ERUPTION_2) and aug.massPending then
+      aug.massPending = false
+      boeCuts[#boeCuts + 1] = now
+      while boeCuts[1] and now - boeCuts[1] > 300 do table.remove(boeCuts, 1) end
+    end
+  end
+  if id == S.TIME_SKIP then
+    speedEvents[#speedEvents + 1] = { kind = "ts", t = now, dur = TS_SECONDS + (tal.tomorrow and TOMORROW_TODAY_EXTRA or 0) }
+  end
   if id == S.TIP_THE_SCALES then
     speedEvents[#speedEvents + 1] = { kind = "tb", t = now }
     -- remember the previous cycle: this press proves Tip the Scales was ready (learned in onTick)
@@ -438,7 +502,8 @@ local function learnEmpower(ctx, ids, cooldown)
   if aug.readyNow[ids[1]] and aug.readyNow[ids[1]] > last then return end -- already learned for this cast
   aug.readyNow[ids[1]] = ctx.now
   local took = (ctx.now - last) + extraBetween(ctx, last, ctx.now)
-  local needed = cooldown - (ids == UPHEAVAL_IDS and accretionSince(ctx, last) or 0)
+  local needed = cooldown * cdScale() - (ids == UPHEAVAL_IDS and accretionSince(ctx, last) or 0)
+      - (tal.instability and INSTABILITY_AVG or 0)
   if took > 1 and took < needed then
     -- ready no later than now: the real factor is at least this
     aug.empowerFactor = aug.blend(aug.empowerFactor, needed / took)
@@ -452,6 +517,7 @@ ns.onCastCancelled = function(spec, id)
   if not u or u.id ~= id then return end
   ebonMight.expires = u.expires    -- no Ebon Might extension
   aug.tipConsumed = u.tipConsumed  -- Tip the Scales still waiting
+  aug.massPending = u.massPending  -- no Mass Eruption from it
   aug.undo = nil
 end
 
@@ -470,7 +536,8 @@ ns.onTick = ns.onTick or {}
 -- reset when the talents they depend on change.
 local function learnedSignature(ctx)
   return (ctx.knows(S.ACCRETION) and "A" or "-") .. (ctx.knows(S.CHRONOBOON) and "C" or "-")
-      .. (ctx.knows(S.TEMPORAL_BURST) and "T" or "-")
+      .. (ctx.knows(S.TEMPORAL_BURST) and "T" or "-") .. (ctx.knows(S.TOMORROW_TODAY) and "M" or "-")
+      .. (ctx.knows(S.INSTABILITY_MATRIX) and "I" or "-") .. (ctx.knows(S.INTERWOVEN_THREADS) and "W" or "-")
 end
 
 local function syncLearned(ctx)
@@ -496,6 +563,7 @@ end
 aug.syncLearned = syncLearned
 
 ns.onTick[1473] = function(ctx)
+  readTalents(ctx)
   readTemporalBurst(ctx)
   readEbonMightMods(ctx)
   syncLearned(ctx)
@@ -541,7 +609,7 @@ local function tipState(ctx)
 end
 
 local function tipCooldown(ctx)
-  return TIP_COOLDOWN - (ctx.knows(S.CHRONOBOON) and CHRONOBOON_CDR or 0)
+  return (TIP_COOLDOWN - (ctx.knows(S.CHRONOBOON) and CHRONOBOON_CDR or 0)) * cdScale()
 end
 aug.tipFactor = 1 -- learned from your presses: how much faster Tip the Scales really recovers
 
@@ -702,6 +770,22 @@ ns.debugStatus = {
   end,
 }
 
+-- Logged at the start of each fight: which timing-related talents you have.
+ns.debugTalents = {
+  [1473] = function(knows)
+    local list = {
+      { S.ACCRETION, "Accretion" }, { S.TIME_SKIP, "Time Skip" }, { S.TOMORROW_TODAY, "Tomorrow, Today" },
+      { S.INTERWOVEN_THREADS, "Interwoven Threads" }, { S.TEMPORAL_BURST, "Temporal Burst" },
+      { S.CHRONOBOON, "Chronoboon" }, { S.INSTABILITY_MATRIX, "Instability Matrix" },
+      { S.DREAM_OF_SPRING, "Dream of Spring" }, { S.NOZDORMU_ADEPT, "Nozdormu Adept" },
+      { S.OVERLORD, "Overlord" }, { S.WINGLEADER, "Wingleader" }, { S.MASS_ERUPTION, "Mass Eruption" },
+    }
+    local have = {}
+    for _, t in ipairs(list) do if knows(t[1]) then have[#have + 1] = t[2] end end
+    return #have > 0 and table.concat(have, ", ") or "none of the timing talents"
+  end,
+}
+
 -- Talent replacements the highlight's data doesn't know about: when it suggests the first spell and
 -- you have the second, show the second (its button is the one you press).
 ns.replacedBy = {
@@ -841,9 +925,15 @@ ns.readyCooldowns = {
 -- else timed from your last cast this session (never cast = ready).
 -- Seconds of cooldown recovered between two times, beyond the time itself, from effects the spec
 -- tracks (ns.cooldownSpeedup[spec](ctx, from, to), e.g. Augmentation's Time Skip and Temporal Burst).
-local function speedup(ctx, from, to)
+local function speedup(ctx, from, to, spell)
   local f = ns.cooldownSpeedup and ctx.spec and ns.cooldownSpeedup[ctx.spec]
-  return f and f(ctx, from, to) or 0
+  return f and f(ctx, from, to, spell) or 0
+end
+
+-- Cooldown multiplier from the spec's talents (ns.cooldownScale[spec](ctx), e.g. Interwoven Threads).
+local function scaled(ctx, cooldown)
+  local f = ns.cooldownScale and ctx.spec and ns.cooldownScale[ctx.spec]
+  return cooldown * (f and f(ctx) or 1)
 end
 
 -- Seconds until the spell is ready (0 = ready): the game's answer (read out of combat) if we have
@@ -853,7 +943,7 @@ local function cooldownLeft(ctx, spell, cooldown)
   if r ~= nil then return r end
   local last = ctx.lastCast[spell]
   if not last then return 0 end
-  return math.max(0, cooldown - (ctx.now - last) - speedup(ctx, last, ctx.now))
+  return math.max(0, scaled(ctx, cooldown) - (ctx.now - last) - speedup(ctx, last, ctx.now, spell))
 end
 ns.cooldownLeft = cooldownLeft
 
@@ -862,7 +952,7 @@ local function cooldownReady(ctx, spell, cooldown)
   local cd = ctx.onCooldown(spell)
   if cd ~= nil then return not cd end
   local last = ctx.lastCast[spell]
-  return not last or ctx.now - last + speedup(ctx, last, ctx.now) >= cooldown
+  return not last or ctx.now - last + speedup(ctx, last, ctx.now, spell) >= scaled(ctx, cooldown)
 end
 ns.cooldownReady = cooldownReady
 
@@ -909,7 +999,10 @@ end
 
 -- Charges counted from your own casts (hidden in combat). recharge = seconds per charge.
 ns.chargeTrack = {
-  [1473] = { [S.PRESCIENCE] = { max = 2, recharge = 12 } }, -- game data: 2 charges, 12s
+  -- game data: 2 charges, 12s; Nozdormu Adept -2s (431715: s3 = -2000 ms); Interwoven Threads -10%
+  [1473] = { [S.PRESCIENCE] = { max = 2, recharge = function(knows)
+    return (12 - (knows(S.NOZDORMU_ADEPT) and 2 or 0)) * (knows(S.INTERWOVEN_THREADS) and 0.9 or 1)
+  end } },
   [250] = { [S.BLOOD_BOIL] = { max = 2, recharge = 7.5 } }, -- game data: 2 charges, 7.5s, not hasted
 }
 
