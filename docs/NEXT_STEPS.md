@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.15.1** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.15.3** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -64,8 +64,11 @@ Not yet seen in the live game: check the panel's layout, scrolling, and that che
    the macro; off = with Fire Breath as before). Rule notes (`alert.note`) show under the icon.
    **0.15.1:** Upheaval timed from the cast once cast (`up=` was still 0), Accretion modelled, macro note "macro x2",
    macro-mode cooldown from the press. Status: `upb=` `tip=`. From the owner's fifth log.
-   **Open:** confirm `up=` counts down and `upb=` (is the button's Upheaval ID 396286?), and compare `tip=` with
-   the action bar (Time Skip modelled as 10x; if Tip comes back early, try 11x).
+   **0.15.2:** "x2" after the keybind when the Tip the Scales macro should be pressed (macro option only).
+   **0.15.3:** the real `up=0` cause (highlight still shows Upheaval right after the cast; learning now waits 3s),
+   Tip the Scales learns a speed factor from early presses (`tx=`), `haste=` logged. `upb=396286` confirmed.
+   **Open:** confirm `up=` counts down now; see whether `tx=` settles and whether it matches haste (if Tip the
+   Scales' cooldown is hasted, model haste instead of learning).
    **Open:** the Ebon Might estimate runs at least 8s short in the owner's log, so the `ebonmight` refresh rule
    never fires. Next log: compare `em=` on the status lines with when the highlight asks for Ebon Might again
    (it only does once the buff is down and Ebon Might is off cooldown). Original notes:
