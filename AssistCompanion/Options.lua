@@ -109,6 +109,34 @@ local function stepper(label, desc, get, set, step, lo, hi, fmt)
   return f
 end
 
+-- "Label  [<] VALUE [>]" stepping through a list of values.
+local function cycler(label, desc, values, get, set)
+  local f = CreateFrame("Frame", nil, content)
+  f:SetSize(360, 24)
+  f.label = f:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  f.label:SetPoint("LEFT", f, "LEFT", 4, 0)
+  f.label:SetText(label)
+  local function index()
+    local cur = get()
+    for i, v in ipairs(values) do if v == cur then return i end end
+    return 1
+  end
+  local function step(d) set(values[math.max(1, math.min(#values, index() + d))]) end
+  f.minus = button("<", 24, function() step(-1) end)
+  f.minus:SetParent(f)
+  f.minus:SetPoint("LEFT", f, "LEFT", 130, 0)
+  f.value = f:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+  f.value:SetPoint("LEFT", f.minus, "RIGHT", 6, 0)
+  f.value:SetWidth(130)
+  f.plus = button(">", 24, function() step(1) end)
+  f.plus:SetParent(f)
+  f.plus:SetPoint("LEFT", f.value, "RIGHT", 6, 0)
+  tooltip(f, label, desc)
+  function f:refresh() self.value:SetText((tostring(get()):gsub("_", " "))) end
+  widgets[#widgets + 1] = f
+  return f
+end
+
 local function label(text, font)
   local fs = content:CreateFontString(nil, "ARTWORK", font or "GameFontNormal")
   fs:SetJustifyH("LEFT")
@@ -171,6 +199,10 @@ local function buildGeneral()
   place(stepper("Scale", "Scales the icons, opener bar and text box together.",
     function() return db().scale end,
     function(v) db().scale = v; C.layoutAll() end, 0.05, 0.5, 2.5, "%.2f"), 16)
+  place(cycler("Strata", "The layer the icons, opener bar and text box draw on. Higher draws over more of the UI "
+      .. "(HIGH: over action bars, under dialogs and tooltips).", ns.STRATA,
+    function() return db().strata end,
+    function(v) db().strata = v; C.layoutAll() end), 16)
   local test = button("Show a test icon", 150, function() cmd("test") end)
   place(test, 20, 28)
   local reset = button("Reset positions", 150, function() cmd("reset") end)

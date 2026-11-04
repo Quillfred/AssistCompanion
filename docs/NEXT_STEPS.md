@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.17.0** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.17.1** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -113,7 +113,7 @@ Not yet seen in the live game: check the panel's layout, scrolling, and that che
 5. Optional: **update the rankings page** with the corrected losses from `simout_override/`.
 
 The owner plays Frost/Unholy/Blood DK, Devastation and Augmentation Evoker, uses EllesmereUI bars, and
-prefers: 48px icon, text alerts off, HIGH strata, icons always shown (not when dead).
+prefers: 48px icon, text alerts off, HIGH strata (now an option, `db.strata`, 0.17.1), icons always shown (not when dead).
 
 ## Key findings to keep in mind
 

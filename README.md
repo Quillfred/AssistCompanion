@@ -54,6 +54,7 @@ Click the **minimap button**, type **`/ac`**, or open **Esc → Options → AddO
 | Command | What it does |
 |---|---|
 | `/ac` | Open the options menu. `/ac help` lists the commands |
+| `/ac strata <name>` | Layer the icons, opener bar and text box draw on: background, low, medium, high (default), dialog, fullscreen, fullscreen dialog, tooltip |
 | `/ac minimap` | Show or hide the minimap button (left-click: options, shift-click: start/stop the debug log, ctrl-click: clear it, right-click: lock/unlock, drag: move) |
 | `/ac unlock`, `/ac lock` | Move the next-cast icon and opener bar |
 | `/ac test` | Show a sample icon |
