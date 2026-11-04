@@ -63,3 +63,7 @@ lua5.1 tests/harness.lua AssistCompanion
 ```
 
 GitHub Actions runs the same tests on every push.
+
+## License
+
+[MIT](LICENSE) © 2026 Quillfred
