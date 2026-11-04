@@ -62,7 +62,8 @@ local S = {
   TIME_SKIP           = 404977,
   TEMPORAL_BURST      = 431695, -- Chronowarden
   CLEAR_EMPOWER_COOLDOWN = 397374,
-  ACCRETION           = 407876, -- each Eruption: Upheaval's remaining cooldown -1s (game data 411932)
+  ACCRETION           = 407876,
+  MASTERY_TIMEWALKER  = 406380, -- tooltip: "...your other helpful auras are increased by X%" -- each Eruption: Upheaval's remaining cooldown -1s (game data 411932)
   LIVING_FLAME        = 361469, -- Chrono Flames (431443) replaces it on the button for Chronowarden -- "[DNT] Clear Empower Cooldown": resets Fire Breath and Upheaval
   CHRONOBOON          = 1260484, -- Chronowarden: Tip the Scales' cooldown is shorter
 }
@@ -242,7 +243,38 @@ ns.rules[251] = {
 -- Each extension has your crit chance to be 50% longer, which we can't see, so the estimate runs
 -- a little short: the refresh reminder can come slightly early, never late.
 ---------------------------------------------------------------------------
-local EM_DURATION, EM_PANDEMIC = 10, 3
+local EM_DURATION, EM_PANDEMIC = 10, 0.3 -- base seconds; pandemic keeps up to 30% of the duration
+
+-- What stretches Ebon Might for you (owner's screenshots, SimC): mastery (Timewalker) lengthens the
+-- duration of your helpful auras, Ebon Might's base 10s included (13.8% -> 11.4s); and each Sands of
+-- Time extension can crit for +50% (crit 20.6% -> extensions ~10% longer on average). Both read out
+-- of combat: mastery from its tooltip, crit from your character. Re-running the owner's first log
+-- with these puts the end at +34.7s, exactly when the highlight asked for Ebon Might (the old
+-- estimate said +26s).
+local emMod = { duration = 1, crit = 0, readAt = nil }
+ns.ebonMightMods = emMod
+
+local function readEbonMightMods(ctx)
+  if ctx.inCombat or (emMod.readAt and ctx.now - emMod.readAt < 5) then return end
+  emMod.readAt = ctx.now
+  local d = ctx.description and ctx.description(S.MASTERY_TIMEWALKER)
+  if d then
+    local last -- the aura-duration bonus is the last percentage in the tooltip
+    for num in d:gmatch("(%d+[%.,]?%d*)%s*%%") do last = num end
+    local pct = last and tonumber((last:gsub(",", ".")))
+    if pct and pct >= 0 and pct < 200 then emMod.duration = 1 + pct / 100 end
+  end
+  if GetSpellCritChance then
+    local best
+    for school = 2, 7 do -- spell schools; Augmentation's spells are several of them
+      local ok, c = pcall(GetSpellCritChance, school)
+      if ok and not (issecretvalue and issecretvalue(c)) and type(c) == "number" then
+        best = math.max(best or 0, c)
+      end
+    end
+    if best then emMod.crit = math.max(0, math.min(1, best / 100)) end
+  end
+end
 local EM_REFRESH = 4     -- optimal refreshes with 40% (4s) left
 local EM_COOLDOWN = 30   -- game data (395152)
 local EM_HOLD = 6        -- hold an empower for Ebon Might if it's back within this many seconds
@@ -373,11 +405,12 @@ ns.onCast = function(spec, id, now)
   local left = ebonMight.expires - now
   aug.undo = { id = id, expires = ebonMight.expires, tipConsumed = aug.tipConsumed }
   if id == S.EBON_MIGHT then
-    ebonMight.expires = now + EM_DURATION + math.max(0, math.min(left, EM_PANDEMIC))
+    local duration = EM_DURATION * emMod.duration
+    ebonMight.expires = now + duration + math.max(0, math.min(left, duration * EM_PANDEMIC))
   elseif id == S.BREATH_OF_EONS and left <= 0 then
-    ebonMight.expires = now + EM_EXTEND[id]
+    ebonMight.expires = now + EM_EXTEND[id] * (1 + 0.5 * emMod.crit)
   elseif EM_EXTEND[id] and left > 0 then
-    ebonMight.expires = ebonMight.expires + EM_EXTEND[id]
+    ebonMight.expires = ebonMight.expires + EM_EXTEND[id] * (1 + 0.5 * emMod.crit) -- average with crits
   end
   if id == S.TIME_SKIP then speedEvents[#speedEvents + 1] = { kind = "ts", t = now } end
   if id == S.TIP_THE_SCALES then
@@ -464,6 +497,7 @@ aug.syncLearned = syncLearned
 
 ns.onTick[1473] = function(ctx)
   readTemporalBurst(ctx)
+  readEbonMightMods(ctx)
   syncLearned(ctx)
   if ns.augLearnTip then ns.augLearnTip(ctx) end
   local n = ctx.next
@@ -642,17 +676,18 @@ ns.empowerRank = {
 ns.debugStatus = {
   -- em = our Ebon Might estimate (seconds left); up/emcd = Upheaval / Ebon Might cooldown estimates;
   -- x = learned empower recovery factor; upb = the Upheaval ID on your button; tip = Tip the Scales
-  -- cooldown estimate ("w" = pressed, buff not used yet); tx = learned Tip the Scales factor; haste %
+  -- cooldown estimate ("w" = pressed, buff not used yet); tx = learned Tip the Scales factor; haste %;
+  -- emdur = Ebon Might duration multiplier from mastery; crit = crit % used for extension crits
   [1473] = function(ctx)
     local waiting = ns.augTip.state(ctx)
     local haste = GetHaste and select(2, pcall(GetHaste))
     if issecretvalue and issecretvalue(haste) then haste = nil end
-    return ("em=%.1f emcd=%.1f up=%.1f x=%.2f upb=%s tip=%s tx=%.2f haste=%s"):format(
+    return ("em=%.1f emcd=%.1f up=%.1f x=%.2f upb=%s tip=%s tx=%.2f haste=%s emdur=%.2f crit=%.0f"):format(
       math.max(0, ebonMight.expires - ctx.now),
       cooldownLeft(ctx, EBON_MIGHT_IDS, EM_COOLDOWN), cooldownLeft(ctx, UPHEAVAL_IDS, UPHEAVAL_COOLDOWN, true),
       aug.empowerFactor, tostring(ctx.override(S.UPHEAVAL)),
       waiting and "w" or ("%.1f"):format(ns.augTip.cooldownLeft(ctx)), aug.tipFactor,
-      type(haste) == "number" and ("%.1f"):format(haste) or "?")
+      type(haste) == "number" and ("%.1f"):format(haste) or "?", emMod.duration, emMod.crit * 100)
   end,
 }
 

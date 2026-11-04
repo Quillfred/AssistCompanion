@@ -1340,6 +1340,37 @@ expect("Saved: ...then loaded once it is", "1.2/1.1", A.empowerFactor .. "/" .. 
 state.known[407876] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
 A.empowerFactor, A.tipFactor = 1, 1; step()
 
+-- Ebon Might: mastery stretches its duration, crits stretch extensions (owner's screenshots)
+local mods = ns.ebonMightMods
+C_Spell.GetSpellDescription = function(id)
+  if id == 406380 then
+    return "Casting an empower spell grants Shifting Sands to 1 ally, preferring damage dealers, increasing their "
+      .. "Versatility by 7.5% for 11.4 sec.\r\n\r\nThe durations of Shifting Sands, Breath of Eons, and your "
+      .. "other helpful auras are increased by 13.8%."
+  end
+end
+function GetSpellCritChance(school) return school == 4 and 20.59 or 18 end
+combat(false); mods.readAt = nil; step()
+expect("Ebon Might mods: mastery tooltip -> duration x1.138", 1.138, math.floor(mods.duration * 1000 + 0.5) / 1000)
+expect("Ebon Might mods: crit read (best school)", 20.59, math.floor(mods.crit * 10000 + 0.5) / 100)
+combat(true); C_Spell.GetSpellDescription = function() return "changed 50%" end; mods.readAt = nil; step()
+expect("Ebon Might mods: not re-read in combat", 1.138, math.floor(mods.duration * 1000 + 0.5) / 1000)
+C_Spell.GetSpellDescription = nil; GetSpellCritChance = nil
+-- Replay the owner's first log: the buff ended between +33.6s (highlight still below Ebon Might with it
+-- off cooldown) and +33.7s (the Upheaval then didn't keep it up). Old estimate: ~+26s.
+augReset(); local r0 = now + 100
+local casts = { { -0.5, 395152 }, { -0.5, 357208 }, { 1.8, 403631 }, { 4.3, 396286 }, { 7.1, 395160 },
+  { 8.5, 395160 }, { 10.0, 395160 }, { 11.5, 395160 }, { 12.9, 395160 }, { 14.4, 395160 }, { 15.8, 395160 },
+  { 21.7, 395160 }, { 26.6, 357208 }, { 29.6, 395160 }, { 31.9, 395160 } }
+for _, c in ipairs(casts) do now = r0 + c[1]; cast(c[2]) end
+local ends = ns.ebonMight.expires - r0
+expect("Ebon Might replay: estimate ends within ~0.5s of the real drop (33.6-33.7s)", true, ends > 33.4 and ends < 34.3)
+mods.duration, mods.crit, mods.readAt = 1, 0, nil
+local ends0 = (function() augReset(); for _, c in ipairs(casts) do now = r0 + 200 + c[1]; cast(c[2]) end
+  return ns.ebonMight.expires - (r0 + 200) end)()
+expect("Ebon Might replay: without mastery and crit it ended far too early", true, ends0 < 30)
+augReset()
+
 -- debug log: Ebon Might estimate on the status line, rule errors logged once
 local function dbgHas(pat) for _, l in ipairs(AssistCompanionDB.debugLog or {}) do if l:find(pat, 1, true) then return true end end return false end
 AssistCompanionDB.debugLog = {}; AssistCompanionDB.debug = true
@@ -1347,7 +1378,7 @@ table.insert(ns.rules[1473], 1, { key = "broken", name = "Broken", check = funct
 for _ = 1, 12 do step() end
 expect("Debug: Augmentation status shows the Ebon Might estimate", true, dbgHas(" em="))
 expect("Debug: ...and the cooldown estimates", true, dbgHas(" up=") and dbgHas(" emcd=") and dbgHas(" x=")
-  and dbgHas(" upb=") and dbgHas(" tip=") and dbgHas(" tx=") and dbgHas(" haste="))
+  and dbgHas(" upb=") and dbgHas(" tip=") and dbgHas(" tx=") and dbgHas(" haste=") and dbgHas(" emdur=") and dbgHas(" crit="))
 expect("Debug: a rule error is logged", true, dbgHas("rule broken error"))
 local n = 0 for _, l in ipairs(AssistCompanionDB.debugLog) do if l:find("rule broken error", 1, true) then n = n + 1 end end
 expect("Debug: ...only once", 1, n)
