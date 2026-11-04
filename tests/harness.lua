@@ -656,6 +656,23 @@ state.spec = 251; events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED"
 expect("HP icon: not shown for Frost", false, hf.shown)
 C_Spell.GetSpellCharges = nil
 
+-- HIDDEN WHILE DEAD ----------------------------------------------------------
+function UnitIsDeadOrGhost(u) return u == "player" and state.dead or false end
+state.spec = 250; state.pet = true; state.target = nil; state.next = 206930
+state.known = { [195182]=true, [195292]=true, [49998]=true, [50842]=true, [206930]=true, [46585]=true, [43265]=true }
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+AssistCompanionDB.showText = true; state.rp = 95; now = now + 50; step()
+expect("Dead: everything visible while alive", true, nf.shown and ob.shown and AssistCompanionHealth.shown and display.shown)
+state.dead = true; step()
+expect("Dead: next-cast icon hidden", false, nf.shown)
+expect("Dead: opener bar hidden", false, ob.shown)
+expect("Dead: low-health icon hidden", false, AssistCompanionHealth.shown)
+expect("Dead: text box hidden", false, display.shown)
+state.dead = false; step()
+expect("Dead: everything back after resurrection", true, nf.shown and ob.shown and AssistCompanionHealth.shown)
+state.rp = 10; AssistCompanionDB.showText = false; UnitIsDeadOrGhost = nil; step()
+expect("Dead: API missing -> treated as alive", true, nf.shown)
+
 -- secret values: power returns a secret -> treated as unknown, no error
 issecretvalue = function(v) return v == "SECRET" end
 state.spec = 252; events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")

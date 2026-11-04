@@ -766,8 +766,18 @@ local ctx = { lastCast = lastCast, knows = knows, override = override, onCooldow
 local elapsed, debugElapsed = 0, 0
 local testUntil = 0
 
+local function playerDead()
+  local f = UnitIsDeadOrGhost or UnitIsDead
+  return f and try(f, "player") or false
+end
+
 local function tick()
   if not db then return end
+  -- Dead or a ghost: hide everything until you're back up.
+  if playerDead() then
+    nf:Hide(); ob:Hide(); hf:Hide(); frame:Hide()
+    return
+  end
   local openerStep = renderOpener()
 
   ctx.db = db
