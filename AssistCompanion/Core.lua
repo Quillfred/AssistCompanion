@@ -38,6 +38,7 @@ local DEFAULTS = {
 local db
 local specID
 local lastCast = {}
+local prevCast = {} -- lastCast before the latest cast, to undo a cancelled empower
 local knownCache = {}
 local powerMaxCache
 local RUNIC_POWER = (Enum and Enum.PowerType and Enum.PowerType.RunicPower) or 6
@@ -1023,6 +1024,8 @@ events:RegisterEvent("UPDATE_BINDINGS")
 events:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
 events:RegisterUnitEvent("UNIT_PET", "player")
 events:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
+-- Empowered spells report "succeeded" when you start them; this says whether they completed.
+events:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_STOP", "player")
 
 -- Spec/talent/spellbook changes. The game also fires SPELLS_CHANGED mid-combat (e.g. when a
 -- buff that swaps a button ends), so never rebuild the opener in combat, and out of combat only
@@ -1044,7 +1047,7 @@ local function refresh(event)
   end
 end
 
-events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
+events:SetScript("OnEvent", function(_, event, arg1, _, spellID, arg4)
   if event == "ADDON_LOADED" and arg1 == ADDON then
     AssistCompanionDB = AssistCompanionDB or {}
     db = AssistCompanionDB
@@ -1083,6 +1086,7 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
     updateGCD()
     local id = readable(spellID)
     if id then
+      prevCast[id] = lastCast[id]
       lastCast[id] = GetTime()
       -- Casting it just started its cooldown, which may be hidden in combat. Forget the old
       -- "ready" answer so rules fall back to timing from this cast until we can read it again.
@@ -1091,6 +1095,15 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
       spendCharge(id)
       advanceOpener(id)
       if ns.onCast then pcall(ns.onCast, specID, id, GetTime()) end
+    end
+  elseif event == "UNIT_SPELLCAST_EMPOWER_STOP" then
+    -- Cancelled empower (owner's log: a Fire Breath "cast" that never went on cooldown): undo it.
+    local id, complete = readable(spellID), readable(arg4)
+    if id and complete == false and lastCast[id] then
+      lastCast[id] = prevCast[id]
+      prevCast[id] = nil
+      dlog("empower cancelled: %s (%d)", spellName(id), id)
+      if ns.onCastCancelled then pcall(ns.onCastCancelled, specID, id, GetTime()) end
     end
   elseif event == "PLAYER_REGEN_DISABLED" then
     inCombat, combatStart = true, GetTime()

@@ -1,5 +1,10 @@
 # Assist Companion
 
+## 0.16.1
+
+* **Cancelled empowers are ignored.** The game reports Fire Breath and Upheaval as cast when you *start* them. If you cancel one, it doesn't go on cooldown, and the addon now undoes it: the cooldown timing, the Ebon Might extension, and Tip the Scales being used up.
+* **Steadier learning.** The learned Fire Breath / Upheaval and Tip the Scales speeds average each new reading with the old one, and impossible readings are dropped instead of capped.
+
 ## 0.16.0
 
 * **Minimap button.** Left-click opens the options menu, right-click locks or unlocks the frames, drag moves it around the minimap (square minimaps too). Hide it in the options menu or with `/ac minimap`.

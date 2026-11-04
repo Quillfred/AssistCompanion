@@ -371,6 +371,7 @@ ns.cooldownSpeedup[1473] = extraBetween
 ns.onCast = function(spec, id, now)
   if spec ~= 1473 then return end
   local left = ebonMight.expires - now
+  aug.undo = { id = id, expires = ebonMight.expires, tipConsumed = aug.tipConsumed }
   if id == S.EBON_MIGHT then
     ebonMight.expires = now + EM_DURATION + math.max(0, math.min(left, EM_PANDEMIC))
   elseif id == S.BREATH_OF_EONS and left <= 0 then
@@ -406,10 +407,29 @@ local function learnEmpower(ctx, ids, cooldown)
   local took = (ctx.now - last) + extraBetween(ctx, last, ctx.now)
   local needed = cooldown - (ids == UPHEAVAL_IDS and accretionSince(ctx, last) or 0)
   if took > 1 and took < needed then
-    -- ready no later than now: the real factor is at least this (capped against odd cases)
-    aug.empowerFactor = math.max(1, math.min(1.6, needed / took))
+    -- ready no later than now: the real factor is at least this
+    aug.empowerFactor = aug.blend(aug.empowerFactor, needed / took)
   end
 end
+
+-- A cancelled empower (Core.lua, UNIT_SPELLCAST_EMPOWER_STOP): undo what its cast did here.
+ns.onCastCancelled = function(spec, id)
+  if spec ~= 1473 then return end
+  local u = aug.undo
+  if not u or u.id ~= id then return end
+  ebonMight.expires = u.expires    -- no Ebon Might extension
+  aug.tipConsumed = u.tipConsumed  -- Tip the Scales still waiting
+  aug.undo = nil
+end
+
+-- Learned factors: a new reading is averaged with the old one, and readings beyond the plausible
+-- range are dropped instead of capped (owner's log: a cancelled Fire Breath read as "4s cooldown").
+local FACTOR_MAX = 1.6
+local function blend(old, reading)
+  if reading > FACTOR_MAX then return old end
+  return (old + math.max(1, reading)) / 2
+end
+aug.blend = blend
 
 ns.onTick = ns.onTick or {}
 ns.onTick[1473] = function(ctx)
@@ -483,7 +503,7 @@ local function learnTip(ctx)
   local took = (p.at - start) + extraBetween(ctx, start, p.at)
   local cd = tipCooldown(ctx)
   if took > 5 and took * aug.tipFactor < cd - 0.5 then
-    aug.tipFactor = math.max(1, math.min(1.6, cd / took))
+    aug.tipFactor = aug.blend(aug.tipFactor, cd / took)
   end
 end
 ns.augLearnTip = learnTip

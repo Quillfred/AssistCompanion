@@ -1102,12 +1102,20 @@ expect("Reset: Clear Empower Cooldown -> Upheaval ready -> rank 1", "1", nf.rank
 now = now + 300; augReset(); ns.ebonMight.expires = now + 100
 local u2 = now; cast(396286)
 now = u2 + 29.2; state.next = 396286; step()                     -- (step adds 0.2s: 29.4)
-expect("Learn: Upheaval ready after 29.4s -> factor 40/29.4", 1.36, math.floor(ns.augCooldowns.empowerFactor * 100 + 0.5) / 100)
+expect("Learn: Upheaval ready after 29.4s (40/29.4 = 1.36) -> averaged with 1.00: 1.18", 1.18,
+  math.floor(ns.augCooldowns.empowerFactor * 100 + 0.5) / 100)
+local u2b = now; cast(396286)
+now = u2b + 29.2; state.next = 396286; step()                    -- same again: (1.18 + 1.36) / 2
+expect("Learn: a second 29.4s reading -> 1.27", 1.27, math.floor(ns.augCooldowns.empowerFactor * 100 + 0.5) / 100)
 local u3 = now; cast(396286)
-now = u3 + 27.5; state.next = 357208; step()                     -- 27.5 * 1.36 = 37.4: 2.6s left
-expect("Learn: next Upheaval, 2.6s left -> rank 3", "3", nf.rank.text)
-now = u3 + 28.4; step()                                          -- 38.6: 1.4s left
+now = u3 + 28; state.next = 357208; step()                       -- 28 * 1.27 = 35.6: 4.4s left
+expect("Learn: next Upheaval, 4.4s left -> rank 3", "3", nf.rank.text)
+now = u3 + 30.4; step()                                          -- 38.6: 1.4s left
 expect("Learn: next Upheaval, 1.4s left -> rank 1", "1", nf.rank.text)
+-- an implausible reading (a cancelled empower looked like a 4s cooldown) is dropped, not capped
+local f0 = ns.augCooldowns.empowerFactor
+local u4 = now; cast(396286); now = u4 + 4; state.next = 396286; step()
+expect("Learn: an impossible 4s Upheaval reading is ignored", f0, ns.augCooldowns.empowerFactor)
 -- Ebon Might before empowers
 now = now + 300; augReset()
 local e0 = now; cast(395152)                                     -- Ebon Might: 10s, cooldown 30s
@@ -1187,11 +1195,13 @@ now = p0 + 60; step()
 expect("Tip learn: 60s in, estimate 30s left", 30, math.floor(ns.augTip.cooldownLeft({ lastCast = { [370553] = p0 },
   now = now, db = AssistCompanionDB, knows = function(id) return id == 1260484 end, readyIn = function() end }) + 0.5))
 now = p0 + 72; cast(370553); cast(357208); step()                -- pressed at 72s: it was ready
-expect("Tip learn: pressed at 72s of 90 -> factor 1.25", 1.25, math.floor(ns.augCooldowns.tipFactor * 100 + 0.5) / 100)
-local p1 = now; now = p1 + 72.5; state.next = 357208; step()
-expect("Tip learn: next cycle ready after 72s", "icon:370553", nf.icon.texture)
+expect("Tip learn: pressed at 72s of 90 (1.25) -> averaged with 1.00: 1.13", 1.13, math.floor(ns.augCooldowns.tipFactor * 100 + 0.5) / 100)
+local p1 = now; now = p1 + 79; state.next = 357208; step()
+expect("Tip learn: next cycle not ready at 79s", "icon:357208", nf.icon.texture)
+now = p1 + 80.5; step()
+expect("Tip learn: next cycle ready after 80s (90 / 1.125)", "icon:370553", nf.icon.texture)
 now = p1 + 200; cast(370553); cast(357208); step()               -- a late press teaches nothing
-expect("Tip learn: a late press doesn't lower the factor", 1.25, math.floor(ns.augCooldowns.tipFactor * 100 + 0.5) / 100)
+expect("Tip learn: a late press doesn't lower the factor", 1.13, math.floor(ns.augCooldowns.tipFactor * 100 + 0.5) / 100)
 ns.augCooldowns.tipFactor = 1
 AssistCompanionDB.tipMacro = false; state.known[431695] = nil; state.known[1260484] = nil
 events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); ns.setRuleEnabled(1473, "tipthescales", false)
@@ -1238,6 +1248,30 @@ cast(396286); state.next = 396286; step(); step(); step()        -- highlight st
 state.next = 357208; step()
 expect("Learn: highlight still on Upheaval right after the cast -> not ready (rank 3)", "3", nf.rank.text)
 expect("Learn: ...and nothing learned from it", 1, ns.augCooldowns.empowerFactor)
+-- Owner's seventh log: a Fire Breath started and cancelled (no cooldown) must not count
+now = now + 300; augReset(); ns.ebonMight.expires = now + 1000
+cast(357208); local fb0 = now                                    -- a real Fire Breath
+now = fb0 + 40; local em0 = ns.ebonMight.expires
+cast(357208); step()                                             -- started...
+events.scripts.OnEvent(events, "UNIT_SPELLCAST_EMPOWER_STOP", "player", "guid", 357208, false) -- ...cancelled
+expect("Cancel: no Ebon Might extension from it", em0, ns.ebonMight.expires)
+now = fb0 + 44; state.next = 357208; step()
+expect("Cancel: highlight on Fire Breath 4s later learns nothing", 1, ns.augCooldowns.empowerFactor)
+cast(357208); events.scripts.OnEvent(events, "UNIT_SPELLCAST_EMPOWER_STOP", "player", "guid", 357208, true)
+expect("Cancel: a completed empower stays", em0 + 2, ns.ebonMight.expires)
+-- a cancelled Upheaval doesn't put Upheaval on cooldown: Fire Breath stays rank 1
+cast(396286); now = now + 45; cast(396286)                       -- real one 45s ago, then started and cancelled
+events.scripts.OnEvent(events, "UNIT_SPELLCAST_EMPOWER_STOP", "player", "guid", 396286, false)
+state.next = 357208; step()
+expect("Cancel: cancelled Upheaval -> Upheaval still ready -> Fire Breath rank 1", "1", nf.rank.text)
+-- Tip the Scales stays waiting if the empower that would use it is cancelled
+AssistCompanionDB.tipMacro = false; cast(370553); cast(357208)
+events.scripts.OnEvent(events, "UNIT_SPELLCAST_EMPOWER_STOP", "player", "guid", 357208, false)
+expect("Cancel: Tip the Scales still waiting after a cancelled empower", true, (ns.augTip.state(
+  { lastCast = { [370553] = now }, now = now, db = AssistCompanionDB })))
+cast(357208); events.scripts.OnEvent(events, "UNIT_SPELLCAST_EMPOWER_STOP", "player", "guid", 357208, true)
+state.next = 431443
+
 -- Accretion: each Eruption takes 1s off Upheaval
 now = now + 300; augReset(); ns.ebonMight.expires = now + 1000
 local a0 = now; cast(396286)
