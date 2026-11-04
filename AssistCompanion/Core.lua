@@ -396,8 +396,9 @@ end
 local function makeMovable(f, pointKey)
   f:SetMovable(true)
   f:SetClampedToScreen(true)
-  -- Draw above everything else on screen: highest strata, near-max level within it.
-  f:SetFrameStrata("TOOLTIP")
+  -- HIGH strata: above the action bars and most of the UI, below dialogs, menus and tooltips.
+  -- A high frame level keeps it above other HIGH frames.
+  f:SetFrameStrata("HIGH")
   f:SetFrameLevel(9000)
   f:SetToplevel(true)
   f:SetScript("OnMouseDown", function(self, button)

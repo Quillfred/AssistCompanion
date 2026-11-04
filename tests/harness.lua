@@ -135,7 +135,7 @@ local function expect(label, want, got)
   else fail = fail + 1; print(("FAIL  %s: wanted %s, got %s"):format(label, tostring(want), tostring(got))) end
 end
 
-expect("Display: strata is TOOLTIP", "TOOLTIP", display.strata)
+expect("Display: strata is HIGH", "HIGH", display.strata)
 expect("Display: frame level is high", 9000, display.level)
 
 -- UNHOLY -----------------------------------------------------------------
@@ -248,7 +248,9 @@ combat(false); state.overrides = {}
 expect("Defaults: text alerts off", false, expect_default_text)
 expect("Defaults: icon size 48", 48, expect_default_size)
 expect("Next icon: 48px", 48, nf.icon.size[1])
-expect("Next icon: TOOLTIP strata", "TOOLTIP", nf.strata)
+expect("Next icon: HIGH strata", "HIGH", nf.strata)
+expect("Opener bar: HIGH strata", "HIGH", AssistCompanionOpener.strata)
+expect("Low-health icon: HIGH strata", "HIGH", AssistCompanionHealth.strata)
 function GetBindingKey(cmd)
   local map = { ACTIONBUTTON3 = "F", MULTIACTIONBAR1BUTTON2 = "SHIFT-2" }
   return map[cmd]
