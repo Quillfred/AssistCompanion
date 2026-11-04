@@ -1081,6 +1081,24 @@ ns.ebonMight.expires = now + 20; state.next = 395152; step()
 expect("Ebon Might: highlight asks for it -> our estimate says it's down", true, ns.ebonMight.expires <= now)
 state.next = 431443
 
+-- Owner's third log: Breath of Eons held ~23s after Time Skip had brought it back
+ns.setRuleEnabled(1473, "breatheons", true)
+now = now + 400; augReset(); ns.ebonMight.expires = now + 1000
+local b0 = now; cast(403631)                                     -- Breath of Eons: 120s
+now = b0 + 26; cast(404977)                                      -- Time Skip: +18s for every cooldown
+now = b0 + 100; state.next = 431443; step()
+expect("Speed: Breath of Eons 100s in, after Time Skip (118 of 120) -> not yet", "icon:431443", nf.icon.texture)
+now = b0 + 102.5; step()
+expect("Speed: Breath of Eons back 18s early after Time Skip", "icon:403631", nf.icon.texture)
+cast(403631); ns.setRuleEnabled(1473, "breatheons", false)
+-- Owner's third log: up= was always 0 because the Font of Magic Upheaval (not talented) read as ready
+C_Spell.GetSpellCooldown = function() return { startTime = 0, duration = 0, modRate = 1 } end
+combat(false); now = now + 300; augReset(); ns.ebonMight.expires = now + 1000; step() -- out of combat: both IDs read ready
+combat(true); C_Spell.GetSpellCooldown = function() return { startTime = "SECRET", duration = "SECRET" } end -- hidden in combat
+cast(396286); state.next = 357208; step()
+expect("Rank: right after Upheaval (Font of Magic ID reads ready) -> Fire Breath rank 3", "3", nf.rank.text)
+C_Spell.GetSpellCooldown = nil; state.next = 431443
+
 -- debug log: Ebon Might estimate on the status line, rule errors logged once
 local function dbgHas(pat) for _, l in ipairs(AssistCompanionDB.debugLog or {}) do if l:find(pat, 1, true) then return true end end return false end
 AssistCompanionDB.debugLog = {}; AssistCompanionDB.debug = true

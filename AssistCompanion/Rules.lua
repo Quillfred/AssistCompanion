@@ -328,10 +328,11 @@ end
 -- Seconds until one of these spells (the same ability's IDs) is ready: the game's own answer if
 -- we read one out of combat, else timed from your last cast with the speed-ups above.
 local function cooldownLeft(ctx, ids, cooldown, isEmpower)
-  for _, id in ipairs(ids) do
-    local r = ctx.readyIn and ctx.readyIn(id)
-    if r ~= nil then return r end
-  end
+  -- Only the spell on your button (Font of Magic swaps it): the other ID reads as "ready" out of
+  -- combat because you don't have it.
+  local onButton = (ctx.override and ctx.override(ids[1])) or ids[1]
+  local r = ctx.readyIn and ctx.readyIn(onButton)
+  if r ~= nil then return r end
   local last = lastOfIds(ctx, ids)
   if not last then return 0 end
   if aug.readyNow[ids[1]] and aug.readyNow[ids[1]] > last then return 0 end -- the highlight said so
@@ -341,6 +342,11 @@ local function cooldownLeft(ctx, ids, cooldown, isEmpower)
   return math.max(0, cooldown - recovered)
 end
 ns.augCooldownLeft = cooldownLeft
+
+-- Time Skip and Temporal Burst speed up every cooldown, so the cooldown-ready rules (Breath of Eons,
+-- Tip the Scales, Time Skip) use them too.
+ns.cooldownSpeedup = ns.cooldownSpeedup or {}
+ns.cooldownSpeedup[1473] = extraBetween
 
 -- Called by Core.lua for each of your successful casts.
 ns.onCast = function(spec, id, now)
@@ -609,23 +615,32 @@ ns.readyCooldowns = {
 
 -- true when the spell is off cooldown: the game's answer (read out of combat) if we have one,
 -- else timed from your last cast this session (never cast = ready).
-local function cooldownReady(ctx, spell, cooldown)
-  local cd = ctx.onCooldown(spell)
-  if cd ~= nil then return not cd end
-  local last = ctx.lastCast[spell]
-  return not last or ctx.now - last >= cooldown
+-- Seconds of cooldown recovered between two times, beyond the time itself, from effects the spec
+-- tracks (ns.cooldownSpeedup[spec](ctx, from, to), e.g. Augmentation's Time Skip and Temporal Burst).
+local function speedup(ctx, from, to)
+  local f = ns.cooldownSpeedup and ctx.spec and ns.cooldownSpeedup[ctx.spec]
+  return f and f(ctx, from, to) or 0
 end
-ns.cooldownReady = cooldownReady
 
--- Seconds until the spell is ready, same sources as cooldownReady (0 = ready).
+-- Seconds until the spell is ready (0 = ready): the game's answer (read out of combat) if we have
+-- one, else timed from your last cast this session (never cast = ready).
 local function cooldownLeft(ctx, spell, cooldown)
   local r = ctx.readyIn and ctx.readyIn(spell)
   if r ~= nil then return r end
   local last = ctx.lastCast[spell]
   if not last then return 0 end
-  return math.max(0, cooldown - (ctx.now - last))
+  return math.max(0, cooldown - (ctx.now - last) - speedup(ctx, last, ctx.now))
 end
 ns.cooldownLeft = cooldownLeft
+
+-- true when the spell is off cooldown (same sources; a second of grace on the game's answer).
+local function cooldownReady(ctx, spell, cooldown)
+  local cd = ctx.onCooldown(spell)
+  if cd ~= nil then return not cd end
+  local last = ctx.lastCast[spell]
+  return not last or ctx.now - last + speedup(ctx, last, ctx.now) >= cooldown
+end
+ns.cooldownReady = cooldownReady
 
 local function readyCooldownRule(entry)
   return {
