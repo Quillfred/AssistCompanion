@@ -79,10 +79,9 @@ Not yet seen in the live game: check the panel's layout, scrolling, and that che
    **0.16.4:** learned factors saved (`db.augLearned`), reset when Accretion / Chronoboon / Temporal Burst change,
    loaded only once the spellbook is ready. Eighth log clean (see FINDINGS). CurseForge beta on hold at the
    owner's request until everything is confirmed.
-   **Open (owner to test):** cancelled empowers. With debug on, start Fire Breath and cancel it before
-   releasing (jump, move without Hover, or a /stopcasting macro). Expect `cast: Fire Breath` then
-   `empower cancelled: Fire Breath`, and the highlight should keep offering Fire Breath. A normal release must
-   NOT log "empower cancelled". If the line never appears, the event's `complete` argument isn't readable.
+   **Confirmed (ninth log):** cancelled empowers are detected (`complete == false` is readable) and undone;
+   learned factors are saved. Remaining Augmentation unknown: the Ebon Might buff estimate (the game only shows
+   when it has dropped). CurseForge beta still on hold until the owner says everything is clear.
    **Open:** the Ebon Might estimate runs at least 8s short in the owner's log, so the `ebonmight` refresh rule
    never fires. Next log: compare `em=` on the status lines with when the highlight asks for Ebon Might again
    (it only does once the buff is down and Ebon Might is off cooldown). Original notes:
