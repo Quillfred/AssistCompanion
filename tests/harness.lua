@@ -33,6 +33,8 @@ local function newFrame()
     function s:SetJustifyH() end
     function s:SetTextColor() end
     function s:SetText(x) self.text = x end
+    function s:SetWidth() end
+    function s:ClearAllPoints() end
     return s
   end
   function f:CreateTexture() return tex() end
@@ -66,6 +68,19 @@ local function newFrame()
   function f:SetBackdropColor() end
   function f:RegisterEvent() end
   function f:RegisterUnitEvent() end
+  -- options menu widgets
+  function f:SetChecked(v) self.checked = v end
+  function f:GetChecked() return self.checked end
+  function f:SetText(x) self.text = x end
+  function f:SetParent() end
+  function f:SetWidth() end
+  function f:SetHeight(h) self.height = h end
+  function f:SetScrollChild(c) self.child = c end
+  function f:EnableMouseWheel() end
+  function f:GetVerticalScrollRange() return 0 end
+  function f:GetVerticalScroll() return 0 end
+  function f:SetVerticalScroll() end
+  function f:Click() if self.scripts.OnClick then self.scripts.OnClick(self, "LeftButton") end end
   return f
 end
 local frames = {}
@@ -105,9 +120,19 @@ function UnitExists(u)
   return state.target ~= false
 end
 
+local settings = {}
+Settings = {
+  RegisterCanvasLayoutCategory = function(frame, name)
+    settings.panel, settings.name = frame, name
+    return { GetID = function() return 77 end }
+  end,
+  RegisterAddOnCategory = function(cat) settings.registered = cat end,
+  OpenToCategory = function(id) settings.opened = id end,
+}
+
 -- load addon files with a shared namespace
 local ns = {}
-for _, file in ipairs({ "Rules.lua", "Core.lua" }) do
+for _, file in ipairs({ "Rules.lua", "Core.lua", "Options.lua" }) do
   local chunk = assert(loadfile(dir .. "/" .. file))
   chunk("AssistCompanion", ns)
 end
@@ -290,7 +315,7 @@ expect("Next icon: reminder shows once Breath is used", "Pillar: use trinkets, p
 -- no target, out of combat: hidden
 state.target = false; now = now + 30; step()
 expect("Always show: visible with no target out of combat", true, nf.shown)
-expect("Always show: default on", true, AssistCompanionDB.alwaysShow)
+expect("Always show: default mode", "always", AssistCompanionDB.showMode)
 local lastIcon = nf.icon.texture
 state.next = nil; step()
 expect("Always show: no suggestion keeps last icon", lastIcon, nf.icon.texture)
@@ -298,9 +323,16 @@ expect("Always show: kept icon is grayed out", true, nf.icon.desat)
 expect("Always show: still visible", true, nf.shown)
 state.next = 49020; step()
 expect("Always show: new suggestion not grayed", false, nf.icon.desat)
-AssistCompanionDB.alwaysShow = false; step()
-expect("Always show off: hidden with no target out of combat", false, nf.shown)
-AssistCompanionDB.alwaysShow = true
+AssistCompanionDB.showMode = "target"; step()
+expect("Show mode target: hidden with no target out of combat", false, nf.shown)
+state.target = nil; step()
+expect("Show mode target: shown with an enemy targeted", true, nf.shown)
+AssistCompanionDB.showMode = "combat"; step()
+expect("Show mode combat: hidden out of combat even with a target", false, nf.shown)
+events.scripts.OnEvent(events, "PLAYER_REGEN_DISABLED"); step()
+expect("Show mode combat: shown in combat", true, nf.shown)
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED")
+AssistCompanionDB.showMode = "always"
 state.target = nil
 
 -- KEYBIND FALLBACK: a bar addon with its own bindings (e.g. EllesmereUI bar 9) ----
@@ -524,7 +556,7 @@ cast(1249658); state.next = 49020; step()
 now = now + 60; cast(51271); step()                       -- next Pillar 60s later, Breath has ~60s left
 expect("Breath bug: not suggested while its cooldown is still running", "icon:49020", nf.icon.texture)
 now = now + 65; cast(51271); step()                       -- 125s after Breath: ready again
-expect("Breath bug: suggested again once 120s have passed", "icon:1249658", nf.icon.texture)
+expect("Breath bug: suggested again once its cooldown has passed", "icon:1249658", nf.icon.texture)
 combat(false)
 C_Spell.GetSpellCooldown, C_Spell.GetSpellCharges = nil, nil
 
@@ -601,6 +633,7 @@ state.next = 316239; step()
 expect("Blood: Rune Strike ID (Heart Strike in game data) also corrected", "icon:50842", nf.icon.texture)
 -- combat hides charges: count from casts
 combat(true); state.charges = nil
+cast(46585) -- Raise Dead at the pull, so its cooldown-ready icon stays out of these tests
 cast(50842); cast(50842); step()
 expect("Blood: both charges used -> Heart Strike stays", "icon:316239", nf.icon.texture)
 now = now + 7.6; step()
@@ -723,6 +756,146 @@ SlashCmdList.ASSISTCOMPANION("log clear")
 expect("Debug log: /ac log clear empties it", 0, #AssistCompanionDB.debugLog)
 AssistCompanionDB.openerIcon = false
 
+-- COOLDOWN-READY TEMPLATE ---------------------------------------------------
+AssistCompanionDB.openerIcon = false
+state.spec = 250; state.pet = true; state.target = nil; state.overrides = {}; state.inRange = true
+state.known = { [195182]=true, [49998]=true, [50842]=true, [206930]=true, [46585]=true, [55233]=true }
+state.rp = 10; state.next = 49998; state.charges = nil
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 300; step()
+expect("Cooldowns: Blood rules include Vampiric Blood and Raise Dead",
+  "boneshield,vampiricblood,raisedead,rpcap,bloodboil",
+  (function() local t = {} for _, r in ipairs(ns.rules[250]) do t[#t+1] = r.key end return table.concat(t, ",") end)())
+expect("Cooldowns: Frost keeps Breath after the range check, then Raise Dead",
+  "erwrange,breath,raisedead,frostscythe",
+  (function() local t = {} for _, r in ipairs(ns.rules[251]) do t[#t+1] = r.key end return table.concat(t, ",") end)())
+expect("Cooldowns: tracked for Blood", "55233,46585", table.concat(ns.trackCooldowns[250], ","))
+expect("Cooldowns: Blood out of combat -> plain highlight", "icon:49998", nf.icon.texture)
+combat(true); step()
+expect("Cooldowns: Blood pull -> Vampiric Blood first", "icon:55233", nf.icon.texture)
+expect("Cooldowns: gold border on the cooldown icon", true, nf.border.shown)
+expect("Cooldowns: bare icon, no note", "", nf.note.text)
+cast(55233); step()
+expect("Cooldowns: Vampiric Blood used -> Raise Dead", "icon:46585", nf.icon.texture)
+cast(46585); step()
+expect("Cooldowns: both used -> back to the highlight", "icon:49998", nf.icon.texture)
+now = now + 89; step()
+expect("Cooldowns: Vampiric Blood not back before 90s", "icon:49998", nf.icon.texture)
+now = now + 2; step()
+expect("Cooldowns: Vampiric Blood back after 90s", "icon:55233", nf.icon.texture)
+cast(55233); now = now + 30; step()
+expect("Cooldowns: Raise Dead back after 120s", "icon:46585", nf.icon.texture)
+state.next = 46585; step()
+expect("Cooldowns: highlight already says it -> no correction border", false, nf.border.shown)
+state.next = 49998
+cast(195182); now = now + 26; step()
+expect("Cooldowns: Bone Shield refresh outranks a ready cooldown", "icon:195182", nf.icon.texture)
+cast(195182); step()
+SlashCmdList.ASSISTCOMPANION("toggle raisedead"); step()
+expect("Cooldowns: /ac toggle raisedead turns it off", "icon:49998", nf.icon.texture)
+SlashCmdList.ASSISTCOMPANION("toggle raisedead")
+combat(false)
+-- the game's out-of-combat answer wins over cast timing
+state.cd = { [46585] = { now - 10, 120 }, [55233] = { now - 85, 90 } }
+C_Spell.GetSpellCooldown = function(id)
+  local c = state.cd[id]
+  if c == "SECRET" then return { startTime = "SECRET", duration = "SECRET" } end
+  if c then return { startTime = c[1], duration = c[2], modRate = 1 } end
+  return { startTime = 0, duration = 0, modRate = 1 }
+end
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 1; step() -- wipes cast history
+combat(true); state.cd = { [46585] = "SECRET", [55233] = "SECRET" }; step()
+expect("Cooldowns: game said both on cooldown -> not shown after a combat drop", "icon:49998", nf.icon.texture)
+now = now + 5; step()
+expect("Cooldowns: remembered cooldown runs out in combat -> Vampiric Blood", "icon:55233", nf.icon.texture)
+combat(false)
+C_Spell.GetSpellCooldown = nil
+-- Frost: Raise Dead in combat, Breath during Pillar comes first
+state.spec = 251; state.known = { [1249658]=true, [51271]=true, [49020]=true, [46585]=true }
+state.next = 49020; state.plates = 1
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 300; step()
+combat(true); cast(51271); step()
+expect("Cooldowns: Frost Pillar -> Breath before Raise Dead", "icon:1249658", nf.icon.texture)
+cast(1249658); step()
+expect("Cooldowns: Frost Breath used -> Raise Dead", "icon:46585", nf.icon.texture)
+cast(46585); step()
+expect("Cooldowns: Frost both used -> highlight", "icon:49020", nf.icon.texture)
+now = now + 85; cast(51271); step()
+expect("Cooldowns: Frost Breath not back before 90s", "icon:49020", nf.icon.texture)
+now = now + 6; cast(51271); step()
+expect("Cooldowns: Frost Breath back after 90s (game data, was 120s)", "icon:1249658", nf.icon.texture)
+combat(false)
+
+-- OPTIONS MENU ----------------------------------------------------------------
+expect("Options: registered in the game's settings", "Assist Companion", settings.name)
+expect("Options: added to the AddOns list", true, settings.registered ~= nil)
+state.spec = 250; events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+SlashCmdList.ASSISTCOMPANION("")
+expect("Options: /ac opens the menu", 77, settings.opened)
+local panel = settings.panel
+panel.scripts.OnShow(panel)
+local rowsBy = function(spec, key)
+  for _, r in ipairs(ns.optionsRows) do
+    if r.specID == spec and (r.ruleKey == key or r.optionKey == key) then return r end
+  end
+end
+local branchRow = function(key) for _, r in ipairs(ns.optionsRows) do if r.key == key then return r end end end
+expect("Options: Death Knight class shown", true, branchRow("class:DEATHKNIGHT").frame.shown)
+expect("Options: current class opens by itself", true, ns.optionsExpanded["class:DEATHKNIGHT"] or false)
+expect("Options: Frost spec listed under it", true, branchRow("spec:251").frame.shown)
+expect("Options: current spec's abilities shown (Blood Raise Dead)", true, rowsBy(250, "raisedead").frame.shown)
+expect("Options: other specs closed (Frost Raise Dead hidden)", false, rowsBy(251, "raisedead").frame.shown)
+expect("Options: ability has its spell icon", "icon:46585", rowsBy(250, "raisedead").frame.icon.texture)
+expect("Options: Blood lists every rule", 5,
+  (function() local n = 0 for _, r in ipairs(ns.optionsRows) do if r.specID == 250 and r.ruleKey then n = n + 1 end end return n end)())
+expect("Options: Blood has the low-health icon option", true, rowsBy(250, "healthIcon") ~= nil)
+expect("Options: spec shows how many rules are on", "5 of 5 on", branchRow("spec:250").frame.count.text)
+branchRow("spec:251").frame:Click()
+expect("Options: clicking Frost opens it", true, rowsBy(251, "raisedead").frame.shown)
+branchRow("class:DEATHKNIGHT").frame:Click()
+expect("Options: closing the class hides its specs", false, branchRow("spec:251").frame.shown)
+expect("Options: ...and their abilities", false, rowsBy(250, "raisedead").frame.shown)
+branchRow("class:DEATHKNIGHT").frame:Click()
+local rd = rowsBy(250, "raisedead").frame
+expect("Options: checkbox starts on", true, rd.checked)
+rd.checked = false; rd:Click()
+expect("Options: unchecking turns the rule off for Blood", false, ns.ruleEnabled(250, "raisedead"))
+expect("Options: ...but not for Frost", true, ns.ruleEnabled(251, "raisedead"))
+expect("Options: count updates", "4 of 5 on", branchRow("spec:250").frame.count.text)
+rd.checked = true; rd:Click()
+expect("Options: checking turns it back on", true, ns.ruleEnabled(250, "raisedead"))
+SlashCmdList.ASSISTCOMPANION("toggle rpcap"); panel.scripts.OnShow(panel)
+expect("Options: /ac toggle changes the current spec only", true, ns.ruleEnabled(252, "rpcap") and not ns.ruleEnabled(250, "rpcap"))
+expect("Options: menu re-reads it when opened", false, rowsBy(250, "rpcap").frame.checked)
+SlashCmdList.ASSISTCOMPANION("toggle rpcap")
+local function widget(text) for _, w in ipairs(ns.optionsWidgets) do if w.label and w.label.text == text then return w end end end
+local dead = widget("Show while dead")
+dead.checked = true; dead:Click()
+expect("Options: 'Show while dead' checkbox", true, AssistCompanionDB.showWhenDead)
+dead.checked = false; dead:Click()
+widget("Only in combat").checked = true; widget("Only in combat"):Click()
+expect("Options: visibility choice", "combat", AssistCompanionDB.showMode)
+expect("Options: choices act like radio buttons", false, widget("Always").checked)
+widget("Always").checked = true; widget("Always"):Click()
+local lock = widget("Lock frames")
+lock.checked = false; lock:Click()
+expect("Options: unchecking 'Lock frames' unlocks", false, AssistCompanionDB.locked)
+lock.checked = true; lock:Click()
+expect("Options: checking it locks again", true, AssistCompanionDB.locked)
+local size = AssistCompanionDB.iconSize
+for _, w in ipairs(ns.optionsWidgets) do if w.label and w.label.text == "Icon size" then w.plus:Click() end end
+expect("Options: icon size + button", size + 4, AssistCompanionDB.iconSize)
+AssistCompanionDB.iconSize = size
+-- old saved settings carry over
+AssistCompanionDB.disabled = { raisedead = true }; AssistCompanionDB.alwaysShow = false; AssistCompanionDB.showMode = nil
+events.scripts.OnEvent(events, "ADDON_LOADED", "AssistCompanion")
+expect("Migration: old rule toggle applies to every spec with that rule",
+  "250:raisedead,251:raisedead", (function() local t = {} for k in pairs(AssistCompanionDB.disabled) do t[#t+1] = k end table.sort(t) return table.concat(t, ",") end)())
+expect("Migration: alwaysShow off -> 'in combat or with a target'", "target", AssistCompanionDB.showMode)
+expect("Migration: alwaysShow removed", nil, AssistCompanionDB.alwaysShow)
+AssistCompanionDB.disabled = {}; AssistCompanionDB.showMode = "always"
+
 -- HIDDEN WHILE DEAD ----------------------------------------------------------
 function UnitIsDeadOrGhost(u) return u == "player" and state.dead or false end
 state.spec = 250; state.pet = true; state.target = nil; state.next = 206930
@@ -735,6 +908,9 @@ expect("Dead: next-cast icon hidden", false, nf.shown)
 expect("Dead: opener bar hidden", false, ob.shown)
 expect("Dead: low-health icon hidden", false, AssistCompanionHealth.shown)
 expect("Dead: text box hidden", false, display.shown)
+AssistCompanionDB.showWhenDead = true; step()
+expect("Dead: 'show while dead' keeps the next-cast icon", true, nf.shown)
+AssistCompanionDB.showWhenDead = false
 state.dead = false; step()
 expect("Dead: everything back after resurrection", true, nf.shown and ob.shown and AssistCompanionHealth.shown)
 state.rp = 10; AssistCompanionDB.showText = false; UnitIsDeadOrGhost = nil; step()

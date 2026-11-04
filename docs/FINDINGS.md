@@ -62,6 +62,23 @@ In the game data, Breath is marked as automation only, so it never shows in the 
 
 With trinkets, potion and racials removed, Breath (plus Raise Dead) alone is worth about 7.3% in single target. The rest of the gap is on-use trinkets, potion and racials, which the highlight never suggests for any spec.
 
+## Cooldowns the highlight never suggests (DKs, Devastation)
+
+From each spec's Assisted Combat list (SimC `ActionPriorityLists/assisted_combat/`, game build 12.1.5.70688). A cooldown counts as missing when it isn't in the list, or is in it but marked "This is for Blizzard automation" (never shown in the highlight).
+
+| Spec | Never suggested | Optimal use | Cooldown (game data) |
+|---|---|---|---|
+| Frost | Breath of Sindragosa (automation only) | During Pillar of Frost | 90s (1249658) |
+| Frost | Raise Dead | On cooldown, off the GCD | 120s (46585) |
+| Blood | Vampiric Blood | On cooldown | 90s (55233) |
+| Blood | Raise Dead | On cooldown, off the GCD | 120s (46585) |
+| Unholy | none | | |
+| Devastation | none | | |
+
+Devastation's list has Dragonrage, Tip the Scales (when Fire Breath is ready), Deep Breath, Fire Breath and Eternity Surge, and no automation-only lines. Its losses come from conditions and button overrides instead (Azure Sweep, Pyre at 3 targets, essence cap).
+
+The addon's Breath rule used to time Breath with a 120s cooldown. Game data says 90s (Breath 1249658, duration 8s), so after a Breath cast in combat the icon now returns 30s sooner.
+
 ## Frost: 3-target Frostscythe
 
 The highlight's Frostscythe and Glacial Advance rules require more than 3 enemies. At exactly 3: 0 Frostscythe casts (optimal: 128), about −2.4%.

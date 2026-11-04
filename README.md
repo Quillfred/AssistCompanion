@@ -16,6 +16,8 @@ The addon only displays information. You press every button yourself.
 | Unholy | With the **Blightfall** talent, the highlight asks for **Outbreak** forever after Dark Transformation (its rule checks the Blightfall buff, which Outbreak never clears) | **Blightfall** |
 | Unholy | Runic power only gets spent on procs, so it overcaps (about 15% wasted in 5-target sims) | **Death Coil** (1–3 targets) or **Epidemic** (4+) at 80+ runic power |
 | Frost | **Breath of Sindragosa** is never suggested (about 7% DPS) | **Breath** during Pillar of Frost, as a bare 48px icon |
+| Frost, Blood | **Raise Dead** is never suggested | **Raise Dead** in combat whenever it's ready |
+| Blood | **Vampiric Blood** is never suggested (no defensive is) | **Vampiric Blood** in combat whenever it's ready |
 | Frost | At exactly 3 targets the highlight never uses Frostscythe (its rule starts above 3) | **Frostscythe** instead of Obliterate |
 | Frost | **Empower Rune Weapon** is suggested while you're still running in (it has no range check, Pillar does) | Empower Rune Weapon **grayed out and red** until you're in melee |
 
@@ -32,10 +34,20 @@ Corrections have a gold border. While an opener is running, the icon follows the
 
 If the game says the addon is out of date, tick **Load out of date AddOns** on the AddOns screen.
 
+## Options menu
+
+Type **`/ac`**, or open **Esc → Options → AddOns → Assist Companion**.
+
+* **Icons:** show or hide the next-cast icon, and when to show it (always, in combat or with an enemy targeted, or only in combat); show while dead; global cooldown swipe; text alerts; lock or unlock frames for moving; icon size and scale; test icon; reset positions.
+* **Opener:** opener bar on or off, whether the next-cast icon follows it, restart it.
+* **Debug:** debug log on or off, also print to chat, clear the log.
+* **Abilities:** a tree of classes and specs. Open a spec to turn each of its corrections on or off (hover one for what it does), plus spec settings such as Blood's low-health icon. Your current class and spec open by themselves.
+
 ## Commands
 
 | Command | What it does |
 |---|---|
+| `/ac` | Open the options menu. `/ac help` lists the commands |
 | `/ac unlock`, `/ac lock` | Move the next-cast icon and opener bar |
 | `/ac test` | Show a sample icon |
 | `/ac icon` | Turn the next-cast icon on or off. `/ac icon 56` sets its size (default 48) |
@@ -45,7 +57,7 @@ If the game says the addon is out of date, tick **Load out of date AddOns** on t
 | `/ac opener` | Turn the opener bar on or off. `/ac opener reset` restarts it. `/ac opener icon` stops the next-cast icon following the opener |
 | `/ac rp 80` | Unholy: runic power level that triggers a spend warning |
 | `/ac cds` | Frost: turn the "use trinkets, potion and racial" reminder during Pillar on or off |
-| `/ac rules`, `/ac toggle <key>` | List rules or turn one off |
+| `/ac rules`, `/ac toggle <key>` | List your current spec's rules, or turn one on or off for your current spec |
 | `/ac scale <n>`, `/ac reset` | Scale everything, or reset positions |
 | `/ac debug` | Log what the addon sees (icon changes and why, casts, opener steps, combat start/end, status each second) to its saved file. `/ac debug chat` also prints it to chat |
 | `/ac log` | Show the debug log's size. `/ac log clear` empties it |
@@ -66,7 +78,7 @@ The keybind on the icon comes from Blizzard's action bar bindings. For bar addon
 * Midnight hides some combat information from addons. Counting nearby enemies (used for the 3-target and 1–3 vs 4+ choices) may not work in combat; when it doesn't, those parts stay quiet.
 * The openers come from SimC's optimal single-target rotation for SimC's default builds. Steps for spells you don't have are skipped.
 * When combat drops (or you die, or an encounter ends) the opener restarts. Opener spells pressed out of combat rewind after 10 seconds.
-* Cooldowns are hidden from addons in combat, so the addon reads them out of combat and remembers them. Opener steps still on cooldown (e.g. Pillar of Frost after a quick reset on a dummy) are skipped, and the Breath icon only shows when Breath is ready. After a raid wipe the game resets cooldowns, and the addon sees that.
+* Cooldowns are hidden from addons in combat, so the addon reads them out of combat and remembers them. Opener steps still on cooldown (e.g. Pillar of Frost after a quick reset on a dummy) are skipped, and the cooldown icons (Breath, Raise Dead, Vampiric Blood) only show when the spell is ready. In combat they're timed from your last cast using the spell's base cooldown, so talents that shorten a cooldown make its icon come back a little late, never early. After a raid wipe the game resets cooldowns, and the addon sees that.
 * This has been tested against a mocked WoW API (see below), not yet in the live game. Please report anything that behaves differently.
 
 ## Tests

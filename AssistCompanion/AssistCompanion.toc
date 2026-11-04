@@ -2,9 +2,10 @@
 ## Title: Assist Companion
 ## Notes: Shows the Assisted Highlight suggestion as one icon with a keybind, corrected where Blizzard's rules are wrong, plus an opener bar. Blood, Frost and Unholy Death Knight.
 ## Author: Quillfred
-## Version: 0.10.0
+## Version: 0.12.0
 ## SavedVariables: AssistCompanionDB
 ## Category: Combat
 
 Rules.lua
 Core.lua
+Options.lua
