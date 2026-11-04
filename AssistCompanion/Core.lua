@@ -19,6 +19,7 @@ local DEFAULTS = {
   unholyRP = 80,           -- warn at or above this runic power when the highlight wants a rune spender
   cooldownReminder = true, -- Frost: trinkets/potion/racial reminder when Pillar goes out
   opener = true,           -- show the opening sequence before and at the start of a pull
+  openerIcon = true,       -- the next-cast icon follows the opener while it's running
   disabled = {},           -- rule keys turned off with /ac toggle <key>
   debug = false,
 }
@@ -334,10 +335,19 @@ end
 -- alert: rule result or nil. note: reminder text or nil.
 local function showNext(ctx, alert, note)
   local spell, corrected, wait = ctx.next, false, false
-  if alert and alert.wait then
+  if alert and alert.opener then
+    spell, wait = alert.spell, alert.wait -- opener step; "wait" = don't press it until in melee
+  elseif alert and alert.wait then
     wait = true                    -- keep the suggestion, but say "not yet"
   elseif alert then
     spell, corrected = alert.spell, true
+  end
+  -- Border: blue = opener step, gold = correction, none = plain highlight suggestion.
+  if alert and alert.opener then
+    nf.border:SetColorTexture(0.3, 0.6, 1, 1)
+    corrected = true
+  else
+    nf.border:SetColorTexture(1, 0.82, 0, 1)
   end
   if alert and alert.iconOnly then note = nil end -- e.g. Breath: just the icon, nothing else
   if not db.nextIcon or not spell or not combatOrTarget() then
@@ -456,11 +466,13 @@ local function advanceOpener(id)
   end
 end
 
+-- Draws the opener bar. Returns the current opener step while the opener is active
+-- (so the next-cast icon can follow it), or nil.
 local function renderOpener()
   local steps = opener.steps
   local visible = db.opener and #steps > 0 and opener.index <= #steps
     and ((not inCombat and hostileTarget()) or (inCombat and GetTime() - combatStart <= OPENER_COMBAT_WINDOW))
-  if not visible then ob:SetShown(not db.locked) return end
+  if not visible then ob:SetShown(not db.locked) return nil end
   local x = 4
   for i = 1, OPENER_SLOTS do
     local t, step = ob.slots[i], steps[opener.index + i - 1]
@@ -485,6 +497,7 @@ local function renderOpener()
   end
   ob.label:SetText(("Opener\n%d/%d"):format(opener.index, #steps))
   ob:Show()
+  return steps[opener.index]
 end
 
 local function layoutAll()
@@ -502,7 +515,7 @@ local testUntil = 0
 
 local function tick()
   if not db then return end
-  renderOpener()
+  local openerStep = renderOpener()
 
   ctx.db = db
   ctx.now = GetTime()
@@ -527,7 +540,18 @@ local function tick()
       if ok then note = r end
     end
   end
-  showNext(ctx, alert, note)
+  -- While the opener is running, the next-cast icon follows it instead of the highlight.
+  local iconAlert = alert
+  if openerStep and db.openerIcon then
+    iconAlert = {
+      spell = openerStep.id,
+      opener = true,
+      wait = openerStep.waitForMelee and ctx.inMelee == false or false,
+      -- keep "just the icon" when a rule wants that for this same spell (e.g. Breath)
+      iconOnly = alert and alert.iconOnly and alert.spell == openerStep.id or nil,
+    }
+  end
+  showNext(ctx, iconAlert, note)
   showText(alert)
 
   if db.debug then
@@ -630,6 +654,11 @@ SlashCmdList.ASSISTCOMPANION = function(input)
     end
   elseif cmd == "opener" then
     if arg == "reset" then buildOpener(); say("Opener restarted.") return end
+    if arg == "icon" then
+      db.openerIcon = not db.openerIcon
+      say("Next-cast icon " .. (db.openerIcon and "follows the opener." or "ignores the opener (shows the highlight)."))
+      return
+    end
     db.opener = not db.opener; say("Opener " .. (db.opener and "on." or "off."))
   elseif cmd == "rp" and tonumber(arg) then
     db.unholyRP = tonumber(arg); say(("Unholy runic power warning at %d."):format(db.unholyRP))
@@ -669,6 +698,7 @@ SlashCmdList.ASSISTCOMPANION = function(input)
     say("/ac rp <n>  - Unholy: warn at this runic power (now " .. db.unholyRP .. ")")
     say("/ac cds  - Frost: toggle trinket/potion/racial reminder")
     say("/ac opener  - toggle the opener bar (/ac opener reset to restart it)")
+    say("/ac opener icon  - toggle the next-cast icon following the opener")
     say("/ac rules | toggle <key>  - list or turn off rules")
     say("/ac scale <n> | reset | debug")
   end

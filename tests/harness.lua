@@ -12,7 +12,7 @@ local function newFrame()
     function t:SetSize(w, h) self.size = { w, h } end
     function t:SetPoint() end
     function t:SetTexCoord() end
-    function t:SetColorTexture() end
+    function t:SetColorTexture(r, g, b) self.color = { r, g, b } end
     function t:SetDrawLayer() end
     function t:SetTexture(x) self.texture = x end
     function t:SetAlpha(a) self.alpha = a end
@@ -103,6 +103,8 @@ events.scripts.OnEvent(events, "ADDON_LOADED", "AssistCompanion")
 expect_default_text = AssistCompanionDB.showText
 expect_default_size = AssistCompanionDB.iconSize
 AssistCompanionDB.showText = true -- the rule tests below read the text alert box
+expect_default_openericon = AssistCompanionDB.openerIcon
+AssistCompanionDB.openerIcon = false -- rule tests check the icon without the opener taking over
 events.scripts.OnEvent(events, "PLAYER_LOGIN")
 
 local function step() now = now + 0.2; driver.scripts.OnUpdate(driver, 0.2) end
@@ -303,6 +305,33 @@ expect("Keybind fallback: scans after combat ends", "SF", nf.key.text)
 -- Blizzard binding still wins when present
 state.bars = { [85948] = 3 }; events.scripts.OnEvent(events, "UPDATE_BINDINGS"); step()
 expect("Keybind: Blizzard binding (EllesmereUI bars 1-8) still used", "F", nf.key.text)
+
+-- NEXT-CAST ICON FOLLOWS THE OPENER -------------------------------------
+expect("Defaults: icon follows opener", true, expect_default_openericon)
+AssistCompanionDB.openerIcon = true
+function InCombatLockdown() return false end
+state.spec = 251; state.target = nil; state.pet = true; state.overrides = {}
+state.known = { [47568]=true, [51271]=true, [439843]=true, [1249658]=true, [49020]=true, [279302]=true }
+state.bars = { [47568] = 1, [51271] = 2 }
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED")
+now = now + 500; state.next = 51271; state.inRange = true; state.barRange = nil; step()
+expect("Opener icon: in range, icon shows opener step (ERW), not highlight (Pillar)", "icon:47568", nf.icon.texture)
+expect("Opener icon: blue border", 0.3, nf.border.color and nf.border.color[1] or nil)
+expect("Opener icon: border shown", true, nf.border.shown)
+expect("Opener icon: not grayed in melee", false, nf.icon.desat)
+state.inRange = false; step()
+expect("Opener icon: out of melee, ERW step grayed out", true, nf.icon.desat)
+state.inRange = true; combat(true); cast(47568); step()
+expect("Opener icon: advances to Pillar after ERW", "icon:51271", nf.icon.texture)
+cast(51271); cast(439843); step()
+expect("Opener icon: Breath step has no note under it", "", nf.note.text)
+expect("Opener icon: Breath step shown", "icon:1249658", nf.icon.texture)
+cast(1249658); cast(49020); cast(279302); cast(49020); cast(49020); cast(49020); state.next = 49143; step()
+expect("Opener icon: after opener, back to highlight", "icon:49143", nf.icon.texture)
+expect("Opener icon: gold border color restored", 1, nf.border.color[1])
+combat(false)
+AssistCompanionDB.openerIcon = false
 
 -- secret values: power returns a secret -> treated as unknown, no error
 issecretvalue = function(v) return v == "SECRET" end

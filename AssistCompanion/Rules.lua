@@ -146,11 +146,12 @@ ns.rules[251] = {
 -- Openers: the first casts of SimC's optimal single-target rotation (patch 12.1.5,
 -- SimC's default build for the spec). Steps for spells you don't know are skipped.
 -- skipIfPet = skip this step when your pet is already out.
+-- waitForMelee = on the next-cast icon, gray this step out until your target is in melee range.
 ---------------------------------------------------------------------------
 ns.openers = {}
 ns.openers[251] = {                     -- Frost
-  { id = S.EMPOWER_RUNE_WEAPON },
-  { id = S.PILLAR_OF_FROST },
+  { id = S.EMPOWER_RUNE_WEAPON, waitForMelee = true }, -- don't press while running in
+  { id = S.PILLAR_OF_FROST, waitForMelee = true },
   { id = 439843 },                      -- Reaper's Mark (Deathbringer)
   { id = S.BREATH },
   { id = S.OBLITERATE },
