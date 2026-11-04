@@ -880,6 +880,7 @@ expect("Options: /ac toggle changes the current spec only", true, ns.ruleEnabled
 expect("Options: menu re-reads it when opened", false, rowsBy(250, "rpcap").frame.checked)
 SlashCmdList.ASSISTCOMPANION("toggle rpcap")
 local function widget(text) for _, w in ipairs(ns.optionsWidgets) do if w.label and w.label.text == text then return w end end end
+expect("Options: icon on/off reads 'Next-cast icon'", true, widget("Next-cast icon") ~= nil)
 local dead = widget("Show while dead")
 dead.checked = true; dead:Click()
 expect("Options: 'Show while dead' checkbox", true, AssistCompanionDB.showWhenDead)

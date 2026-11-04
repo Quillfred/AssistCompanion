@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.16.2
+
+* Options menu wording: "Next-cast icon" (on/off), then "When to show it:" (Always / In combat or with an enemy targeted / Only in combat).
+
 ## 0.16.1
 
 * **Cancelled empowers are ignored.** The game reports Fire Breath and Upheaval as cast when you *start* them. If you cancel one, it doesn't go on cooldown, and the addon now undoes it: the cooldown timing, the Ebon Might extension, and Tip the Scales being used up.
