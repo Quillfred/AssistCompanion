@@ -1209,6 +1209,7 @@ SlashCmdList.ASSISTCOMPANION = function(input)
       db.debug = true; dlog("==== debug off ===="); db.debug = false
       say("Debug logging off. /reload to save the log file.")
     end
+    if ns.updateMinimap then ns.updateMinimap() end -- the minimap icon is red while logging
   elseif cmd == "log" then
     db.debugLog = db.debugLog or {}
     if arg == "clear" then wipe(db.debugLog); say("Debug log cleared.") return end

@@ -917,6 +917,24 @@ expect("Minimap: dragging moves it around the edge (to the right)", "75,0", at()
 expect("Minimap: ...and remembers the angle", 0, math.floor(AssistCompanionDB.minimapAngle + 0.5))
 mb.scripts.OnDragStop(mb)
 expect("Minimap: drag stops following the cursor", nil, mb.scripts.OnUpdate)
+-- shift-click: debug log on/off (icon red while on); ctrl-click: clear the log
+local shift, ctrl = false, false
+function IsShiftKeyDown() return shift end
+function IsControlKeyDown() return ctrl end
+local dbgWas = AssistCompanionDB.debug
+AssistCompanionDB.debug = false; shift = true; mb:Click("LeftButton")
+expect("Minimap: shift-click starts the debug log", true, AssistCompanionDB.debug)
+expect("Minimap: icon turns red while logging", 0.35, mb.icon.color and mb.icon.color[2])
+settings.opened = nil; mb:Click("LeftButton")
+expect("Minimap: shift-click again stops it", false, AssistCompanionDB.debug)
+expect("Minimap: icon back to normal", 1, mb.icon.color and mb.icon.color[2])
+expect("Minimap: shift-click doesn't open the options", nil, settings.opened)
+shift = false; ctrl = true
+AssistCompanionDB.debugLog = { "a", "b" }; mb:Click("LeftButton")
+expect("Minimap: ctrl-click clears the debug log", 0, #AssistCompanionDB.debugLog)
+ctrl = false; SlashCmdList.ASSISTCOMPANION("debug")
+expect("Minimap: /ac debug also turns the icon red", 0.35, mb.icon.color and mb.icon.color[2])
+SlashCmdList.ASSISTCOMPANION("debug"); AssistCompanionDB.debug = dbgWas; ns.updateMinimap()
 function GetMinimapShape() return "SQUARE" end
 AssistCompanionDB.minimapAngle = 45; ns.updateMinimap()
 expect("Minimap: square minimap -> sits in the corner", "75,75", at())

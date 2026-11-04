@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.16.3
+
+* **Minimap button shortcuts:** **Shift-click** starts or stops the debug log (the icon is red while it's recording), **Ctrl-click** clears the debug log. The tooltip lists all the clicks.
+
 ## 0.16.2
 
 * Options menu wording: "Next-cast icon" (on/off), then "When to show it:" (Always / In combat or with an enemy targeted / Only in combat).
