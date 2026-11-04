@@ -34,7 +34,7 @@ NOT_ROTATIONAL = re.compile(r"^(call_action_list|run_action_list|auto_attack|aut
                             r".*_stance|.*_form|.*_weapon|prowl|charge|stealth|retarget_auto_attack)$")
 _om = os.path.join(ROOT, "override_map.json")
 OVERRIDES = json.load(open(_om)) if os.path.exists(_om) else {}   # override action -> [base actions]
-FIXABLE = {"not-suggested": 1.0, "simc-only": 1.0, "threshold": 0.6, "target-count": 0.3}
+FIXABLE = {"not-suggested": 1.0, "simc-only": 1.0, "threshold": 0.6, "target-count": 0.3, "override-unresolved": 0.3}
 RESOURCE_WORDS = r"(runic_power|rune|energy|focus|rage|soul_shard|holy_power|chi|insanity|maelstrom|astral_power|fury|essence|combo_points|mana|arcane_charges)"
 
 
@@ -196,9 +196,20 @@ def analyse(label):
         patterns.append("never suggested in game: " + ", ".join(sorted(simc_only)))
     if any(g["label"] == "not-suggested" for t in fights for g in fights[t]["gaps"]):
         patterns.append("missing from highlight")
-    if any(fights[t]["artifact_share"] >= 1 for t in fights):
-        patterns.append("SimC button-override artifact")
-    return {"spec": label, "fights": fights, "simc_only": sorted(simc_only),
+    improved = sum(eff[t] - fights[t]["loss"] for t in fights) / 3
+    if improved < 1:
+        # The re-sim with overrides didn't help, so these gaps are real, not a SimC artifact.
+        for t in fights:
+            for g in fights[t]["gaps"]:
+                if g["label"] == "button-override":
+                    g["label"] = "override-unresolved"
+            gs = fights[t]["gaps"]
+            tot = sum(g["dps_gap"] for g in gs) or 1
+            fights[t]["fixable_share"] = round(100 * sum(g["dps_gap"] * FIXABLE.get(g["label"], 0) for g in gs) / tot)
+        est = sum(-eff[t] * fights[t]["fixable_share"] / 100 for t in fights) / 3
+    if improved >= 1:
+        patterns.append(f"SimC button-override artifact (highlight {improved:+.1f} pts better than SimC showed)")
+    return {"spec": label, "fights": fights, "simc_only": sorted(simc_only), "override_gain": round(improved, 1),
             "avg_loss": round((l1 + l3 + l5) / 3, 1), "est_recoverable": round(est, 1), "patterns": patterns}
 
 
@@ -206,11 +217,16 @@ def md(results):
     out = ["# Assisted Highlight gap triage (phase 1)", "",
            "Optimal rotation (its best build) vs the in-game Assisted Highlight (its best build), from saved SimC",
            "results (patch 12.1.5, Patchwerk 300s). **Est. recoverable** = average loss across 1/3/5 targets x the",
-           "share of the damage gap in abilities an addon could plausibly correct (heuristic, an upper-end guide).", "",
+           "share of the damage gap in abilities an addon could plausibly correct (heuristic, an upper-end guide).",
+           "Where SimC's highlight sim couldn't press button overrides (e.g. Chaos Strike -> Annihilation in",
+           "Metamorphosis), losses are corrected by re-simming with the overrides added; SimC's figure is in brackets.", "",
            "| Spec | Loss 1T | 3T | 5T | Est. recoverable | Patterns |", "|---|--:|--:|--:|--:|---|"]
+    def cell(f):
+        c = f["corrected_loss"]
+        return f"{c}% (SimC {f['loss']}%)" if c is not None and abs(c - f["loss"]) >= 1 else f"{f['loss']}%"
     for r in results:
         f = r["fights"]
-        out.append(f"| {r['spec']} | {f[1]['loss']}% | {f[3]['loss']}% | {f[5]['loss']}% | "
+        out.append(f"| {r['spec']} | {cell(f[1])} | {cell(f[3])} | {cell(f[5])} | "
                    f"**{r['est_recoverable']}%** | {'; '.join(r['patterns']) or '-'} |")
     out += ["", "Labels: **not-suggested** (missing from the in-game highlight), **simc-only** (never suggested in",
             "game; SimC presses it in highlight sims), **threshold** (resource/charge/range rules), **target-count**",
@@ -221,7 +237,7 @@ def md(results):
             out.append(f"*Never suggested by the in-game highlight (SimC presses these in its highlight sims, so real losses are larger):* {', '.join(r['simc_only'])}")
         for t in (1, 3, 5):
             f = r["fights"][t]
-            out.append(f"\n**{t} target{'s' if t > 1 else ''}:** {f['loss']}% loss, {f['fixable_share']}% of the gap in fixable-looking abilities")
+            out.append(f"\n**{t} target{'s' if t > 1 else ''}:** {cell(f)} loss, {f['fixable_share']}% of the gap in fixable-looking abilities")
             if f["gaps"]:
                 out.append("\n| Ability | DPS gap | Casts opt / hl | Label |\n|---|--:|--:|---|")
                 for g in f["gaps"][:6]:
