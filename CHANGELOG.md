@@ -1,5 +1,10 @@
 # Assist Companion
 
+## 0.16.7
+
+* **Augmentation: Tip the Scales waits for Prescience and Ebon Might.** At the pull it could show while the highlight was still asking for Prescience. It now waits for those, like Breath of Eons does, so the empower it pairs with goes out inside Ebon Might.
+* **Debug log:** status lines show the Time Skip and Breath of Eons cooldown estimates (`ts=`, `boe=`).
+
 ## 0.16.6
 
 * **Augmentation: Ebon Might timing fixed.** The addon's estimate of when Ebon Might ends now counts:
