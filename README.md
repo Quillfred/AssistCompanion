@@ -1,6 +1,6 @@
 # Assist Companion
 
-A World of Warcraft (retail, Midnight 12.1.5) addon for **Blood, Frost and Unholy Death Knight** that sits alongside Blizzard's **Assisted Highlight**.
+A World of Warcraft (retail, Midnight 12.1.5) addon for **Blood, Frost and Unholy Death Knight** and **Augmentation Evoker** that sits alongside Blizzard's **Assisted Highlight**.
 
 It shows the highlight's suggested spell as one icon with its keybind, the way a "single button" display does but without the Single-Button Assistant's global cooldown penalty. Where the highlight's own rules are known to be wrong, the icon shows the correct spell instead. It also shows an opener bar before and at the start of a pull.
 
@@ -18,6 +18,9 @@ The addon only displays information. You press every button yourself.
 | Frost | **Breath of Sindragosa** is never suggested (about 7% DPS) | **Breath** during Pillar of Frost, as a bare 48px icon |
 | Frost, Blood | **Raise Dead** is never suggested | **Raise Dead** in combat whenever it's ready |
 | Blood | **Vampiric Blood** is never suggested (no defensive is) | **Vampiric Blood** in combat whenever it's ready |
+| Augmentation | **Ebon Might** is only recast after it drops (optimal refreshes with ~4s left) | **Ebon Might** when it's ready with about 4s left, timed from your casts (Eruption, empowers and Breath of Eons extend it) |
+| Augmentation | **Breath of Eons** isn't in the highlight's list (it has Deep Breath, which Breath of Eons replaces) | Deep Breath suggestions show as **Breath of Eons**; it also shows when ready, after Ebon Might and Prescience |
+| Augmentation | **Prescience** is only cast when none is active, so its second charge sits capped | In a group, **Prescience** when both charges are ready |
 | Frost | At exactly 3 targets the highlight never uses Frostscythe (its rule starts above 3) | **Frostscythe** instead of Obliterate |
 | Frost | **Empower Rune Weapon** is suggested while you're still running in (it has no range check, Pillar does) | Empower Rune Weapon **grayed out and red** until you're in melee |
 

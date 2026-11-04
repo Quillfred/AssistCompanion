@@ -89,12 +89,16 @@ local function nextSpell()
   return (try(C_AssistedCombat.GetNextCastSpell, false))
 end
 
+local function powerType()
+  return (ns.powerType and specID and ns.powerType[specID]) or RUNIC_POWER
+end
+
 local function power()
-  return (try(UnitPower, "player", RUNIC_POWER))
+  return (try(UnitPower, "player", powerType()))
 end
 
 local function cachePowerMax()
-  local m = try(UnitPowerMax, "player", RUNIC_POWER)
+  local m = try(UnitPowerMax, "player", powerType())
   if m and m > 0 then powerMaxCache = m end
 end
 
@@ -222,7 +226,8 @@ end
 local function inMelee()
   if not (C_Spell and C_Spell.IsSpellInRange) then return nil end
   if not hostileTarget() then return nil end
-  local spell = (ns.meleeSpell and specID and ns.meleeSpell[specID]) or 49020
+  local spell = ns.meleeSpell and specID and ns.meleeSpell[specID]
+  if not spell then return nil end -- ranged spec: no melee check
   return (try(C_Spell.IsSpellInRange, spell, "target"))
 end
 
@@ -850,6 +855,10 @@ local function tick()
   syncCharges()
   updateHealthIcon()
   ctx.next = nextSpell()
+  -- Talent replacements (Rules.lua): show the spell that's actually on your button.
+  local rep = ctx.next and ns.replacedBy and ns.replacedBy[ctx.next]
+  if rep and knows(rep) then ctx.next = rep end
+  ctx.inGroup = (IsInGroup and try(IsInGroup)) and true or false
   ctx.power = power()
   ctx.powerMax = effectiveMaxPower(ctx.power)
   ctx.runes = runes()
@@ -1010,6 +1019,7 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID)
       dlog("cast: %s (%d)", spellName(id), id)
       spendCharge(id)
       advanceOpener(id)
+      if ns.onCast then pcall(ns.onCast, specID, id, GetTime()) end
     end
   elseif event == "PLAYER_REGEN_DISABLED" then
     inCombat, combatStart = true, GetTime()

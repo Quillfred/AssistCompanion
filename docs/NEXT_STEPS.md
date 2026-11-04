@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.12.0** (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.13.0** (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -42,7 +42,11 @@ Not yet seen in the live game: check the panel's layout, scrolling, and that che
    * Pyre skipped at exactly 3 targets (">3" rule): needs an enemy count in combat (see open checks).
    * Disintegrate under-used at 1 target (86 vs 62 casts).
    * Empowered spells: the highlight never says which empower rank; consider showing the rank.
-3. **Augmentation Evoker** (owner plays it; not in the triage because solo sims can't measure it):
+3. **Augmentation Evoker: done in 0.13.0** (rules `ebonmight`, `breatheons`, `prescience`; `ns.replacedBy` maps
+   Deep Breath -> Breath of Eons; `ns.onCast` tracks Ebon Might's expiry; findings in `docs/FINDINGS.md`).
+   Not measured (see "Measuring it" below). In-game checks: does the highlight return Deep Breath (357210) or
+   Breath of Eons (403631)? Does `UNIT_SPELLCAST_SUCCEEDED` fire for empowered spells (Fire Breath, Upheaval)?
+   Without it, the Ebon Might estimate runs short and the refresh shows early. Original notes:
    * **What exists online (checked Nov 2026):** no published optimal-vs-highlight comparison.
      Icy Veins' easy-mode guide calls the highlight "acceptable with no real loss of performance" (a judgment,
      not a sim): https://astro.k.icy-veins.com/wow/augmentation-evoker-pve-dps-easy-mode. Icy Veins' sim page

@@ -896,6 +896,65 @@ expect("Migration: alwaysShow off -> 'in combat or with a target'", "target", As
 expect("Migration: alwaysShow removed", nil, AssistCompanionDB.alwaysShow)
 AssistCompanionDB.disabled = {}; AssistCompanionDB.showMode = "always"
 
+-- AUGMENTATION EVOKER ---------------------------------------------------------
+function IsInGroup() return state.group or false end
+AssistCompanionDB.openerIcon = false
+state.spec = 1473; state.pet = false; state.target = nil; state.overrides = {}; state.inRange = true
+state.known = { [395152]=true, [409311]=true, [403631]=true }
+state.next = 361469; state.group = false; state.rangeAsked = {}
+events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 300; step()
+expect("Aug: rule order", "ebonmight,breatheons,prescience",
+  (function() local t = {} for _, r in ipairs(ns.rules[1473]) do t[#t+1] = r.key end return table.concat(t, ",") end)())
+expect("Aug: out of combat -> plain highlight", "icon:361469", nf.icon.texture)
+expect("Aug: no melee check for a ranged spec", false, state.rangeAsked and state.rangeAsked[49020] or false)
+state.next = 357210; step()
+expect("Aug: highlight's Deep Breath shows as Breath of Eons", "icon:403631", nf.icon.texture)
+expect("Aug: ...as a plain suggestion (no gold border)", false, nf.border.shown)
+state.known[403631] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+expect("Aug: without Breath of Eons, Deep Breath stays", "icon:357210", nf.icon.texture)
+state.known[403631] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
+-- Breath of Eons cooldown, after the highlight's Ebon Might
+state.next = 395152; combat(true); step()
+expect("Aug: highlight wants Ebon Might -> Ebon Might first", "icon:395152", nf.icon.texture)
+local t0 = now
+cast(395152); state.next = 361469; step()
+expect("Aug: then Breath of Eons when ready", "icon:403631", nf.icon.texture)
+expect("Aug: Breath of Eons is a correction", true, nf.border.shown)
+cast(403631); step()                                    -- Ebon Might 10s + 5s
+expect("Aug: Breath of Eons used -> highlight", "icon:361469", nf.icon.texture)
+expect("Aug: Breath of Eons extends Ebon Might by 5s", 15, math.floor(ns.ebonMight.expires - t0 + 0.5))
+cast(357208); cast(396286)                              -- empowers: +2s each -> 19s
+for _ = 1, 12 do cast(395160) end                        -- Eruptions: +1s each -> 31s
+expect("Aug: empowers and Eruptions extend it", 31, math.floor(ns.ebonMight.expires - t0 + 0.5))
+now = t0 + 26; step()
+expect("Aug: 5s left -> no refresh yet", "icon:361469", nf.icon.texture)
+now = t0 + 28; step()
+expect("Aug: 3s left but Ebon Might on cooldown -> no refresh", "icon:361469", nf.icon.texture)
+now = t0 + 30.5; step()
+expect("Aug: ready with 0.5s left -> refresh Ebon Might", "icon:395152", nf.icon.texture)
+cast(395152); step()
+expect("Aug: recast keeps what was left (pandemic)", 41, math.floor(ns.ebonMight.expires - t0 + 0.5))
+expect("Aug: refreshed -> highlight again", "icon:361469", nf.icon.texture)
+now = t0 + 60; step()
+expect("Aug: Ebon Might dropped -> left to the highlight", "icon:361469", nf.icon.texture)
+cast(395160); expect("Aug: Eruption doesn't extend a dropped Ebon Might", 41, math.floor(ns.ebonMight.expires - t0 + 0.5))
+-- Prescience charges (group only)
+step()
+expect("Aug: solo -> no Prescience nag", "icon:361469", nf.icon.texture)
+state.group = true; step()
+expect("Aug: group, both charges -> Prescience", "icon:409311", nf.icon.texture)
+cast(409311); step()
+expect("Aug: one charge left -> highlight", "icon:361469", nf.icon.texture)
+now = now + 12.1; step()
+expect("Aug: second charge back after 12s -> Prescience", "icon:409311", nf.icon.texture)
+state.next = 409311; step()
+expect("Aug: highlight already says Prescience -> plain", false, nf.border.shown)
+combat(false); state.group = false
+state.spec = 1473; panel.scripts.OnShow(panel)
+expect("Options: Evoker listed with Augmentation", true, branchRow("spec:1473") ~= nil and branchRow("class:EVOKER") ~= nil)
+expect("Options: Augmentation's rules listed", true, rowsBy(1473, "breatheons") ~= nil and rowsBy(1473, "ebonmight") ~= nil)
+
 -- HIDDEN WHILE DEAD ----------------------------------------------------------
 function UnitIsDeadOrGhost(u) return u == "player" and state.dead or false end
 state.spec = 250; state.pet = true; state.target = nil; state.next = 206930

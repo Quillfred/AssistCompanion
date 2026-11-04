@@ -79,6 +79,15 @@ Devastation's list has Dragonrage, Tip the Scales (when Fire Breath is ready), D
 
 The addon's Breath rule used to time Breath with a 120s cooldown. Game data says 90s (Breath 1249658, duration 8s), so after a Breath cast in combat the icon now returns 30s sooner.
 
+## Augmentation Evoker
+
+From the game's highlight list (`assisted_combat/evoker_augmentation.simc`), the optimal list, and game data. Not simmed: Augmentation's value is mostly allies' damage, which solo sims can't measure.
+
+* **Breath of Eons (403631)** isn't in the highlight's list, but the talent data says it replaces **Deep Breath (357210)**, which is (`deep_breath` if within 40 yards). In game the highlight probably points at the Breath of Eons button, as Blood's Rune Strike entry points at Heart Strike. SimC can't model a talent replacement, so its highlight sims never cast Breath of Eons. The addon shows Deep Breath suggestions as Breath of Eons, and also shows it when ready (120s) after Ebon Might and Prescience, in case the highlight skips replaced spells. Whether the game returns 357210 or 403631 is unconfirmed (check with `/ac debug`).
+* **Ebon Might (395152):** the highlight recasts it only when the buff is down (`buff.ebon_might_self.down`). Optimal refreshes with 40% (4s) of its 10s left; recasting keeps up to 3s (pandemic). Cooldown 30s. Sands of Time (395153) extends it by 1s per Eruption, 2s per empowered spell and 5s per Breath of Eons/Deep Breath (Breath of Eons also grants 5s if it's down); each extension has your crit chance to be 50% longer. All of these are your own casts, so the addon tracks the expiry itself. Crits make its estimate run short, so the reminder can come early, never late.
+* **Prescience (409311):** 2 charges, 12s recharge, 18s duration. The highlight casts it only when its buff is down, so one charge sits capped. Optimal keeps it on the best DPS allies (not tanks, healers or other Augmentations); the target can't be chosen for you. The addon shows it in a group at 2 charges.
+* Fire Breath, Upheaval and Eruption aren't held for Ebon Might windows by the highlight. Not corrected: the gain depends on allies' cooldowns.
+
 ## Frost: 3-target Frostscythe
 
 The highlight's Frostscythe and Glacial Advance rules require more than 3 enemies. At exactly 3: 0 Frostscythe casts (optimal: 128), about −2.4%.
