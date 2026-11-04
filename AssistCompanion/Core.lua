@@ -189,6 +189,26 @@ end
 
 -- Counts hostile, in-combat enemies with visible nameplates. Returns nil if the game
 -- hides that information, so rules that need an exact count simply stay quiet.
+-- For the debug log: what the enemy count saw. np = nameplates the game reports, then how many had
+-- a unit, were attackable and were in combat ("?" = hidden by the game).
+local function enemyDiagnosis()
+  if not (C_NamePlate and C_NamePlate.GetNamePlates) then return "np=noapi" end
+  local ok, plates = pcall(C_NamePlate.GetNamePlates)
+  if not ok or type(plates) ~= "table" then return "np=?" end
+  local units, attack, combat, hidden = 0, 0, 0, 0
+  for _, plate in ipairs(plates) do
+    local unit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
+    if unit then
+      units = units + 1
+      local a, c = try(UnitCanAttack, "player", unit), try(UnitAffectingCombat, unit)
+      if a == nil or c == nil then hidden = hidden + 1 end
+      if a then attack = attack + 1 end
+      if c then combat = combat + 1 end
+    end
+  end
+  return ("np=%d units=%d attackable=%d incombat=%d hidden=%d"):format(#plates, units, attack, combat, hidden)
+end
+
 local function countEnemies()
   if not (C_NamePlate and C_NamePlate.GetNamePlates) then return nil end
   local plates = try(C_NamePlate.GetNamePlates)
@@ -1004,10 +1024,16 @@ local function tick()
           local ok, s = pcall(status, ctx)
           if ok and s then extra = " " .. s end
         end
-        dlog("status: highlight=%s rp=%s/%s%s runes=%s enemies=%s melee=%s opener=%s%s%s%s",
+        -- rp: "hidden" if the game returns a secret value, "nil" if nothing at all
+        local rpText = tostring(ctx.power)
+        if ctx.power == nil then
+          local ok, raw = pcall(UnitPower, "player", powerType())
+          rpText = (ok and issecretvalue and issecretvalue(raw)) and "hidden" or (ok and tostring(raw) or "error")
+        end
+        dlog("status: highlight=%s rp=%s/%s%s runes=%s enemies=%s (%s) melee=%s opener=%s%s%s%s",
           ctx.next and (spellName(ctx.next) .. " " .. ctx.next) or "none",
-          tostring(ctx.power), tostring(ctx.powerMax), powerMaxCache and "" or "(fb)",
-          tostring(ctx.runes), tostring(ctx.enemies), tostring(ctx.inMelee),
+          rpText, tostring(ctx.powerMax), powerMaxCache and "" or "(fb)",
+          tostring(ctx.runes), tostring(ctx.enemies), enemyDiagnosis(), tostring(ctx.inMelee),
           openerStep and (opener.index .. "/" .. #opener.steps) or "off",
           bb and (" bloodboil=" .. bb) or "",
           (specID == 252) and (" DT->" .. tostring(override(ns.S.DARK_TRANSFORMATION))) or "", extra)

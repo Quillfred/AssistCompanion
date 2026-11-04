@@ -1481,6 +1481,16 @@ AssistCompanionDB.debugLog = {}; AssistCompanionDB.debug = true
 table.insert(ns.rules[1473], 1, { key = "broken", name = "Broken", check = function() error("boom") end })
 for _ = 1, 12 do step() end
 expect("Debug: Augmentation status shows the Ebon Might estimate", true, dbgHas(" em="))
+expect("Debug: enemy-count diagnosis on the status line", true, dbgHas(" (np="))
+do
+  local savedPower, savedSecret = UnitPower, issecretvalue
+  UnitPower = function() return "SECRET" end; issecretvalue = function(v) return v == "SECRET" end
+  local savedLog = AssistCompanionDB.debugLog
+  AssistCompanionDB.debugLog = {}; for _ = 1, 12 do step() end
+  expect("Debug: a hidden power value reads rp=hidden", true, dbgHas("rp=hidden"))
+  UnitPower, issecretvalue = savedPower, savedSecret
+  AssistCompanionDB.debugLog = savedLog
+end
 expect("Debug: ...and the cooldown estimates", true, dbgHas(" up=") and dbgHas(" emcd=") and dbgHas(" x=")
   and dbgHas(" upb=") and dbgHas(" tip=") and dbgHas(" tx=") and dbgHas(" haste=") and dbgHas(" emdur=") and dbgHas(" crit=")
   and dbgHas(" ts=") and dbgHas(" boe="))
