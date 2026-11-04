@@ -381,6 +381,8 @@ ns.onCast = function(spec, id, now)
   if id == S.TIME_SKIP then speedEvents[#speedEvents + 1] = { kind = "ts", t = now } end
   if id == S.TIP_THE_SCALES then
     speedEvents[#speedEvents + 1] = { kind = "tb", t = now }
+    -- remember the previous cycle: this press proves Tip the Scales was ready (learned in onTick)
+    aug.tipPress = { at = now, prevCast = aug.tipCast, prevConsumed = aug.tipConsumed }
     aug.tipCast, aug.tipConsumed = now, nil
   elseif EMPOWERS[id] and aug.tipCast and not aug.tipConsumed then
     aug.tipConsumed = now -- the first empower after Tip the Scales uses it up
@@ -394,9 +396,11 @@ ns.onCast = function(spec, id, now)
 end
 
 -- Learn from what the highlight suggests (called by Core.lua every update, before the rules).
+local LEARN_AFTER = 3 -- the highlight keeps showing an empower for a moment after you cast it (owner's log)
 local function learnEmpower(ctx, ids, cooldown)
   local last = lastOfIds(ctx, ids)
   if not last or aug.empowerReset > last then return end
+  if ctx.now - last < LEARN_AFTER then return end -- still the cast you just made, not "ready again"
   if aug.readyNow[ids[1]] and aug.readyNow[ids[1]] > last then return end -- already learned for this cast
   aug.readyNow[ids[1]] = ctx.now
   local took = (ctx.now - last) + extraBetween(ctx, last, ctx.now)
@@ -410,6 +414,7 @@ end
 ns.onTick = ns.onTick or {}
 ns.onTick[1473] = function(ctx)
   readTemporalBurst(ctx)
+  if ns.augLearnTip then ns.augLearnTip(ctx) end
   local n = ctx.next
   if not ctx.inCombat or not n then return end
   if FIRE_BREATHS[n] then learnEmpower(ctx, FIRE_BREATH_IDS, FIRE_BREATH_COOLDOWN) end
@@ -433,16 +438,27 @@ local TIP_COOLDOWN, CHRONOBOON_CDR = 120, 30
 local TIP_CONSUME_WINDOW = 2 -- macro: an empower this soon after Tip used it; otherwise the macro cancelled it
 
 -- waiting = pressed and its buff not used yet (its cooldown hasn't started); start = when it started.
+-- When a Tip the Scales press's cooldown started: when an empower used the buff, or (macro option)
+-- the press itself if no empower followed within the window. nil = still waiting, at time `now`.
+local function tipStartOf(ctx, cast, consumed, now)
+  local macro = ctx.db and ctx.db.tipMacro
+  if consumed and (not macro or consumed - cast <= TIP_CONSUME_WINDOW) then return consumed end
+  if macro and now - cast > TIP_CONSUME_WINDOW then return cast end
+  return nil
+end
+
 local function tipState(ctx)
   local cast = ctx.lastCast[S.TIP_THE_SCALES]
   if not cast or aug.tipCast ~= cast then return false, nil end -- not pressed this pull
-  local macro = ctx.db and ctx.db.tipMacro
-  if aug.tipConsumed and (not macro or aug.tipConsumed - cast <= TIP_CONSUME_WINDOW) then
-    return false, aug.tipConsumed -- an empower used it
-  end
-  if macro and ctx.now - cast > TIP_CONSUME_WINDOW then return false, cast end -- the macro cancelled it
+  local start = tipStartOf(ctx, cast, aug.tipConsumed, ctx.now)
+  if start then return false, start end
   return true, nil
 end
+
+local function tipCooldown(ctx)
+  return TIP_COOLDOWN - (ctx.knows(S.CHRONOBOON) and CHRONOBOON_CDR or 0)
+end
+aug.tipFactor = 1 -- learned from your presses: how much faster Tip the Scales really recovers
 
 local function tipCooldownLeft(ctx)
   local waiting, start = tipState(ctx)
@@ -451,9 +467,26 @@ local function tipCooldownLeft(ctx)
     local r = ctx.readyIn and ctx.readyIn(S.TIP_THE_SCALES) -- read before the pull
     return r or 0
   end
-  local cd = TIP_COOLDOWN - (ctx.knows(S.CHRONOBOON) and CHRONOBOON_CDR or 0)
-  return math.max(0, cd - (ctx.now - start) - extraBetween(ctx, start, ctx.now))
+  local recovered = ((ctx.now - start) + extraBetween(ctx, start, ctx.now)) * aug.tipFactor
+  return math.max(0, tipCooldown(ctx) - recovered)
 end
+
+-- A press proves it was ready: if our estimate still had time left, it recovers faster than we
+-- model (owner's log: ready ~5-10s before our estimate). Learn the ratio for next time.
+local function learnTip(ctx)
+  local p = aug.tipPress
+  if not p then return end
+  aug.tipPress = nil
+  if not p.prevCast then return end
+  local start = tipStartOf(ctx, p.prevCast, p.prevConsumed, p.at)
+  if not start then return end
+  local took = (p.at - start) + extraBetween(ctx, start, p.at)
+  local cd = tipCooldown(ctx)
+  if took > 5 and took * aug.tipFactor < cd - 0.5 then
+    aug.tipFactor = math.max(1, math.min(1.6, cd / took))
+  end
+end
+ns.augLearnTip = learnTip
 ns.augTip = { state = tipState, cooldownLeft = tipCooldownLeft }
 
 local tipRule = {
@@ -558,13 +591,17 @@ ns.empowerRank = {
 ns.debugStatus = {
   -- em = our Ebon Might estimate (seconds left); up/emcd = Upheaval / Ebon Might cooldown estimates;
   -- x = learned empower recovery factor; upb = the Upheaval ID on your button; tip = Tip the Scales
-  -- cooldown estimate ("w" = pressed, buff not used yet)
+  -- cooldown estimate ("w" = pressed, buff not used yet); tx = learned Tip the Scales factor; haste %
   [1473] = function(ctx)
     local waiting = ns.augTip.state(ctx)
-    return ("em=%.1f emcd=%.1f up=%.1f x=%.2f upb=%s tip=%s"):format(math.max(0, ebonMight.expires - ctx.now),
+    local haste = GetHaste and select(2, pcall(GetHaste))
+    if issecretvalue and issecretvalue(haste) then haste = nil end
+    return ("em=%.1f emcd=%.1f up=%.1f x=%.2f upb=%s tip=%s tx=%.2f haste=%s"):format(
+      math.max(0, ebonMight.expires - ctx.now),
       cooldownLeft(ctx, EBON_MIGHT_IDS, EM_COOLDOWN), cooldownLeft(ctx, UPHEAVAL_IDS, UPHEAVAL_COOLDOWN, true),
       aug.empowerFactor, tostring(ctx.override(S.UPHEAVAL)),
-      waiting and "w" or ("%.1f"):format(ns.augTip.cooldownLeft(ctx)))
+      waiting and "w" or ("%.1f"):format(ns.augTip.cooldownLeft(ctx)), aug.tipFactor,
+      type(haste) == "number" and ("%.1f"):format(haste) or "?")
   end,
 }
 
