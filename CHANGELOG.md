@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.17.2
+
+* **Debug log:** status lines show what the enemy count sees (`np=` nameplates, then how many had a unit, were attackable, in combat, or hidden by the game), and `rp=hidden` when the game hides your runic power from addons.
+
 ## 0.17.1
 
 * **Strata option:** choose which layer the icons, opener bar and text box draw on (BACKGROUND up to TOOLTIP; HIGH by default). In the options menu under Icons, or `/ac strata <name>` (e.g. `/ac strata medium`).
