@@ -955,6 +955,9 @@ pf.glow:SetPoint("TOPLEFT", pf.icon, -BLACK_EDGE - 2, BLACK_EDGE + 2)
 pf.glow:SetPoint("BOTTOMRIGHT", pf.icon, BLACK_EDGE + 2, -BLACK_EDGE - 2)
 pf.key = pf:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
 pf.key:SetPoint("TOPRIGHT", pf.icon, "TOPRIGHT", -2, -2)
+pf.label = pf:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+pf.label:SetPoint("TOP", pf, "BOTTOM", 0, -2)
+local powerTest = false -- /ac rptest: follow runic power only (no highlight or combat check), to see it work
 
 local powerCurve, powerCurveFor
 local powerIconState = "off" -- for the debug log: off / no api / error / hidden / a number
@@ -987,11 +990,15 @@ local function updatePowerIcon(c)
   if not spell or not knows(spell) then pf:Hide() powerIconState = "off" return end
   pf.icon:SetTexture(spellIcon(spell))
   pf.key:SetText(keybindFor(spell) or "")
+  pf.label:SetText(powerTest and "RP test" or "")
   if not db.locked then pf:Show() pf:SetAlpha(1) return end -- fully visible while positioning
   -- Readable runic power: the rule shows it on the next-cast icon instead.
-  if c.power ~= nil or not inCombat then pf:Hide() powerIconState = c.power ~= nil and "readable" or "off" return end
-  local okWhen, when = pcall(cfg.when, c)
-  if not okWhen or not when then pf:Hide() powerIconState = "waiting" return end
+  if c.power ~= nil then pf:Hide() powerIconState = "readable" return end
+  if not powerTest then
+    if not inCombat then pf:Hide() powerIconState = "off" return end
+    local okWhen, when = pcall(cfg.when, c)
+    if not okWhen or not when then pf:Hide() powerIconState = "waiting" return end
+  end
   local okAt, at = pcall(cfg.at, c)
   local max = c.powerMax or 100
   if not okAt or type(at) ~= "number" or max <= 0 then pf:Hide() return end
@@ -1136,7 +1143,9 @@ local function tick()
           local ok, raw = pcall(UnitPower, "player", powerType())
           rpText = (ok and issecretvalue and issecretvalue(raw)) and "hidden" or (ok and tostring(raw) or "error")
         end
-        if ns.powerIcon and specID and ns.powerIcon[specID] then extra = extra .. " rpicon=" .. powerIconState end
+        if ns.powerIcon and specID and ns.powerIcon[specID] then
+          extra = extra .. " rpicon=" .. powerIconState .. (powerTest and "(test)" or "")
+        end
         dlog("status: highlight=%s rp=%s/%s%s runes=%s enemies=%s (%s) melee=%s opener=%s%s%s%s",
           ctx.next and (spellName(ctx.next) .. " " .. ctx.next) or "none",
           rpText, tostring(ctx.powerMax), powerMaxCache and "" or "(fb)",
@@ -1308,6 +1317,10 @@ SlashCmdList.ASSISTCOMPANION = function(input)
       say("Low-health Death Strike icon " .. (db.healthIcon and "on." or "off."))
     end
     updateHealthIcon()
+  elseif cmd == "rptest" then
+    powerTest = not powerTest
+    say(powerTest and "Runic power icon test ON: it follows your runic power only (blue border, \"RP test\" under it), in or out of combat. /ac rptest again to stop."
+      or "Runic power icon test off.")
   elseif cmd == "gcd" then
     db.gcdSwipe = not db.gcdSwipe; updateGCD()
     say("GCD swipe " .. (db.gcdSwipe and "on." or "off."))
@@ -1407,6 +1420,7 @@ SlashCmdList.ASSISTCOMPANION = function(input)
     say("/ac gcd  - toggle the GCD swipe on the icon")
     say("/ac hp  - Blood: toggle the low-health Death Strike icon (/ac hp 35 50 sets full/hidden health %)")
     say("/ac rp <n>  - Unholy: warn at this runic power (now " .. db.unholyRP .. ")")
+    say("/ac rptest  - runic power icon test: it follows your runic power only")
     say("/ac cds  - Frost: toggle trinket/potion/racial reminder")
     say("/ac opener  - toggle the opener bar (/ac opener reset to restart it)")
     say("/ac opener icon  - toggle the next-cast icon following the opener")

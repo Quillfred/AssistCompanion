@@ -1609,6 +1609,17 @@ do
   found = false
   for _, l in ipairs(AssistCompanionDB.debugLog) do if l:find("UnitPowerPercent failed", 1, true) then found = true end end
   expect("RP icon: API error logged and icon hidden", true, found and not pf.shown)
+  -- /ac rptest: ignores the highlight and combat
+  UnitPowerPercent = function(unit, ptype, predicted, curve) return curve:Evaluate(state.rpPct) end
+  state.next = 49998; combat(false); state.rpPct = 0.9; step()
+  expect("RP test: off -> hidden out of combat", false, pf.shown)
+  SlashCmdList.ASSISTCOMPANION("rptest"); step()
+  expect("RP test: on -> follows runic power out of combat, highlight ignored", true, pf.shown and pf.alpha == 1)
+  expect("RP test: labelled", "RP test", pf.label.text)
+  state.rpPct = 0.5; step()
+  expect("RP test: low runic power -> invisible", 0, pf.alpha)
+  SlashCmdList.ASSISTCOMPANION("rptest"); step()
+  expect("RP test: off again -> hidden, label cleared", true, not pf.shown and pf.label.text == "")
   UnitPowerPercent = nil; AssistCompanionDB.debug = false; combat(false); state.rp = 10; step()
 end
 

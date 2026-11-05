@@ -1,5 +1,10 @@
 # Assist Companion
 
+## 0.18.1
+
+* **`/ac rptest`: runic power icon test.** The icon follows your runic power only, in or out of combat, whatever the highlight says, with "RP test" under it. Build runic power without spending it and the blue-bordered icon should fade in at your threshold (80 for Unholy). `/ac rptest` again to stop.
+* Your first Unholy log shows the game accepts the runic power icon (`rpicon=hidden`: the game handled the value out of the addon's sight).
+
 ## 0.18.0
 
 * **Runic power icon (Unholy and Blood).** The game now hides your runic power from addons, so the "runic power cap" suggestions stopped showing. While it's hidden, a separate icon with a **blue border** appears instead: Death Coil (Epidemic on 4+ targets) for Unholy when the highlight asks for a rune spender, Death Strike for Blood within 20 of max. The addon can't see the number, so it hands the threshold to the game and the game makes the icon visible. Move it with `/ac unlock`. It's turned on or off with the same "Runic power cap" box in the options menu. This is a first try: if the game blocks it, the debug log says so (`rpicon=` on the status lines).
