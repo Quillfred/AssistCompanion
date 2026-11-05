@@ -504,7 +504,8 @@ ns.onCast = function(spec, id, now)
     end
   end
   if id == S.TIME_SKIP then
-    speedEvents[#speedEvents + 1] = { kind = "ts", t = now, dur = TS_SECONDS + (tal.tomorrow and TOMORROW_TODAY_EXTRA or 0) }
+    -- full channel until the game says it ended (ns.onChannelStop)
+    speedEvents[#speedEvents + 1] = { kind = "ts", t = now, dur = TS_SECONDS + (tal.tomorrow and TOMORROW_TODAY_EXTRA or 0), open = true }
   end
   if id == S.TIP_THE_SCALES then
     speedEvents[#speedEvents + 1] = { kind = "tb", t = now }
@@ -540,6 +541,22 @@ local function learnEmpower(ctx, ids, cooldown)
 end
 
 -- A cancelled empower (Core.lua, UNIT_SPELLCAST_EMPOWER_STOP): undo what its cast did here.
+-- Your channel ended (UNIT_SPELLCAST_CHANNEL_STOP / INTERRUPTED). Time Skip only speeds up
+-- cooldowns while you channel it, and the channel can be much shorter than 2s: haste shortens it
+-- (1.37s under Fury of the Aspects) and moving or another cast ends it (owner's raid log: one ended
+-- the moment it started, but the addon had credited 18s of recovery). Returns the length, or nil.
+ns.onChannelStop = function(spec, id, now)
+  if spec ~= 1473 or id ~= S.TIME_SKIP then return end
+  for i = #speedEvents, 1, -1 do
+    local e = speedEvents[i]
+    if e.kind == "ts" and e.open then
+      e.open = nil
+      e.dur = math.max(0, math.min(e.dur, now - e.t))
+      return e.dur
+    end
+  end
+end
+
 ns.onCastCancelled = function(spec, id)
   if spec ~= 1473 then return end
   local u = aug.undo

@@ -1203,6 +1203,9 @@ events:RegisterUnitEvent("UNIT_PET", "player")
 events:RegisterUnitEvent("UNIT_SPELLCAST_SUCCEEDED", "player")
 -- Empowered spells report "succeeded" when you start them; this says whether they completed.
 events:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_STOP", "player")
+-- When a channel really ends (Augmentation's Time Skip only works while channelled).
+events:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player")
+events:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player")
 
 -- Spec/talent/spellbook changes. The game also fires SPELLS_CHANGED mid-combat (e.g. when a
 -- buff that swaps a button ends), so never rebuild the opener in combat, and out of combat only
@@ -1272,6 +1275,12 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID, arg4)
       spendCharge(id)
       advanceOpener(id)
       if ns.onCast then pcall(ns.onCast, specID, id, GetTime()) end
+    end
+  elseif event == "UNIT_SPELLCAST_CHANNEL_STOP" or event == "UNIT_SPELLCAST_INTERRUPTED" then
+    local id = readable(spellID)
+    if id and ns.onChannelStop then
+      local ok, length = pcall(ns.onChannelStop, specID, id, GetTime())
+      if ok and length then dlog("channel ended: %s after %.2fs", spellName(id), length) end
     end
   elseif event == "UNIT_SPELLCAST_EMPOWER_STOP" then
     -- Cancelled empower (owner's log: a Fire Breath "cast" that never went on cooldown): undo it.

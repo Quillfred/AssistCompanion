@@ -77,6 +77,15 @@ From each spec's Assisted Combat list (SimC `ActionPriorityLists/assisted_combat
 
 Devastation's list has Dragonrage, Tip the Scales (when Fire Breath is ready), Deep Breath, Fire Breath and Eternity Surge, and no automation-only lines. Its losses come from conditions and button overrides instead (Azure Sweep, Pyre at 3 targets, essence cap).
 
+## Augmentation in a raid (owner's combat log, The Lost Explorers kill, 4:12)
+
+No debug log, so the fight was replayed through the addon's code: Quillbreath's casts, cancelled empowers and Time Skip auras from the combat log, fed into the real Rules.lua/Core.lua with the test harness's mocks (talents from COMBATANT_INFO: Accretion, Chronoboon, Temporal Burst, Instability Matrix, Overlord, Time Skip; tipMacro on). For each cast: was the addon's estimate already 0 (and since when)?
+
+* **Ebon Might duration estimate held up:** each estimated drop was within ~1.5-2s of the real aura removal (395296), the gap being mastery (not in the replay).
+* **Time Skip was the error.** Second Time Skip (2:55): `SPELL_AURA_APPLIED` and `REMOVED` at the same timestamp (the channel ended at once), but the addon credited 18s to every cooldown. Right after it, the replay had Ebon Might, Fire Breath and Upheaval "ready" 13-17s before they were cast, and Breath of Eons 19s early. First Time Skip (0:19) lasted 1.37s under Fury of the Aspects (channels are hasted): ~6s over-credited.
+* **Fix (0.20.1):** `UNIT_SPELLCAST_CHANNEL_STOP` / `UNIT_SPELLCAST_INTERRUPTED` (player) end the Time Skip speed-up event (`ns.onChannelStop`). Replayed with it, the late-fight gaps drop to 1-3s (Breath of Eons 1.3s, Ebon Might 3.2s, the rest within what the player's own delays explain).
+* Remaining small "still X s left" at a few casts (Time Skip 3.6s, Upheaval 0.7s) are within the replay's limits (Temporal Burst size and mastery come from tooltips, not available in the replay).
+
 ## Devastation (0.20.0)
 
 **The highlight's rules** (`assisted_combat.inc`, spec 1467, in order): Blessing-type aura check (364342), Dragonrage, Fire Breath (Consume Flame talent, Fire Breath DoT missing), Tip the Scales (Fire Breath off cooldown), Fire Breath, Eternity Surge, Deep Breath (within 40 yd, Recall missing), Disintegrate (>3 targets near the target and Mass Disintegrate stacks), Dragonrage (Unbound Flame up, Essence Burst <= 1), **Pyre (>3 targets)**, **Azure Strike (Azure Sweep 1265871 up)**, Living Flame (>3 targets, Burnout + Leaping Flames), Azure Strike (>3 targets), Disintegrate, Living Flame. No essence conditions at all.
