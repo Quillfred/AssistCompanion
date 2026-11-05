@@ -86,6 +86,12 @@ No debug log, so the fight was replayed through the addon's code: Quillbreath's 
 * **Fix (0.20.1):** `UNIT_SPELLCAST_CHANNEL_STOP` / `UNIT_SPELLCAST_INTERRUPTED` (player) end the Time Skip speed-up event (`ns.onChannelStop`). Replayed with it, the late-fight gaps drop to 1-3s (Breath of Eons 1.3s, Ebon Might 3.2s, the rest within what the player's own delays explain).
 * Remaining small "still X s left" at a few casts (Time Skip 3.6s, Upheaval 0.7s) are within the replay's limits (Temporal Burst size and mastery come from tooltips, not available in the replay).
 
+## Augmentation, owner's L'ura (story) debug log (0.20.2)
+
+* **Time Skip fix confirmed:** both casts logged `channel ended: Time Skip after 2.00s`.
+* **Tip the Scales ~1.5s early** (shown at +71.6s, cast at +73.1s): the learned factor `tx=1.04`. `learnTip` only learns upward (an early press is evidence, a late one isn't), so the factor ratchets. 0.20.3 caps it at 1.02 and steps it down 0.01 when the game refuses a Tip press the addon thought ready (`UNIT_SPELLCAST_FAILED`, `ns.onCastFailed`; not yet seen in a log, so whether that event fires for "not ready yet" is to confirm).
+* **Fire Breath next to the Ebon Might refresh** (+337.2s: `em=3.0 emcd=0.5`, icon Fire Breath rank 3; Ebon Might shown 0.5s later; the breath was cancelled): `ebonfirst` only held empowers when the buff would be gone by the time Ebon Might was back. 0.20.3 also says Ebon Might first when the buff is in its refresh window (<= 4s) and the cooldown is within a GCD.
+
 ## Devastation (0.20.0)
 
 **The highlight's rules** (`assisted_combat.inc`, spec 1467, in order): Blessing-type aura check (364342), Dragonrage, Fire Breath (Consume Flame talent, Fire Breath DoT missing), Tip the Scales (Fire Breath off cooldown), Fire Breath, Eternity Surge, Deep Breath (within 40 yd, Recall missing), Disintegrate (>3 targets near the target and Mass Disintegrate stacks), Dragonrage (Unbound Flame up, Essence Burst <= 1), **Pyre (>3 targets)**, **Azure Strike (Azure Sweep 1265871 up)**, Living Flame (>3 targets, Burnout + Leaping Flames), Azure Strike (>3 targets), Disintegrate, Living Flame. No essence conditions at all.

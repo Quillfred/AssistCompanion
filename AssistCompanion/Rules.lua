@@ -570,6 +570,12 @@ end
 -- Learned factors: a new reading is averaged with the old one, and readings beyond the plausible
 -- range are dropped instead of capped (owner's log: a cancelled Fire Breath read as "4s cooldown").
 local FACTOR_MAX = 1.6
+-- Tip the Scales' learned speed can only be learned upward from presses (an early press proves it
+-- recovered faster; a late one proves nothing), so it ratchets. Capped: the owner's L'ura log had it
+-- at 1.04 and Tip shown ~1.5s before it was ready; 1.02 fits the logs. A press the game refuses
+-- (not ready) steps it back down (ns.onCastFailed).
+local TIP_FACTOR_MAX = 1.02
+local TIP_FACTOR_STEP_DOWN = 0.01
 local function blend(old, reading)
   if reading > FACTOR_MAX then return old end
   return (old + math.max(1, reading)) / 2
@@ -597,7 +603,7 @@ local function syncLearned(ctx)
   if not aug.learnedLoaded then
     aug.learnedLoaded = true
     if saved and saved.sig == sig then
-      aug.empowerFactor, aug.tipFactor = saved.empower or 1, saved.tip or 1
+      aug.empowerFactor, aug.tipFactor = saved.empower or 1, math.min(saved.tip or 1, TIP_FACTOR_MAX)
     end
   elseif saved and saved.sig ~= sig then
     aug.empowerFactor, aug.tipFactor = 1, 1 -- talents changed: start over
@@ -682,10 +688,22 @@ local function learnTip(ctx)
   local took = (p.at - start) + extraBetween(ctx, start, p.at)
   local cd = tipCooldown(ctx)
   if took > 5 and took * aug.tipFactor < cd - 0.5 then
-    aug.tipFactor = aug.blend(aug.tipFactor, cd / took)
+    aug.tipFactor = math.min(TIP_FACTOR_MAX, aug.blend(aug.tipFactor, cd / took))
   end
 end
 ns.augLearnTip = learnTip
+
+-- One of your casts failed (UNIT_SPELLCAST_FAILED). Tip the Scales refused while the addon thought it
+-- was ready: the estimate runs fast, so step the learned speed back toward the game data. Returns a
+-- note for the debug log, or nil.
+ns.onCastFailed = function(spec, id, ctx)
+  if spec ~= 1473 or id ~= S.TIP_THE_SCALES or not ctx then return end
+  if tipState(ctx) then return end                      -- its buff is up: pressed again for the macro
+  if tipCooldownLeft(ctx) > 0 then return end           -- the addon didn't think it was ready either
+  local was = aug.tipFactor
+  aug.tipFactor = math.max(1, aug.tipFactor - TIP_FACTOR_STEP_DOWN)
+  return ("Tip the Scales not ready yet: learned speed %.2f -> %.2f"):format(was, aug.tipFactor)
+end
 ns.augTip = { state = tipState, cooldownLeft = tipCooldownLeft }
 
 local tipRule = {
@@ -741,7 +759,8 @@ ns.rules[1473] = {
     spell = S.EBON_MIGHT,
     desc = "When the highlight asks for Fire Breath or Upheaval but Ebon Might will have run out and comes back within "
         .. "about 6 seconds, holds the empower: Eruption or Chrono Flames to fill the wait, then Ebon Might, then the empower "
-        .. "(empowers should go out inside Ebon Might, and they extend it).",
+        .. "(empowers should go out inside Ebon Might, and they extend it). Also Ebon Might first when it's in its "
+        .. "refresh window (about 4 seconds left) and back within a global cooldown.",
     check = function(ctx)
       if not ctx.inCombat or not ctx.knows(S.EBON_MIGHT) then return end
       if not EMPOWERS[ctx.next] then return end
@@ -749,7 +768,12 @@ ns.rules[1473] = {
       -- buff is down (so if it says an empower instead, the buff is still up).
       local cd = cooldownLeft(ctx, EBON_MIGHT_IDS, EM_COOLDOWN)
       if cd <= 0 or cd > EM_HOLD then return end
-      if ebonMight.expires - ctx.now > cd + 0.5 then return end -- still up when Ebon Might is back
+      local left = ebonMight.expires - ctx.now
+      -- Still in its refresh window and back within a global cooldown: refresh it first, then the
+      -- empower (owner's L'ura log: Fire Breath rank 3 shown with 3s of Ebon Might left and its
+      -- cooldown 0.5s away; the refresh came half a second later and the breath was cancelled).
+      local refreshFirst = left <= EM_REFRESH and cd <= GCD
+      if left > cd + 0.5 and not refreshFirst then return end -- still up when Ebon Might is back
       if cd <= GCD then
         return { spell = S.EBON_MIGHT, text = "Ebon Might first", sub = "Then the empower, inside Ebon Might" }
       end

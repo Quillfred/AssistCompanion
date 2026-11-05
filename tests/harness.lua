@@ -1240,6 +1240,12 @@ ns.ebonMight.expires = 0
 now = e0 + 29; step()
 expect("Ebon first: Ebon Might 1s from ready, buff run out -> Ebon Might first", "icon:395152", nf.icon.texture)
 expect("Ebon first: as a correction", true, nf.border.shown)
+-- Owner's L'ura log: Fire Breath shown with 3s of Ebon Might left and its cooldown 0.5s away
+ns.ebonMight.expires = now + 3.5; now = e0 + 29.3; step()          -- ~3s left, back in ~0.5s
+expect("Ebon first: buff in its refresh window, back within a GCD -> Ebon Might first", "icon:395152", nf.icon.texture)
+ns.ebonMight.expires = now + 6; step()                             -- 6s left: not in the refresh window
+expect("Ebon first: buff with 6s left -> Fire Breath", "icon:357208", nf.icon.texture)
+ns.ebonMight.expires = 0
 now = e0 + 31; step()
 expect("Ebon first: Ebon Might ready but the highlight says Fire Breath (buff up) -> Fire Breath", "icon:357208", nf.icon.texture)
 -- The highlight asking for Ebon Might means the buff is down
@@ -1310,13 +1316,24 @@ now = p0 + 60; step()
 expect("Tip learn: 60s in, estimate 30s left", 30, math.floor(ns.augTip.cooldownLeft({ lastCast = { [370553] = p0 },
   now = now, db = AssistCompanionDB, knows = function(id) return id == 1260484 end, readyIn = function() end }) + 0.5))
 now = p0 + 72; cast(370553); cast(357208); step()                -- pressed at 72s: it was ready
-expect("Tip learn: pressed at 72s of 90 (1.25) -> averaged with 1.00: 1.13", 1.13, math.floor(ns.augCooldowns.tipFactor * 100 + 0.5) / 100)
-local p1 = now; now = p1 + 79; state.next = 357208; step()
-expect("Tip learn: next cycle not ready at 79s", "icon:357208", nf.icon.texture)
-now = p1 + 80.5; step()
-expect("Tip learn: next cycle ready after 80s (90 / 1.125)", "icon:370553", nf.icon.texture)
+-- (1.25 averaged with 1.00 would be 1.13, but the learned speed is capped at 1.02: owner's L'ura log)
+expect("Tip learn: pressed at 72s of 90 -> faster, capped at 1.02", 1.02, math.floor(ns.augCooldowns.tipFactor * 100 + 0.5) / 100)
+local p1 = now; now = p1 + 87.5; state.next = 357208; step()
+expect("Tip learn: next cycle not ready at 87.5s", "icon:357208", nf.icon.texture)
+now = p1 + 88.5; step()
+expect("Tip learn: next cycle ready after ~88s (90 / 1.02)", "icon:370553", nf.icon.texture)
 now = p1 + 200; cast(370553); cast(357208); step()               -- a late press teaches nothing
-expect("Tip learn: a late press doesn't lower the factor", 1.13, math.floor(ns.augCooldowns.tipFactor * 100 + 0.5) / 100)
+expect("Tip learn: a late press doesn't lower the factor", 1.02, math.floor(ns.augCooldowns.tipFactor * 100 + 0.5) / 100)
+-- A press the game refuses while the addon thought it ready steps the speed back down.
+local p2 = now; now = p2 + 89; state.next = 357208; step()         -- 89 of 88.2: shown as ready
+events.scripts.OnEvent(events, "UNIT_SPELLCAST_FAILED", "player", "guid", 370553)
+expect("Tip learn: refused press (not ready) -> 1.02 down to 1.01", 1.01, math.floor(ns.augCooldowns.tipFactor * 100 + 0.5) / 100)
+now = p2 + 40; step()
+events.scripts.OnEvent(events, "UNIT_SPELLCAST_FAILED", "player", "guid", 370553)
+expect("Tip learn: refused while the addon also said not ready -> unchanged", 1.01, math.floor(ns.augCooldowns.tipFactor * 100 + 0.5) / 100)
+events.scripts.OnEvent(events, "UNIT_SPELLCAST_FAILED", "player", "guid", 357208)
+expect("Tip learn: another spell failing -> unchanged", 1.01, math.floor(ns.augCooldowns.tipFactor * 100 + 0.5) / 100)
+now = p2 + 300; cast(370553); cast(357208); step()
 ns.augCooldowns.tipFactor = 1
 AssistCompanionDB.tipMacro = false; state.known[431695] = nil; state.known[1260484] = nil
 events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); ns.setRuleEnabled(1473, "tipthescales", false)
@@ -1400,12 +1417,12 @@ state.known[407876] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"
 -- Learned factors are saved and survive a /reload; a talent change resets them
 local A = ns.augCooldowns
 step()                                                           -- settle the current talents
-A.empowerFactor, A.tipFactor = 1.12, 1.05; step()
-expect("Saved: learned factors written to the settings", "1.12/1.05",
+A.empowerFactor, A.tipFactor = 1.12, 1.02; step()
+expect("Saved: learned factors written to the settings", "1.12/1.02",
   AssistCompanionDB.augLearned.empower .. "/" .. AssistCompanionDB.augLearned.tip)
 local sig = AssistCompanionDB.augLearned.sig
 A.learnedLoaded = false; A.empowerFactor, A.tipFactor = 1, 1; step()   -- as after a /reload
-expect("Saved: a new session starts with the learned factors", "1.12/1.05", A.empowerFactor .. "/" .. A.tipFactor)
+expect("Saved: a new session starts with the learned factors", "1.12/1.02", A.empowerFactor .. "/" .. A.tipFactor)
 state.known[407876] = not state.known[407876]; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
 expect("Saved: Accretion changed -> start over", "1/1", A.empowerFactor .. "/" .. A.tipFactor)
 expect("Saved: ...with the new talents remembered", true, AssistCompanionDB.augLearned.sig ~= sig)
@@ -1416,7 +1433,7 @@ state.known[395152] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"
 A.learnedLoaded = false; AssistCompanionDB.augLearned = { sig = saved.sig, empower = 1.2, tip = 1.1 }; step()
 expect("Saved: nothing loaded or overwritten before the spellbook is ready", 1.2, AssistCompanionDB.augLearned.empower)
 state.known[395152] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
-expect("Saved: ...then loaded once it is", "1.2/1.1", A.empowerFactor .. "/" .. A.tipFactor)
+expect("Saved: ...then loaded once it is (Tip capped at 1.02)", "1.2/1.02", A.empowerFactor .. "/" .. A.tipFactor)
 state.known[407876] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
 A.empowerFactor, A.tipFactor = 1, 1; step()
 

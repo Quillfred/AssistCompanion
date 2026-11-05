@@ -1,5 +1,11 @@
 # Assist Companion
 
+## 0.20.3
+
+* **Augmentation: Ebon Might before Fire Breath, one more case.** With Ebon Might in its refresh window (about 4 seconds left) and ready again within a global cooldown, the icon now says Ebon Might first, then the empower. In your L'ura kill it showed Fire Breath rank 3 with 3 seconds of Ebon Might left, half a second before Ebon Might was ready.
+* **Augmentation: Tip the Scales no longer shows early.** Its learned speed could only ever go up (an early press proves it recovered faster; a late press proves nothing), so it crept up to 4% faster than the game data and Tip showed about 1.5 seconds before it was ready. It's now capped at 2%, and a press the game refuses ("not ready yet") steps it back down. The debug log notes when that happens.
+* Confirmed in a boss fight: Time Skip's real channel length is used (both casts logged 2.00s).
+
 ## 0.20.2
 
 * **Debug log keeps 5000 lines** (was 500), enough for a whole boss fight (about 3 lines a second). Clear it between fights with ctrl-click on the minimap button.
