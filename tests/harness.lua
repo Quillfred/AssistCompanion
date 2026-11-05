@@ -785,8 +785,8 @@ local echoed = false
 for i = #printed - 3, #printed do if printed[i] and printed[i]:find("cast: spell51271", 1, true) then echoed = true end end
 expect("Debug log: /ac debug chat echoes to chat", true, echoed)
 SlashCmdList.ASSISTCOMPANION("debug chat")
-for i = 1, 600 do cast(49020) end
-expect("Debug log: capped at 500 lines", 500, #log)
+for i = 1, 5100 do cast(49020) end
+expect("Debug log: capped at 5000 lines (a whole boss fight)", 5000, #log)
 SlashCmdList.ASSISTCOMPANION("debug")
 expect("Debug log: 'debug off' line written", true, log[#log]:find("debug off", 1, true) ~= nil)
 local n = #log; cast(49020)

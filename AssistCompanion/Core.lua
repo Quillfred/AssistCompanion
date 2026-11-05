@@ -280,7 +280,7 @@ end
 -- WTF\Account\<ACCOUNT>\SavedVariables\AssistCompanion.lua on /reload or logout.
 -- Chat echo is optional (/ac debug chat).
 ---------------------------------------------------------------------------
-local LOG_MAX = 500
+local LOG_MAX = 5000 -- a whole raid fight (~3 lines a second) fits; the owner asked for full boss fights
 local function dlog(fmt, ...)
   if not db or not db.debug then return end
   local ok, msg = pcall(string.format, fmt, ...)

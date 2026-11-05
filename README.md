@@ -77,7 +77,7 @@ Click the **minimap button**, type **`/ac`**, or open **Esc → Options → AddO
 
 ## Sending a debug log
 
-1. Type `/ac debug` and play (the last 500 lines are kept).
+1. Type `/ac debug` and play (the last 5000 lines are kept, enough for a whole boss fight).
 2. `/reload` or log out. WoW then writes the log to
    `World of Warcraft\_retail_\WTF\Account\<ACCOUNT>\SavedVariables\AssistCompanion.lua`
 3. Share that file. `/ac debug` again turns logging off.
