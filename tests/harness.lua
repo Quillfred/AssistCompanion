@@ -1705,6 +1705,24 @@ do
   talented(441176, false); talented(386348, false)
   now = now + 60; step()
   expect("Devastation CD: Dragonrage 121s later -> Dragonrage again", "icon:375087", nf.icon.texture)
+  -- Wingleader: each Mass Disintegrate takes 1s per target struck (up to 3) off Deep Breath
+  state.known[436335] = true; talented(441206, true)                -- Mass Disintegrate + Wingleader
+  now = now + 200; state.plates = 5; state.next = 361469; step()
+  cast(433874); cast(375087); step()                                 -- Deep Breath: 120s (and Dragonrage, out of the way)
+  local d0 = now
+  cast(357208); step()                                               -- Fire Breath: a Mass Disintegrate stack
+  expect("Wingleader: empower -> 1 Mass Disintegrate stack", 1, ns.devState.mass)
+  cast(356995); step()                                               -- Mass Disintegrate on 5 targets: -3s
+  expect("Wingleader: Mass Disintegrate used the stack", 0, ns.devState.mass)
+  cast(356995); step()                                               -- plain Disintegrate: no cut
+  cast(359073); events.scripts.OnEvent(events, "UNIT_SPELLCAST_EMPOWER_STOP", "player", "guid", 359073, false); step()
+  expect("Wingleader: cancelled empower gives no stack", 0, ns.devState.mass)
+  cast(359073); cast(356995); step()                                 -- another: -3s (6s total)
+  now = d0 + 113.5; step()                                           -- 113.7 + 6 = 119.7 of 120: not yet
+  expect("Wingleader: Deep Breath 6s sooner, not yet at 113.7s", "icon:361469", nf.icon.texture)
+  now = d0 + 114.2; step()
+  expect("Wingleader: Deep Breath back at ~114s (6s cut)", "icon:357210", nf.icon.texture)
+  state.known[436335] = nil; talented(441206, false); state.plates = 1
   expect("Devastation CD: rule order", "dragonrage,devdeepbreath,devtip,essencecap,pyre3", (function()
     local t = {} for _, r in ipairs(ns.rules[1467]) do t[#t + 1] = r.key end return table.concat(t, ",") end)())
   for _, k in ipairs({ "dragonrage", "devdeepbreath", "devtip" }) do ns.setRuleEnabled(1467, k, false) end
@@ -1723,6 +1741,20 @@ do
   threat = { nameplate1 = "SECRET", nameplate2 = "SECRET" }; issecretvalue = function(v) return v == "SECRET" end; step()
   expect("Enemies (ranged): threat hidden -> range count (2)", "2", nf.rank.text)
   issecretvalue = nil; UnitThreatSituation = nil; talented(436335, false)
+  -- Opener (SimC's optimal list): Scalecommander vs Flameshaper order
+  combat(false); now = now + 500
+  state.known = { [361469]=true, [375087]=true, [370553]=true, [359073]=true, [357208]=true, [356995]=true,
+                  [357210]=true, [436335]=true, [441176]=true }          -- Scalecommander with Melt Armor
+  events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED"); state.target = true; step()
+  expect("Devastation opener (Scalecommander): Living Flame, Dragonrage, Eternity Surge, Tip, Fire Breath, Deep Breath",
+    "icon:361469,icon:375087,icon:359073,icon:370553,icon:357208,icon:357210", openerIcons())
+  cast(361469); cast(375087); cast(382411); step()                    -- Eternity Surge cast as its Font of Magic ID
+  expect("Devastation opener: Font of Magic Eternity Surge counts as the step (4 of 7)", "Opener\n4/7", ob.label.text)
+  state.known[436335] = nil; state.known[441176] = nil; state.known[1264269] = true  -- Flameshaper
+  events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+  expect("Devastation opener (Flameshaper): Living Flame, Dragonrage, Tip, Eternity Surge, Fire Breath, Disintegrate",
+    "icon:361469,icon:375087,icon:370553,icon:359073,icon:357208,icon:356995", openerIcons())
+  state.target = nil
   expect("Devastation: listed in the options tree", true, (function()
     for _, sp in ipairs(ns.specInfo) do if sp.id == 1467 then return true end end return false end)())
   combat(false); state.rpmax = nil; state.rp = 10; state.plates = 0; state.next = nil
