@@ -1,5 +1,10 @@
 # Assist Companion
 
+## 0.19.1
+
+* **Unholy: runic power shows the spell on your button.** If a talent replaces Death Coil or Epidemic (Necrotic Coil, Graveyard), the icon now shows that spell instead of the plain one.
+* Confirmed in game: the main icon turns blue-bordered at 80 runic power. In AoE it stays out of the way because the highlight already asks for Graveyard (Epidemic's replacement), which spends it.
+
 ## 0.19.0
 
 * **Runic power is now part of the main icon.** Instead of a separate icon off to the side, the next-cast icon itself turns into Death Coil / Epidemic (Unholy) or Death Strike (Blood) with a **blue border** at the threshold, and goes back to the highlight's suggestion once you spend. The game still decides when (the addon can't see your runic power). Nothing extra to place.

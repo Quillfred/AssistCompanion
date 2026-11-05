@@ -95,6 +95,14 @@ end
 
 ns.rules = {}
 
+-- The spell your button actually casts for `id` (talents replace some: Epidemic -> Graveyard,
+-- Death Coil -> Necrotic Coil in the owner's build), so the icon matches your bar.
+local function onButton(ctx, id)
+  local o = ctx.override(id)
+  if type(o) == "number" and o ~= 0 then return o end
+  return id
+end
+
 ---------------------------------------------------------------------------
 -- Unholy Death Knight (spec 252)
 ---------------------------------------------------------------------------
@@ -129,12 +137,12 @@ ns.rules[252] = {
       if not isRuneSpender(ctx, ctx.next) then return end
       local n = ctx.enemies
       if n and n >= 4 and ctx.knows(S.EPIDEMIC) then
-        return { spell = S.EPIDEMIC, text = "Spend: Epidemic", sub = ("Runic power %d"):format(p) }
+        return { spell = onButton(ctx, S.EPIDEMIC), text = "Spend: Epidemic", sub = ("Runic power %d"):format(p) }
       elseif n and n <= 3 then
-        return { spell = S.DEATH_COIL, text = "Spend: Death Coil", sub = ("Runic power %d"):format(p) }
+        return { spell = onButton(ctx, S.DEATH_COIL), text = "Spend: Death Coil", sub = ("Runic power %d"):format(p) }
       end
       return {
-        spell = S.DEATH_COIL,
+        spell = onButton(ctx, S.DEATH_COIL),
         text = "Spend runic power",
         sub = ("%d RP. Death Coil on 1-3 targets, Epidemic on 4+"):format(p),
       }
@@ -1065,9 +1073,12 @@ ns.healthIcon = {
 ns.powerIcon = {
   [252] = {
     rule = "rpcap",
+    -- Returns the spell to show (what's on your button) and the base spell to check you know.
     spell = function(ctx)
-      if ctx.enemies and ctx.enemies >= 4 and ctx.knows(S.EPIDEMIC) then return S.EPIDEMIC end
-      return S.DEATH_COIL
+      if ctx.enemies and ctx.enemies >= 4 and ctx.knows(S.EPIDEMIC) then
+        return onButton(ctx, S.EPIDEMIC), S.EPIDEMIC
+      end
+      return onButton(ctx, S.DEATH_COIL), S.DEATH_COIL
     end,
     -- Any time you're at the threshold, unless the highlight already asks to spend (owner: the
     -- rune-spender-only version flashed for a second at a time while the highlight sat on cooldowns).
