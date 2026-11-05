@@ -791,7 +791,7 @@ local function buildOpener()
     dlog("opener: reset (was at step %d/%d)", opener.index, #opener.steps)
   end
   wipe(opener.steps)
-  opener.index = 1
+  opener.index, opener.lastAdvance = 1, nil -- steps skipped for cooldowns aren't casts: no idle reset for them
   local list = specID and ns.openers and ns.openers[specID]
   if not list then return end
   local hasPet = try(UnitExists, "pet")

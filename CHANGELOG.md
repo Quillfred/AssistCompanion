@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.17.4
+
+* **Opener fix after a fight on a dummy:** with some of its cooldowns still running, the opener skipped those steps, then reset itself again every frame (it filled the debug log). Steps skipped for cooldowns no longer count as casts, so it settles on the first step that's ready.
+
 ## 0.17.3
 
 * **Enemy count works on training dummies.** Dummies never report being in combat, so the count was always 0. Enemies within range of your spell now count too (melee range for Death Knights, Eruption's range for Augmentation). This drives the 3-target corrections (Frost Frostscythe, Unholy Death Coil / Epidemic).

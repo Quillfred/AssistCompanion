@@ -557,6 +557,20 @@ expect("CD skip: in combat, opener still starts at ERW", "icon:47568", nf.icon.t
 cast(47568); step()
 expect("CD skip: Pillar still skipped in combat", "icon:439843", nf.icon.texture)
 combat(false)
+-- Owner's 0.17.3 log: after a fight on a dummy, the rebuilt opener skipped its cooldown steps,
+-- then the idle reset (from casts long ago) rebuilt it again, every frame.
+AssistCompanionDB.debug = true; AssistCompanionDB.debugLog = {}
+now = now + 30; combat(true); cast(47568); now = now + 30   -- opener cast 30s ago
+state.charges = {}; state.cd = { [47568] = { now, 20 }, [51271] = { now, 45 } }; combat(false)
+for _ = 1, 20 do step() end
+local resets, skips = 0, 0
+for _, l in ipairs(AssistCompanionDB.debugLog) do
+  if l:find("opener: reset", 1, true) then resets = resets + 1 end
+  if l:find("opener: skipped step 2/", 1, true) then skips = skips + 1 end
+end
+expect("CD skip: rebuilt opener isn't reset again every frame", true, resets <= 1 and skips == 1)
+expect("CD skip: rebuilt opener stays past the cooldown step", "Opener\n3/9", ob.label.text)
+AssistCompanionDB.debug = false; AssistCompanionDB.debugLog = nil
 -- Breath icon respects Breath's real cooldown after a combat drop on a dummy
 AssistCompanionDB.openerIcon = false
 events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 20
