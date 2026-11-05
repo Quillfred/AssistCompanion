@@ -91,6 +91,11 @@ local S = {
   MASS_DISINTEGRATE   = 436335, -- Scalecommander
   LEGACY_OF_THE_LIFEBINDER = 1264269, -- Flameshaper
   POWER_NEXUS         = 369908, -- +1 max essence
+  DEEP_BREATH_STEER   = 433874, -- Deep Breath with Maneuverability (steerable)
+  ONYX_LEGACY         = 386348, -- Deep Breath's cooldown -1 min
+  MELT_ARMOR          = 441176, -- Scalecommander
+  MANEUVERABILITY     = 433871, -- Scalecommander
+  IMMINENT_DESTRUCTION = 370781,
 }
 ns.S = S
 
@@ -1022,6 +1027,41 @@ ns.readyCooldowns = {
       end,
     },
   },
+  -- Devastation: the owner's debug log (2 min single target, then 5 targets) never had the highlight
+  -- suggest Dragonrage, Tip the Scales or Deep Breath, though all three are in its list (as on
+  -- Augmentation). Cooldowns from game data; SimC's optimal list for when.
+  [1467] = {
+    { key = "dragonrage", name = "Dragonrage", spell = S.DRAGONRAGE, cooldown = 120 }, -- game data (375087)
+    {
+      key = "devdeepbreath", name = "Deep Breath", spell = S.DEEP_BREATH,
+      desc = "Shows Deep Breath when it's ready: on 2+ targets, or any time with Melt Armor, Maneuverability or "
+          .. "Imminent Destruction (SimC's optimal list). The in-game highlight never suggests it. Counts Onyx Legacy "
+          .. "(-1 min); with Wingleader it may come back a little sooner than shown.",
+      check = function(ctx)
+        if not ctx.inCombat then return end
+        if not (ctx.knows(S.DEEP_BREATH) or ctx.knows(S.DEEP_BREATH_STEER)) then return end
+        local n = ctx.next
+        if n == S.DEEP_BREATH or n == S.DEEP_BREATH_STEER then return end -- the highlight already says it
+        local always = ctx.knows(S.MELT_ARMOR) or ctx.knows(S.MANEUVERABILITY) or ctx.knows(S.IMMINENT_DESTRUCTION)
+        if not always and not (ctx.enemies and ctx.enemies >= 2) then return end
+        local cd = 120 - (ctx.knows(S.ONYX_LEGACY) and 60 or 0) -- game data (357210, 386348)
+        local a, b = ctx.lastCast[S.DEEP_BREATH], ctx.lastCast[S.DEEP_BREATH_STEER]
+        local last = (a and b) and math.max(a, b) or a or b
+        if last and ctx.now - last < cd then return end
+        if not last then
+          local r = ctx.readyIn and ctx.readyIn(S.DEEP_BREATH)
+          if r and r > 1 then return end
+        end
+        return { spell = S.DEEP_BREATH, iconOnly = true, text = "Deep Breath", sub = "Ready" }
+      end,
+    },
+    {
+      key = "devtip", name = "Tip the Scales", spell = S.TIP_THE_SCALES, cooldown = 120, -- game data (370553)
+      desc = "Shows Tip the Scales when the highlight asks for Fire Breath and Tip is ready (the highlight's own rule, "
+          .. "which it never shows in game): the Fire Breath is then instant at max rank.",
+      when = function(ctx) return DEV_FIRE_BREATHS[ctx.next] end,
+    },
+  },
   [250] = {                                                  -- Blood
     after = "boneshield",
     { key = "vampiricblood", name = "Vampiric Blood", spell = S.VAMPIRIC_BLOOD, cooldown = 90 }, -- game data (55233)
@@ -1133,7 +1173,9 @@ local function devSpender(ctx)
   return S.DISINTEGRATE
 end
 
-ns.rules[1467] = {
+-- Added after the cooldown-ready rules (ns.readyCooldowns, which build ns.rules[1467] above):
+-- the major cooldowns come first.
+local devRules = {
   {
     key = "essencecap",
     name = "Essence cap",
@@ -1161,6 +1203,8 @@ ns.rules[1467] = {
     end,
   },
 }
+ns.rules[1467] = ns.rules[1467] or {}
+for _, rule in ipairs(devRules) do table.insert(ns.rules[1467], rule) end
 
 -- Charges counted from your own casts (hidden in combat). recharge = seconds per charge.
 ns.chargeTrack = {

@@ -86,6 +86,13 @@ No debug log, so the fight was replayed through the addon's code: Quillbreath's 
 * **Fix (0.20.1):** `UNIT_SPELLCAST_CHANNEL_STOP` / `UNIT_SPELLCAST_INTERRUPTED` (player) end the Time Skip speed-up event (`ns.onChannelStop`). Replayed with it, the late-fight gaps drop to 1-3s (Breath of Eons 1.3s, Ebon Might 3.2s, the rest within what the player's own delays explain).
 * Remaining small "still X s left" at a few casts (Time Skip 3.6s, Upheaval 0.7s) are within the replay's limits (Temporal Burst size and mastery come from tooltips, not available in the replay).
 
+## Devastation, owner's first debug log (0.20.3, Scalecommander, Font of Magic)
+
+* **Never suggested in game: Dragonrage, Tip the Scales, Deep Breath** (2 minutes single target plus 5-target runs; all three are in the highlight's list, like Augmentation's Tip the Scales / Time Skip / Deep Breath). 0.21.0 adds cooldown-ready rules: Dragonrage (120 s, 375087); Deep Breath (357210 or the Maneuverability version 433874; 120 s, -60 s Onyx Legacy 386348; on 2+ targets or with Melt Armor 441176 / Maneuverability 433871 / Imminent Destruction 370781, SimC's `cooldowns` list); Tip the Scales with the highlight's Fire Breath (120 s). Wingleader (Mass Disintegrate cuts Deep Breath) isn't modelled, so the icon can only be late.
+* **Enemy count overcounted at range:** single target read `enemies=2` (`attackable=2 inrange=2`): a second dummy within Disintegrate's 25 yd. Scalecommander Fire Breath rank = targets, so rank 2. 0.21.0: ranged specs (`ns.countRangeSpell`) count units the player has threat on (`UnitThreatSituation` non-nil), falling back to the range count when no unit has a readable threat value. Diagnosis line: `threat=`. To confirm in game that threat is readable in combat.
+* **Working:** essence cap (`essencecap` fired at 5/5 essence on Living Flame); with nameplates on, 6 targets gave Eternity Surge rank 3 (Eternity's Span) and Fire Breath rank 1 (Scalecommander, 5+). With nameplates off the addon saw 1 enemy but the highlight still played Pyre / Azure Strike (it counts enemies itself).
+* Fire Breath and Eternity Surge read as the Font of Magic IDs (382266, 382411), as expected.
+
 ## Augmentation, owner's L'ura (story) debug log (0.20.2)
 
 * **Time Skip fix confirmed:** both casts logged `channel ended: Time Skip after 2.00s`.
