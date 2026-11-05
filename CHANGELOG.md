@@ -1,5 +1,10 @@
 # Assist Companion
 
+## 0.21.2
+
+* **A short combat drop no longer resets the fight.** Deep Breath flew you off the dummies and combat dropped for a moment: the opener restarted from step 1 and the addon forgot your cooldowns. Now it waits until you've been out of combat for 6 seconds; back in combat sooner, it's the same fight (debug log: "combat resumed"). Deaths and boss kills/wipes still reset right away. All specs.
+* **Ranged enemy count (Devastation, Augmentation) only counts enemies you're fighting:** your target, enemies you have threat on, and enemies in combat within range. Before the pull, 8 dummies within 25 yards made Eternity Surge say rank 4; now it's your target only until the fight starts. Melee specs are unchanged.
+
 ## 0.21.1
 
 * **Devastation: Wingleader counted for Deep Breath.** Each empower gives a Mass Disintegrate stack; the next Disintegrate uses it and takes 1 second per target struck (up to 3) off Deep Breath's cooldown (game data). Cancelled empowers give no stack.
