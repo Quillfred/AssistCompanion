@@ -245,7 +245,7 @@ local function countEnemies()
   -- (UnitThreatSituation, when readable) and enemies in combat within range. Melee specs keep
   -- "in combat or in melee range" (dummies never report combat).
   local ranged = ns.countRangeSpell and specID and ns.countRangeSpell[specID]
-  local n, unknown, fighting = 0, false, 0
+  local n, unknown, fighting, target, anyCombat = 0, false, 0, 0, false
   for _, plate in ipairs(plates) do
     local unit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
     if unit then
@@ -263,6 +263,9 @@ local function countEnemies()
           local threat = UnitThreatSituation and try(UnitThreatSituation, "player", unit)
           local isTarget = UnitIsUnit and try(UnitIsUnit, unit, "target")
           if isTarget or threat ~= nil or (combat and near) then fighting = fighting + 1 end
+          if isTarget then target = target + 1 end
+          if combat and near then anyCombat = true end
+          if near then n = n + 1 end
           if combat == nil and near == nil then unknown = true end
         elseif combat or near then
           n = n + 1
@@ -271,8 +274,13 @@ local function countEnemies()
     end
   end
   if ranged then
-    if fighting == 0 and unknown then return nil end
-    return fighting
+    -- Before the pull: just your target. In combat: what you're fighting, unless no enemy reports
+    -- being in combat at all (training dummies: owner's log had incombat=0 and threat=0 even on the
+    -- dummy being hit); then everything within range, the count that read right on dummies.
+    if not inCombat then return (target > 0 or not unknown) and target or nil end
+    if anyCombat then return (fighting > 0 or not unknown) and fighting or nil end
+    if n == 0 and unknown then return nil end
+    return n
   end
   if n == 0 and unknown then return nil end
   return n
