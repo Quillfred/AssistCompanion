@@ -30,7 +30,6 @@ local DEFAULTS = {
   healthFull = 35,         -- health % at or below which it's fully visible
   healthNone = 50,         -- health % at or above which it's invisible
   healthPoint = { "CENTER", "UIParent", "CENTER", 60, -100 },
-  powerPoint = { "CENTER", "UIParent", "CENTER", -60, -100 }, -- runic power icon (when the game hides runic power)
   minimapButton = true,    -- minimap button (left-click: options, right-click: lock/unlock)
   minimapAngle = 225,      -- its position around the minimap, degrees
   disabled = {},           -- rules turned off, as "<specID>:<key>" (options menu or /ac toggle <key>)
@@ -943,11 +942,16 @@ end
 -- icon's alpha: invisible below the rule's threshold, fully visible at or above it. Only used
 -- while runic power is hidden; when it's readable the rule itself shows on the next-cast icon.
 ---------------------------------------------------------------------------
-local pf = CreateFrame("Frame", "AssistCompanionPower", UIParent, "BackdropTemplate")
-makeMovable(pf, "powerPoint")
+-- A layer on top of the next-cast icon (same spot and size): the spender's icon with a blue
+-- border and its own keybind. Its alpha is the game's answer, so the next-cast icon turns into
+-- the spender at the threshold and back once you spend. The GCD swipe stays above it.
+local pf = CreateFrame("Frame", "AssistCompanionPower", nf)
+pf:SetAllPoints(nf)
+pf:SetFrameLevel(nf:GetFrameLevel() + 1)
+nf.gcd:SetFrameLevel(nf:GetFrameLevel() + 2)
 pf.icon = pf:CreateTexture(nil, "ARTWORK")
 pf.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
-pf.icon:SetPoint("CENTER")
+pf.icon:SetAllPoints(nf.icon)
 pf.black = blackBorder(pf, pf.icon)
 pf.glow = pf:CreateTexture(nil, "BORDER", nil, 0)
 pf.glow:SetColorTexture(0.25, 0.6, 1, 1) -- blue: runic power
@@ -955,8 +959,9 @@ pf.glow:SetPoint("TOPLEFT", pf.icon, -BLACK_EDGE - 2, BLACK_EDGE + 2)
 pf.glow:SetPoint("BOTTOMRIGHT", pf.icon, BLACK_EDGE + 2, -BLACK_EDGE - 2)
 pf.key = pf:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
 pf.key:SetPoint("TOPRIGHT", pf.icon, "TOPRIGHT", -2, -2)
+pf.key:SetJustifyH("RIGHT")
 pf.label = pf:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-pf.label:SetPoint("TOP", pf, "BOTTOM", 0, -2)
+pf.label:SetPoint("BOTTOM", pf.icon, "TOP", 0, 6)
 local powerTest = false -- /ac rptest: follow runic power only (no highlight or combat check), to see it work
 
 local powerCurve, powerCurveFor
@@ -975,23 +980,32 @@ local function buildPowerCurve(frac)
   return c
 end
 
-local function layoutPower()
-  local s = db.iconSize
-  pf:SetSize(s + 8, s + 8)
-  pf.icon:SetSize(s, s)
-  placeFrame(pf, "powerPoint")
+-- Index of a rule in the spec's list (lower = higher priority), or nil.
+local function rulePriority(key)
+  local rules = key and specID and ns.rules[specID]
+  if not rules then return nil end
+  for i, rule in ipairs(rules) do if rule.key == key then return i end end
 end
 
-local function updatePowerIcon(c)
+-- mode/alertKey: what the next-cast icon is showing (showNext). The layer stays off for the
+-- opener and for corrections that come before the runic power rule in the spec's list.
+local function updatePowerIcon(c, mode, alertKey)
   local cfg = ns.powerIcon and specID and ns.powerIcon[specID]
   if not cfg or not ns.ruleEnabled(specID, cfg.rule) then pf:Hide() powerIconState = "off" return end
+  if not nf:IsShown() or mode == "hidden" or mode == "idle" or not db.locked then
+    pf:Hide() powerIconState = "off" return
+  end
+  if mode == "opener" then pf:Hide() powerIconState = "opener" return end
+  if mode == "correction" or mode == "wait" then
+    local mine, theirs = rulePriority(cfg.rule), rulePriority(alertKey)
+    if theirs and (not mine or theirs < mine) then pf:Hide() powerIconState = "correction" return end
+  end
   local spell = cfg.spell
   if type(spell) == "function" then spell = spell(c) end
   if not spell or not knows(spell) then pf:Hide() powerIconState = "off" return end
   pf.icon:SetTexture(spellIcon(spell))
   pf.key:SetText(keybindFor(spell) or "")
   pf.label:SetText(powerTest and "RP test" or "")
-  if not db.locked then pf:Show() pf:SetAlpha(1) return end -- fully visible while positioning
   -- Readable runic power: the rule shows it on the next-cast icon instead.
   if c.power ~= nil then pf:Hide() powerIconState = "readable" return end
   if not powerTest then
@@ -1022,7 +1036,6 @@ end
 local function layoutAll()
   layoutNext()
   layoutHealth()
-  layoutPower()
   placeFrame(frame, "point")
   placeFrame(ob, "openerPoint")
 end
@@ -1075,7 +1088,6 @@ local function tick()
   ctx.inCombat = inCombat
   ctx.enemies = countEnemies()
   ctx.inMelee = inMelee()
-  updatePowerIcon(ctx)
 
   local onTick = ns.onTick and specID and ns.onTick[specID]
   if onTick then pcall(onTick, ctx) end
@@ -1111,6 +1123,7 @@ local function tick()
     }
   end
   local shown, mode, rank = showNext(ctx, iconAlert, note)
+  updatePowerIcon(ctx, mode, alertKey)
   showText(alert)
 
   if db.debug then
@@ -1302,7 +1315,7 @@ SLASH_ASSISTCOMPANION2 = "/assistcompanion"
 SlashCmdList.ASSISTCOMPANION = function(input)
   local cmd, arg = (input or ""):lower():match("^(%S*)%s*(.-)$")
   if cmd == "unlock" then
-    db.locked = false; layoutAll(); nf:Show(); ob:Show(); frame:SetShown(db.showText); updateHealthIcon(); updatePowerIcon(ctx)
+    db.locked = false; layoutAll(); nf:Show(); ob:Show(); frame:SetShown(db.showText); updateHealthIcon()
     say("Unlocked. Drag the next-cast icon and the opener bar, then type /ac lock.")
   elseif cmd == "lock" then
     db.locked = true; layoutAll(); say("Locked.")
@@ -1409,7 +1422,7 @@ SlashCmdList.ASSISTCOMPANION = function(input)
   elseif cmd == "reset" then
     db.point = CopyTable(DEFAULTS.point); db.openerPoint = CopyTable(DEFAULTS.openerPoint)
     db.nextPoint = CopyTable(DEFAULTS.nextPoint); db.iconSize = DEFAULTS.iconSize
-    db.healthPoint = CopyTable(DEFAULTS.healthPoint); db.powerPoint = CopyTable(DEFAULTS.powerPoint)
+    db.healthPoint = CopyTable(DEFAULTS.healthPoint)
     db.scale = DEFAULTS.scale; layoutAll(); say("Position and size reset.")
   else
     say("commands (/ac on its own opens the options menu):")

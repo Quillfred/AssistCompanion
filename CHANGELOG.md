@@ -1,5 +1,11 @@
 # Assist Companion
 
+## 0.19.0
+
+* **Runic power is now part of the main icon.** Instead of a separate icon off to the side, the next-cast icon itself turns into Death Coil / Epidemic (Unholy) or Death Strike (Blood) with a **blue border** at the threshold, and goes back to the highlight's suggestion once you spend. The game still decides when (the addon can't see your runic power). Nothing extra to place.
+* It steps aside for the opener and for corrections that matter more (Unholy's Blightfall, Blood's Bone Shield refresh). The GCD swipe still shows over it.
+* `/ac rptest` now shows "RP test" above the main icon.
+
 ## 0.18.2
 
 * **Runic power icon confirmed working** (tested with `/ac rptest`).

@@ -27,7 +27,7 @@ The addon only displays information. You press every button yourself.
 | Frost | At exactly 3 targets the highlight never uses Frostscythe (its rule starts above 3) | **Frostscythe** instead of Obliterate |
 | Frost | **Empower Rune Weapon** is suggested while you're still running in (it has no range check, Pillar does) | Empower Rune Weapon **grayed out and red** until you're in melee |
 
-The game hides runic power from addons, so for the two runic power rows above a separate icon with a **blue border** fades in instead, at the same thresholds. The game decides when it shows; move it with `/ac unlock`. Unholy's target count needs enemy nameplates turned on.
+The game hides runic power from addons, so for the two runic power rows above the game itself decides: at the threshold the next-cast icon turns into the spender with a **blue border**, and back once you spend. Unholy's target count needs enemy nameplates turned on.
 
 Corrections have a gold border. While an opener is running, the icon follows the opener instead and has a blue border. Like Blizzard's action bars, the icon turns **red** when your target is out of range, **blue** when you don't have enough runes or runic power, and **dark gray** when it can't be used for another reason. A global cooldown swipe runs over it. See [`docs/FINDINGS.md`](docs/FINDINGS.md) for the sims and game data behind each rule.
 
