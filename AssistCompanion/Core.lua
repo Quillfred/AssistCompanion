@@ -669,7 +669,10 @@ local function showNext(ctx, alert, note)
     return nil, "hidden"
   end
   if not idle then nf.lastSpell = spell end
-  nf.icon:SetTexture(spellIcon(spell))
+  -- Show what the button casts right now (e.g. Azure Strike's button is Azure Sweep while its buff
+  -- is up), so the icon matches your bar.
+  local onButton = override(spell)
+  nf.icon:SetTexture(spellIcon(type(onButton) == "number" and onButton ~= 0 and onButton or spell))
   nf.border:SetShown(corrected)
   -- A rule can add to the keybind text (e.g. "x2": press the Tip the Scales macro twice).
   local key = keybindFor(spell)

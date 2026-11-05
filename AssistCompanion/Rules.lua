@@ -76,8 +76,29 @@ local S = {
   MASS_ERUPTION       = 438587, -- tooltip: "...your other helpful auras are increased by X%" -- each Eruption: Upheaval's remaining cooldown -1s (game data 411932)
   LIVING_FLAME        = 361469, -- Chrono Flames (431443) replaces it on the button for Chronowarden -- "[DNT] Clear Empower Cooldown": resets Fire Breath and Upheaval
   CHRONOBOON          = 1260484, -- Chronowarden: Tip the Scales' cooldown is shorter
+  -- Devastation Evoker
+  DISINTEGRATE        = 356995,
+  PYRE                = 357211,
+  AZURE_STRIKE        = 362969,
+  AZURE_SWEEP         = 1265872, -- replaces Azure Strike on the button while its buff is up
+  ETERNITY_SURGE      = 359073,
+  ETERNITY_SURGE_FOM  = 382411, -- with Font of Magic
+  DRAGONRAGE          = 375087,
+  FONT_OF_MAGIC_DEV   = 411212, -- Devastation's Font of Magic: empowers get a 4th rank
+  ETERNITYS_SPAN      = 375757, -- Eternity Surge hits twice as many targets per rank
+  VOLATILITY          = 369089,
+  FEED_THE_FLAMES     = 369846,
+  MASS_DISINTEGRATE   = 436335, -- Scalecommander
+  LEGACY_OF_THE_LIFEBINDER = 1264269, -- Flameshaper
+  POWER_NEXUS         = 369908, -- +1 max essence
 }
 ns.S = S
+
+-- Devastation spell groups (used by the empower rank badge and the Devastation rules below)
+local DEV_GENERATORS = { [S.LIVING_FLAME] = true, [S.AZURE_STRIKE] = true, [S.AZURE_SWEEP] = true }
+local DEV_FIRE_BREATHS = { [S.FIRE_BREATH] = true, [S.FIRE_BREATH_FOM] = true }
+local DEV_SURGES = { [S.ETERNITY_SURGE] = true, [S.ETERNITY_SURGE_FOM] = true }
+local DRAGONRAGE_DURATION = 18 -- game data (375087)
 
 local PILLAR_DURATION = 12   -- seconds (game data: Pillar of Frost id 51271)
 
@@ -747,6 +768,39 @@ local UPHEAVAL_SOON = 1.5
 local RANK3_TIME = 2.5
 
 ns.empowerRank = {
+  -- Devastation, from SimC's optimal list (es, fb_fs, fb_sc).
+  [1467] = function(ctx, spell)
+    local surge, breath = DEV_SURGES[spell], DEV_FIRE_BREATHS[spell]
+    if not surge and not breath then return nil end
+    -- Tip the Scales pressed since your last empower: the next one is instant at max rank.
+    local tip = ctx.lastCast[S.TIP_THE_SCALES]
+    if tip then
+      local last = 0
+      for id in pairs(DEV_FIRE_BREATHS) do last = math.max(last, ctx.lastCast[id] or 0) end
+      for id in pairs(DEV_SURGES) do last = math.max(last, ctx.lastCast[id] or 0) end
+      if tip > last then return nil end
+    end
+    local n = ctx.enemies
+    if not n or n < 1 then return nil end
+    local maxRank = ctx.knows(S.FONT_OF_MAGIC_DEV) and 4 or 3
+    if surge then
+      -- one target per rank, two with Eternity's Span: the lowest rank that hits them all
+      local per = ctx.knows(S.ETERNITYS_SPAN) and 2 or 1
+      return math.min(maxRank, math.ceil(n / per))
+    end
+    if ctx.knows(S.MASS_DISINTEGRATE) then -- Scalecommander (fb_sc): one rank per target, rank 1 on 5+
+      if n > 4 then return 1 end
+      return math.min(n, maxRank)
+    end
+    -- Flameshaper (fb_fs): rank 1 on one target (or when Pyre is the plan), 2 on two or in
+    -- Dragonrage, else 3 (SimC: "R4 is just sort of bad for all cases")
+    local usePyre = ctx.knows(S.LEGACY_OF_THE_LIFEBINDER)
+      and (n >= 5 or (n >= 3 and (ctx.knows(S.VOLATILITY) or ctx.knows(S.FEED_THE_FLAMES))))
+    if n == 1 or usePyre then return 1 end
+    local rage = ctx.lastCast[S.DRAGONRAGE]
+    if n == 2 or (rage and ctx.now - rage < DRAGONRAGE_DURATION) then return 2 end
+    return 3
+  end,
   [1473] = function(ctx, spell)
     if not FIRE_BREATHS[spell] and not UPHEAVALS[spell] then return nil end
     if (tipState(ctx)) then return nil end -- Tip the Scales is waiting: instant, max rank
@@ -759,6 +813,11 @@ ns.empowerRank = {
 
 -- Extra text for the once-a-second debug status line.
 ns.debugStatus = {
+  -- Devastation: es/fb = the ranks the badge would show (n = no badge)
+  [1467] = function(ctx)
+    local f = ns.empowerRank[1467]
+    return ("es=%s fb=%s"):format(tostring(f(ctx, S.ETERNITY_SURGE) or "n"), tostring(f(ctx, S.FIRE_BREATH) or "n"))
+  end,
   -- em = our Ebon Might estimate (seconds left); up/emcd = Upheaval / Ebon Might cooldown estimates;
   -- x = learned empower recovery factor; upb = the Upheaval ID on your button; tip = Tip the Scales
   -- cooldown estimate ("w" = pressed, buff not used yet); tx = learned Tip the Scales factor; haste %;
@@ -1005,6 +1064,63 @@ for spec, list in pairs(ns.readyCooldowns) do
   end
 end
 
+---------------------------------------------------------------------------
+-- Devastation Evoker (spec 1467)
+-- From the game's highlight rules (assisted_combat.inc) vs SimC's optimal list (docs/FINDINGS.md):
+--   * essence waste 24% vs 8-12% optimal: the highlight keeps generating at max essence;
+--   * Pyre only at 4+ targets (">3"), while Flameshaper builds with Volatility / Feed the Flames
+--     want it at 3;
+--   * it never says which rank to hold Fire Breath and Eternity Surge to.
+-- Enemy counts come from nameplates (needs enemy nameplates on).
+---------------------------------------------------------------------------
+
+local function isGenerator(ctx, id)
+  if not id then return false end
+  return DEV_GENERATORS[id] or id == ctx.override(S.LIVING_FLAME) or id == ctx.override(S.AZURE_STRIKE)
+end
+
+-- Flameshaper Pyre at 3+ targets (SimC's use_pyre_fs: Legacy of the Lifebinder and Volatility or
+-- Feed the Flames; Volatility's rank isn't readable, so any rank counts).
+local function pyreAtThree(ctx)
+  return ctx.knows(S.LEGACY_OF_THE_LIFEBINDER) and (ctx.knows(S.VOLATILITY) or ctx.knows(S.FEED_THE_FLAMES))
+end
+
+-- Essence spender for this many targets: Pyre at 4+ (like the highlight) or 3 (Flameshaper above).
+local function devSpender(ctx)
+  local n = ctx.enemies
+  if ctx.knows(S.PYRE) and n and (n >= 4 or (n == 3 and pyreAtThree(ctx))) then return S.PYRE end
+  return S.DISINTEGRATE
+end
+
+ns.rules[1467] = {
+  {
+    key = "essencecap",
+    name = "Essence cap",
+    spell = S.DISINTEGRATE,
+    desc = "Shows Disintegrate (Pyre on 4+ targets, or 3 with Flameshaper's Volatility / Feed the Flames) when your essence is full and the highlight asks for Living Flame or Azure Strike. The highlight keeps building essence at max (24% wasted vs 8-12%).",
+    check = function(ctx)
+      local p, max = ctx.power, ctx.powerMax
+      if not p or not max or p < max then return end
+      if not isGenerator(ctx, ctx.next) then return end
+      local spell = devSpender(ctx)
+      if ctx.usable(spell) == false then return end
+      return { spell = spell, text = "Spend essence", sub = ("Essence %d/%d"):format(p, max) }
+    end,
+  },
+  {
+    key = "pyre3",
+    name = "Pyre at 3 targets",
+    spell = S.PYRE,
+    desc = "Shows Pyre instead of Disintegrate at exactly 3 targets with Flameshaper (Legacy of the Lifebinder) and Volatility or Feed the Flames. The highlight only uses Pyre on 4+. Needs enemy nameplates on.",
+    check = function(ctx)
+      if ctx.enemies ~= 3 or ctx.next ~= S.DISINTEGRATE then return end
+      if not ctx.knows(S.PYRE) or not pyreAtThree(ctx) then return end
+      if ctx.usable(S.PYRE) == false then return end
+      return { spell = S.PYRE, text = "Pyre", sub = "3 targets" }
+    end,
+  },
+}
+
 -- Charges counted from your own casts (hidden in combat). recharge = seconds per charge.
 ns.chargeTrack = {
   -- game data: 2 charges, 12s; Nozdormu Adept -2s (431715: s3 = -2000 ms); Interwoven Threads -10%
@@ -1018,6 +1134,7 @@ ns.chargeTrack = {
 -- +10 with Ossuary (219786) = 125 (confirmed in game and in SimC's Blood profile).
 ns.powerMaxFallback = {
   [250] = function(knows) return 115 + (knows(219786) and 10 or 0) end,
+  [1467] = function(knows) return 5 + (knows(S.POWER_NEXUS) and 1 or 0) end, -- essence
 }
 
 -- Specs the options menu lists, grouped by class (in this order). The game's own names are
@@ -1026,11 +1143,13 @@ ns.specInfo = {
   { id = 250, class = "DEATHKNIGHT", className = "Death Knight", name = "Blood" },
   { id = 251, class = "DEATHKNIGHT", className = "Death Knight", name = "Frost" },
   { id = 252, class = "DEATHKNIGHT", className = "Death Knight", name = "Unholy" },
+  { id = 1467, class = "EVOKER", className = "Evoker", name = "Devastation" },
   { id = 1473, class = "EVOKER", className = "Evoker", name = "Augmentation" },
 }
 
 -- Resource read into ctx.power, if not runic power (Enum.PowerType: Essence = 19).
 ns.powerType = {
+  [1467] = 19,
   [1473] = 19,
 }
 
@@ -1040,6 +1159,8 @@ ns.specOptions = {
               desc = "A separate Death Strike icon that fades in as your health drops (/ac hp sets the thresholds)." } },
   [251] = { { key = "cooldownReminder", name = "Trinket, potion and racial reminder", spell = S.PILLAR_OF_FROST,
               desc = "Text under the icon for 4 seconds after Pillar of Frost." } },
+  [1467] = { { key = "empowerRank", name = "Empower rank on the icon", spell = S.FIRE_BREATH,
+               desc = "A number on Fire Breath and Eternity Surge saying which rank to hold them to, from the number of enemies (SimC's optimal list): Eternity Surge hits one target per rank (two with Eternity's Span); Fire Breath by targets, hero talents and Dragonrage. Hidden after Tip the Scales (instant, max rank) and when the enemy count is unknown (needs enemy nameplates on). Shared with Augmentation's setting." } },
   [1473] = { { key = "tipMacro", name = "I use a Tip the Scales cancel macro", spell = S.TIP_THE_SCALES,
                desc = "For a /cast Tip the Scales + /cancelaura Tip the Scales macro (Icy Veins, Chronowarden with Time Skip). "
                    .. "On: Tip the Scales with an empower ready within a global cooldown (note \"+ empower\": press plain Tip the Scales), "
@@ -1058,6 +1179,7 @@ ns.meleeSpell = {
 -- Spell whose range decides which nearby enemies count (Core.lua countEnemies), when it isn't the
 -- melee spell above. Augmentation: Eruption (25 yd).
 ns.countRangeSpell = {
+  [1467] = S.DISINTEGRATE, -- 25 yd
   [1473] = S.ERUPTION,
 }
 

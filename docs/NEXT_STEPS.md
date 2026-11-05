@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.19.1** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.20.0** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -40,7 +40,10 @@ Not yet seen in the live game: check the panel's layout, scrolling, and that che
    combat, timed from your own casts in combat, as Breath does since 0.7.2). DK: Breath of Sindragosa,
    Raise Dead, Vampiric Blood (Blood). Devastation: confirm the list from `docs/TRIAGE.md` and the
    highlight list (`simc/ActionPriorityLists/assisted_combat/evoker_devastation.simc`).
-2. **Devastation deep dive** (Blood-style, see "How Blood was done"):
+2. **Devastation: first version in 0.20.0** (rules `essencecap`, `pyre3`, empower rank badge; findings in
+   `docs/FINDINGS.md` "Devastation"). Not simmed (SimC build not allowed in that session). To check in game:
+   the essence cap correction, Pyre at 3 targets (Flameshaper), the rank numbers, and that the icon shows Azure
+   Sweep after Eternity Surge (status line: `es=` `fb=` ranks). Original notes:
    * Azure Sweep never cast (34-45 casts optimal, 0 highlight). The re-sim with the Azure Strike -> Azure Sweep
      override did **not** change anything, so it's a real gap: check the highlight's Azure Strike rule
      conditions and SimC's `azure_sweep` buff/ready logic.

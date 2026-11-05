@@ -1,5 +1,14 @@
 # Assist Companion
 
+## 0.20.0
+
+* **Devastation Evoker support:**
+  * **Essence cap:** when your essence is full and the highlight asks for Living Flame or Azure Strike, the icon shows **Disintegrate** (**Pyre** on 4+ targets). The highlight keeps building essence at max (24% wasted in sims vs 8-12% optimal).
+  * **Pyre at 3 targets** for Flameshaper (Legacy of the Lifebinder) with Volatility or Feed the Flames. The highlight only uses Pyre on 4+.
+  * **Empower rank on the icon** for **Eternity Surge** (the lowest rank that hits every enemy: one target per rank, two with Eternity's Span, up to 4 with Font of Magic) and **Fire Breath** (Flameshaper: 1 on one target, 2 on two or in Dragonrage, else 3; Scalecommander: one rank per target, 1 on 5+). From SimC's optimal list. No number after Tip the Scales or when the enemy count is unknown.
+  * Each can be turned off in the options menu under Evoker > Devastation. Target counts need enemy nameplates on.
+* **The icon shows what your button casts right now**, e.g. **Azure Sweep** while it replaces Azure Strike.
+
 ## 0.19.1
 
 * **Unholy: runic power shows the spell on your button.** If a talent replaces Death Coil or Epidemic (Necrotic Coil, Graveyard), the icon now shows that spell instead of the plain one.
