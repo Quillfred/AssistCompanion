@@ -15,6 +15,7 @@ local function newFrame()
       if type(rel) == "table" then self.pts[point] = { x or 0, y or 0 } end
     end
     function t:SetTexCoord() end
+    function t:SetAllPoints() end
     function t:SetColorTexture(r, g, b) self.color = { r, g, b } end
     function t:SetDrawLayer() end
     function t:SetTexture(x) self.texture = x end
@@ -1570,6 +1571,17 @@ do
   combat(true); step()
   expect("RP icon: Unholy, hidden 90% RP + Scourge -> Death Coil icon shown", true, pf.shown and pf.alpha == 1)
   expect("RP icon: shows Death Coil on 1 target", "icon:47541", pf.icon.texture)
+  expect("RP icon: it's a layer on the next-cast icon, not a separate frame", AssistCompanionNext, pf.parent)
+  expect("RP icon: the next-cast icon underneath still shows the highlight", "icon:55090", nf.icon.texture)
+  expect("RP icon: GCD swipe drawn above the layer", true, nf.gcd.level > pf.level)
+  -- Blightfall (listed before the runic power rule) wins: layer off
+  state.overrides = { [1233448] = 1271967 }; state.next = 77575; step()
+  expect("RP icon: higher-priority correction (Blightfall) -> layer hidden", true,
+    nf.icon.texture == "icon:1271967" and not pf.shown)
+  state.overrides = {}; state.next = 55090
+  AssistCompanionDB.locked = false; step()
+  expect("RP icon: unlocked -> layer hidden (only the next-cast icon to drag)", false, pf.shown)
+  AssistCompanionDB.locked = true; step()
   expect("RP icon: asks for runic power", 6, state.rpAskedType)
   state.rpPct = 0.7; step()
   expect("RP icon: 70% (below 80) -> invisible", 0, pf.alpha)
@@ -1580,7 +1592,14 @@ do
   state.rpPct = 0.9; state.plates = 5; step()
   expect("RP icon: 5 targets -> Epidemic", "icon:207317", pf.icon.texture)
   state.next = 77575; step()
-  expect("RP icon: highlight not on a rune spender -> hidden", false, pf.shown)
+  expect("RP icon: highlight on a cooldown (Outbreak) -> still shown", true, pf.shown and pf.alpha == 1)
+  state.next = 47541; step()
+  expect("RP icon: highlight already on Death Coil -> hidden", false, pf.shown)
+  state.next = 207317; step()
+  expect("RP icon: highlight already on Epidemic -> hidden", false, pf.shown)
+  state.overrides = { [47541] = 1242174 }; state.next = 1242174; step()
+  expect("RP icon: highlight on Death Coil's replacement (Necrotic Coil) -> hidden", false, pf.shown)
+  state.overrides = {}
   state.next = 55090; state.rp = 90; step()
   expect("RP icon: readable runic power -> hidden (the rule shows on the next-cast icon)", false, pf.shown)
   expect("RP icon: ...and the rule fires", "icon:207317", nf.icon.texture)

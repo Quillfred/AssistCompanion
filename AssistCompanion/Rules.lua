@@ -121,7 +121,7 @@ ns.rules[252] = {
     key = "rpcap",
     name = "Runic power cap",
     spell = S.DEATH_COIL,
-    desc = "Shows Death Coil (1-3 targets) or Epidemic (4+) when runic power is about to cap. While the game hides runic power, a separate blue-bordered icon fades in instead (the game decides when; move it with /ac unlock). Counting targets needs enemy nameplates on.",
+    desc = "Shows Death Coil (1-3 targets) or Epidemic (4+) when runic power is about to cap. While the game hides runic power, the next-cast icon turns into Death Coil / Epidemic with a blue border whenever you're at the threshold in combat, unless the highlight already says Death Coil or Epidemic (the game decides when). Counting targets needs enemy nameplates on.",
     -- The highlight only spends runic power on procs, or when you're out of runes.
     check = function(ctx)
       local p = ctx.power
@@ -182,7 +182,7 @@ ns.rules[250] = {
     key = "rpcap",
     name = "Death Strike at runic power cap",
     spell = S.DEATH_STRIKE,
-    desc = "Shows Death Strike within 20 runic power of max. While the game hides runic power, a separate blue-bordered icon fades in instead (the game decides when; move it with /ac unlock).",
+    desc = "Shows Death Strike within 20 runic power of max. While the game hides runic power, the next-cast icon turns into Death Strike with a blue border instead (the game decides when).",
     -- Optimal spends Death Strike within 20 runic power of max; the highlight wastes 7-12% in AoE.
     check = function(ctx)
       local p = ctx.power
@@ -1058,8 +1058,8 @@ ns.healthIcon = {
   [250] = { spell = S.DEATH_STRIKE },
 }
 
--- Runic power icon (Core.lua): runic power is hidden from addons, so these rules' thresholds go
--- to the game as a curve and a separate icon fades in at or above them. `rule` = the rule it
+-- Runic power layer (Core.lua): runic power is hidden from addons, so these rules' thresholds go
+-- to the game as a curve, and a layer over the next-cast icon shows the spender at or above them. `rule` = the rule it
 -- stands in for (its on/off toggle covers this icon), `when` = readable conditions,
 -- `at` = runic power to show at.
 ns.powerIcon = {
@@ -1069,7 +1069,14 @@ ns.powerIcon = {
       if ctx.enemies and ctx.enemies >= 4 and ctx.knows(S.EPIDEMIC) then return S.EPIDEMIC end
       return S.DEATH_COIL
     end,
-    when = function(ctx) return isRuneSpender(ctx, ctx.next) end,
+    -- Any time you're at the threshold, unless the highlight already asks to spend (owner: the
+    -- rune-spender-only version flashed for a second at a time while the highlight sat on cooldowns).
+    when = function(ctx)
+      local n = ctx.next
+      if not n then return true end
+      return n ~= S.DEATH_COIL and n ~= S.EPIDEMIC
+        and n ~= ctx.override(S.DEATH_COIL) and n ~= ctx.override(S.EPIDEMIC)
+    end,
     at = function(ctx) return ctx.db.unholyRP end,
   },
   [250] = {

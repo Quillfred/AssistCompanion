@@ -1,5 +1,16 @@
 # Assist Companion
 
+## 0.19.0
+
+* **Runic power is now part of the main icon.** Instead of a separate icon off to the side, the next-cast icon itself turns into Death Coil / Epidemic (Unholy) or Death Strike (Blood) with a **blue border** at the threshold, and goes back to the highlight's suggestion once you spend. The game still decides when (the addon can't see your runic power). Nothing extra to place.
+* It steps aside for the opener and for corrections that matter more (Unholy's Blightfall, Blood's Bone Shield refresh). The GCD swipe still shows over it.
+* `/ac rptest` now shows "RP test" above the main icon.
+
+## 0.18.2
+
+* **Runic power icon confirmed working** (tested with `/ac rptest`).
+* **Unholy: the runic power icon is easier to see.** It used to show only while the highlight asked for a rune spender, so it flashed for a second at a time while the highlight was on cooldowns like Graveyard. It now shows whenever you're at 80+ runic power in combat, unless the highlight already says Death Coil or Epidemic.
+
 ## 0.18.1
 
 * **`/ac rptest`: runic power icon test.** The icon follows your runic power only, in or out of combat, whatever the highlight says, with "RP test" under it. Build runic power without spending it and the blue-bordered icon should fade in at your threshold (80 for Unholy). `/ac rptest` again to stop.
