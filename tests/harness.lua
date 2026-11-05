@@ -1599,7 +1599,13 @@ do
   expect("RP icon: highlight already on Epidemic -> hidden", false, pf.shown)
   state.overrides = { [47541] = 1242174 }; state.next = 1242174; step()
   expect("RP icon: highlight on Death Coil's replacement (Necrotic Coil) -> hidden", false, pf.shown)
-  state.overrides = {}
+  state.next = 55090; state.plates = 1; step()
+  expect("RP icon: shows the button's spell (Necrotic Coil), not plain Death Coil", "icon:1242174", pf.icon.texture)
+  state.overrides = { [207317] = 383269 }; state.plates = 5; step()
+  expect("RP icon: shows Graveyard when it replaces Epidemic", "icon:383269", pf.icon.texture)
+  state.next = 383269; step()
+  expect("RP icon: highlight already on Graveyard (Epidemic's replacement) -> hidden", false, pf.shown)
+  state.overrides = {}; state.next = 207317
   state.next = 55090; state.rp = 90; step()
   expect("RP icon: readable runic power -> hidden (the rule shows on the next-cast icon)", false, pf.shown)
   expect("RP icon: ...and the rule fires", "icon:207317", nf.icon.texture)

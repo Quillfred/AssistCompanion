@@ -1000,9 +1000,9 @@ local function updatePowerIcon(c, mode, alertKey)
     local mine, theirs = rulePriority(cfg.rule), rulePriority(alertKey)
     if theirs and (not mine or theirs < mine) then pf:Hide() powerIconState = "correction" return end
   end
-  local spell = cfg.spell
-  if type(spell) == "function" then spell = spell(c) end
-  if not spell or not knows(spell) then pf:Hide() powerIconState = "off" return end
+  local spell, base = cfg.spell, nil
+  if type(spell) == "function" then spell, base = spell(c) end
+  if not spell or not (knows(spell) or (base and knows(base))) then pf:Hide() powerIconState = "off" return end
   pf.icon:SetTexture(spellIcon(spell))
   pf.key:SetText(keybindFor(spell) or "")
   pf.label:SetText(powerTest and "RP test" or "")
