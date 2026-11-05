@@ -1206,6 +1206,8 @@ events:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_STOP", "player")
 -- When a channel really ends (Augmentation's Time Skip only works while channelled).
 events:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player")
 events:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player")
+-- A cast the game refused (e.g. not ready yet): Augmentation corrects its Tip the Scales estimate.
+events:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player")
 
 -- Spec/talent/spellbook changes. The game also fires SPELLS_CHANGED mid-combat (e.g. when a
 -- buff that swaps a button ends), so never rebuild the opener in combat, and out of combat only
@@ -1281,6 +1283,13 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID, arg4)
     if id and ns.onChannelStop then
       local ok, length = pcall(ns.onChannelStop, specID, id, GetTime())
       if ok and length then dlog("channel ended: %s after %.2fs", spellName(id), length) end
+    end
+  elseif event == "UNIT_SPELLCAST_FAILED" then
+    local id = readable(spellID)
+    if id and ns.onCastFailed and db then
+      ctx.now, ctx.db, ctx.spec = GetTime(), db, specID
+      local ok, note = pcall(ns.onCastFailed, specID, id, ctx)
+      if ok and note then dlog("%s", note) end
     end
   elseif event == "UNIT_SPELLCAST_EMPOWER_STOP" then
     -- Cancelled empower (owner's log: a Fire Breath "cast" that never went on cooldown): undo it.
