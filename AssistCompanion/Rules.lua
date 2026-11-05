@@ -121,7 +121,7 @@ ns.rules[252] = {
     key = "rpcap",
     name = "Runic power cap",
     spell = S.DEATH_COIL,
-    desc = "Shows Death Coil (1-3 targets) or Epidemic (4+) when runic power is about to cap. While the game hides runic power, a separate blue-bordered icon fades in instead (the game decides when; move it with /ac unlock). Counting targets needs enemy nameplates on.",
+    desc = "Shows Death Coil (1-3 targets) or Epidemic (4+) when runic power is about to cap. While the game hides runic power, a separate blue-bordered icon shows instead whenever you're at the threshold in combat, unless the highlight already says Death Coil or Epidemic (the game decides when; move it with /ac unlock). Counting targets needs enemy nameplates on.",
     -- The highlight only spends runic power on procs, or when you're out of runes.
     check = function(ctx)
       local p = ctx.power
@@ -1069,7 +1069,14 @@ ns.powerIcon = {
       if ctx.enemies and ctx.enemies >= 4 and ctx.knows(S.EPIDEMIC) then return S.EPIDEMIC end
       return S.DEATH_COIL
     end,
-    when = function(ctx) return isRuneSpender(ctx, ctx.next) end,
+    -- Any time you're at the threshold, unless the highlight already asks to spend (owner: the
+    -- rune-spender-only version flashed for a second at a time while the highlight sat on cooldowns).
+    when = function(ctx)
+      local n = ctx.next
+      if not n then return true end
+      return n ~= S.DEATH_COIL and n ~= S.EPIDEMIC
+        and n ~= ctx.override(S.DEATH_COIL) and n ~= ctx.override(S.EPIDEMIC)
+    end,
     at = function(ctx) return ctx.db.unholyRP end,
   },
   [250] = {
