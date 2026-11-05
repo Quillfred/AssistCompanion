@@ -1,5 +1,10 @@
 # Assist Companion
 
+## 0.20.1
+
+* **Augmentation: Time Skip is counted for as long as you actually channel it.** The addon assumed every Time Skip lasted its full 2 seconds and gave all your cooldowns 18 seconds for it. In your raid log (The Lost Explorers), one Time Skip ended the moment it started, and the addon then showed Ebon Might, Fire Breath and Upheaval about 13-17 seconds early and Breath of Eons about 19 seconds early. Under Fury of the Aspects the channel was also shorter (1.37s, haste). The addon now sees when the channel ends and counts only that.
+* **Debug log:** "channel ended: Time Skip after X s".
+
 ## 0.20.0
 
 * **Devastation Evoker support:**

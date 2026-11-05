@@ -1144,6 +1144,25 @@ now = u0 + 20; state.next = 357208; step()
 expect("Speed: Upheaval 20s into 40s -> Fire Breath rank 3", "3", nf.rank.text)
 cast(404977); now = u0 + 22.1; state.next = 357208; step()        -- Time Skip: +18s over its 2s channel
 expect("Speed: Time Skip brings Upheaval back -> rank 1", "1", nf.rank.text)
+-- Owner's raid log: a Time Skip that ended the moment it started gave no recovery (the addon had
+-- credited 18s); under Fury of the Aspects one lasted 1.37s (haste). Count only the real channel.
+now = now + 300; augReset(); ns.ebonMight.expires = now + 100
+local u2 = now; cast(396286)                                     -- Upheaval: 40s
+now = u2 + 20; cast(404977)
+events.scripts.OnEvent(events, "UNIT_SPELLCAST_CHANNEL_STOP", "player", "guid", 404977) -- ended at once
+now = u2 + 22.1; state.next = 357208; step()
+expect("Time Skip cut short at once: no recovery -> Upheaval not back, rank 3", "3", nf.rank.text)
+now = now + 300; augReset(); ns.ebonMight.expires = now + 100
+local u3 = now; cast(396286)
+now = u3 + 20; cast(404977); now = u3 + 21.37
+events.scripts.OnEvent(events, "UNIT_SPELLCAST_CHANNEL_STOP", "player", "guid", 404977) -- 1.37s: +12.3s
+now = u3 + 25.8; step()                                          -- 26 + 12.3 = 38.3 of 40 -> 1.7s left (step adds 0.2s)
+expect("Time Skip 1.37s (hasted): +12.3s, 1.7s left -> rank 3", "3", nf.rank.text)
+now = u3 + 26.3; step()                                          -- 1.2s left: within 1.5s
+expect("Time Skip 1.37s: 1.2s left -> rank 1", "1", nf.rank.text)
+events.scripts.OnEvent(events, "UNIT_SPELLCAST_INTERRUPTED", "player", "guid", 404977)
+step()
+expect("Time Skip: a second stop event changes nothing", "1", nf.rank.text)
 -- Temporal Burst: +30% recovery after Tip the Scales, fading over 30s
 state.known[431695] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
 now = now + 300; augReset(); ns.ebonMight.expires = now + 100
