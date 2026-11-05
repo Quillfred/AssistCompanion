@@ -10,9 +10,9 @@ conversation. Current addon version: **0.20.2** (0.13.0-beta1 on CurseForge) (se
   Blood low-health Death Strike icon, optional text alerts (off), saved debug log (`/ac debug`).
   Rules live in `AssistCompanion/Rules.lua`; display, tracking and commands in `Core.lua`.
 * **Tests:** `lua5.1 tests/harness.lua AssistCompanion` (mocked WoW API, ~198 cases). CI runs them on push.
-* **Research:** `docs/FINDINGS.md` (per-rule evidence), `docs/TRIAGE.md` (phase 1, all specs).
+* **Research:** `docs/FINDINGS.md` (per-rule evidence), `docs/TRIAGE.md` (phase 1, all specs), `docs/pages/` (copies of the published rankings and triage pages).
 * **Rankings page** (claude.ai artifact, owner's account): sortable table of highlight vs optimal DPS per
-  spec. **Out of date** for specs hit by the SimC button-override limitation (below).
+  spec. Updated Nov 5, 2026 with the button-override corrections; a copy is in `docs/pages/`.
 
 **Minimap button (0.16.0):** `AssistCompanion/Minimap.lua`, no libraries (left-click options, shift-click debug log on/off (icon red while on),
 ctrl-click clear the log, right-click lock/unlock,

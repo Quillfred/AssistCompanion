@@ -1,0 +1,7828 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Highlight Gap Triage</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one report column; findings strip, shortlist, then a full-width sortable table with expandable rows */
+:root {
+  --bg: #f3f5f8; --surface: #ffffff; --fg: #16202c; --muted: #5b6878; --line: #dbe1e9;
+  --accent: #2f6fb3; --accent-soft: #e3edf8;
+  --good: #1f7a4d; --good-bg: #e2f3ea; --ok: #5f7a1f; --ok-bg: #eef3dc;
+  --warn: #9a5a00; --warn-bg: #fbeed8; --bad: #b3261e; --bad-bg: #fbe3e1;
+  --row-hover: #f0f4f9; --chip: #eef1f5;
+  --font-display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f151c; --surface: #151d27; --fg: #e4eaf1; --muted: #93a1b2; --line: #263241;
+    --accent: #7db4ea; --accent-soft: #1b2b3d;
+    --good: #6fd3a0; --good-bg: #133326; --ok: #c2d97a; --ok-bg: #26301a;
+    --warn: #f0b45c; --warn-bg: #3a2a12; --bad: #f28b82; --bad-bg: #3d1b1a;
+    --row-hover: #1a2430; --chip: #1e2835; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f151c; --surface: #151d27; --fg: #e4eaf1; --muted: #93a1b2; --line: #263241;
+  --accent: #7db4ea; --accent-soft: #1b2b3d;
+  --good: #6fd3a0; --good-bg: #133326; --ok: #c2d97a; --ok-bg: #26301a;
+  --warn: #f0b45c; --warn-bg: #3a2a12; --bad: #f28b82; --bad-bg: #3d1b1a;
+  --row-hover: #1a2430; --chip: #1e2835; color-scheme: dark;
+}
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+.wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 28px 48px; display: grid; gap: 22px; max-width: 1400px; margin: 0 auto; }
+header { display: grid; gap: 6px; max-width: 78ch; }
+h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(26px, 3.2vw, 34px); line-height: 1.1; margin: 0; text-wrap: balance; }
+h2 { font-family: var(--font-display); font-weight: 700; font-size: 21px; margin: 0; }
+.lede { margin: 0; color: var(--muted); }
+.meta { font-family: var(--font-data); font-size: 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.findings { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.finding { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 6px; min-width: 0; }
+.finding .n { font-family: var(--font-display); font-weight: 700; font-size: 30px; line-height: 1; }
+.finding .t { font-weight: 600; }
+.finding p { margin: 0; font-size: 13.5px; color: var(--muted); }
+.shortlist { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 10px; }
+.shortlist ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.shortlist li { padding-left: 4px; }
+.shortlist .why { color: var(--muted); font-size: 13.5px; }
+.sheet { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-width: 0; }
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+thead th { background: var(--surface); border-bottom: 1px solid var(--line); padding: 0; text-align: right; position: sticky; top: 0; z-index: 1; }
+th.left { text-align: left; }
+th button { all: unset; box-sizing: border-box; display: flex; justify-content: flex-end; align-items: center; gap: 6px; width: 100%;
+  padding: 10px 12px; cursor: pointer; white-space: nowrap; font: 600 13px var(--font-display); letter-spacing: 0.02em; color: var(--muted); }
+th.left button { justify-content: flex-start; }
+th button:hover { color: var(--fg); }
+th[aria-sort] button { color: var(--accent); }
+th button:focus-visible, tr.row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.arrow { font-size: 10px; width: 10px; opacity: 0.35; }
+th[aria-sort] .arrow { opacity: 1; }
+td { padding: 9px 12px; border-bottom: 1px solid var(--line); text-align: right; vertical-align: top; font-family: var(--font-data); font-size: 13.5px; }
+td.left { text-align: left; }
+tr.row { cursor: pointer; }
+tr.row:hover td { background: var(--row-hover); }
+td.spec { font-family: var(--font-body); font-weight: 600; font-size: 15px; white-space: nowrap; }
+.caret { display: inline-block; width: 1em; color: var(--muted); transition: transform 0.15s; }
+tr.row[aria-expanded="true"] .caret { transform: rotate(90deg); }
+.loss span { display: inline-block; min-width: 4.4em; padding: 2px 7px; border-radius: 5px; font-weight: 500; }
+.s0 { color: var(--good); background: var(--good-bg); } .s1 { color: var(--ok); background: var(--ok-bg); }
+.s2 { color: var(--warn); background: var(--warn-bg); } .s3 { color: var(--bad); background: var(--bad-bg); }
+.was { display: block; font-size: 11px; color: var(--muted); margin-top: 2px; text-decoration: line-through; }
+.rec { font-weight: 600; color: var(--accent); }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-start; }
+.chip { font: 600 11px var(--font-body); letter-spacing: 0.02em; padding: 2px 7px; border-radius: 999px; background: var(--chip); color: var(--fg); white-space: nowrap; }
+.chip.cd { color: var(--accent); background: var(--accent-soft); }
+.chip.h3 { color: var(--warn); background: var(--warn-bg); }
+.chip.rc { color: var(--ok); background: var(--ok-bg); }
+.chip.art { color: var(--good); background: var(--good-bg); }
+.chip.miss { color: var(--bad); background: var(--bad-bg); }
+.chip.addon { color: var(--surface); background: var(--accent); }
+.status { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 8px; }
+.status ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
+.status .when { font-family: var(--font-data); font-size: 12px; color: var(--muted); }
+tr.detail td { background: var(--bg); padding: 14px 16px 18px; text-align: left; font-family: var(--font-body); font-size: 14px; }
+.dgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.dcol { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.dcol h3 { margin: 0; font: 700 15px var(--font-display); }
+.gap { display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: baseline; font-size: 13.5px; }
+.gap .nm { font-family: var(--font-data); font-size: 12.5px; overflow-wrap: anywhere; }
+.gap .sh { font-family: var(--font-data); color: var(--bad); }
+.lab { font: 600 10.5px var(--font-body); letter-spacing: 0.04em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; background: var(--chip); color: var(--muted); }
+.lab.fix { background: var(--good-bg); color: var(--good); } .lab.maybe { background: var(--warn-bg); color: var(--warn); }
+.lab.no { background: var(--bad-bg); color: var(--bad); }
+.small { font-size: 13px; color: var(--muted); margin: 0; }
+.notes { display: grid; gap: 6px; max-width: 90ch; font-size: 13.5px; color: var(--muted); }
+.notes p { margin: 0; } .notes strong { color: var(--fg); font-weight: 600; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Highlight Gap Triage</h1>
+    <p class="lede">Where WoW's Assisted Highlight loses damage against the optimal rotation, for every spec, and which of those gaps an addon could correct in combat under Midnight's addon restrictions. Phase 1 of planning Assist Companion's next specs.</p>
+    <div class="meta"><span>Patch 12.1.5</span><span>SimC midnight @ 36e21fe</span><span>Patchwerk · 300s · 3,000 iterations</span><span>Each rotation on its own best build</span></div>
+  </header>
+
+  <section class="status" aria-labelledby="st">
+    <h2 id="st">What testing in game changed</h2>
+    <span class="when">Updated Nov 5, 2026, from Assist Companion debug logs and game data</span>
+    <ul>
+      <li><strong>Enemy counts work in combat</strong> when enemy nameplates are on: the addon counts attackable enemies in range or in combat. Every <em>target count</em> gap below is addon-fixable. The in-game highlight counts enemies on its own (it switches to AoE spells without nameplates).</li>
+      <li><strong>Runic power is hidden from addons</strong> (secret value), while runes and essence still read. Runic power <em>threshold</em> fixes still work: the addon hands the threshold to the game, which shows or hides the icon (confirmed on Unholy and Blood). Check each spec's resource before assuming a "spend at cap" rule can compare numbers.</li>
+      <li><strong>Devastation's Azure Sweep gap is a SimC artifact</strong>: SimC's Azure Strike refuses to fire while the Azure Sweep buff is up, so the highlight's "Azure Strike while Azure Sweep is up" rule never fires in the sim. In game the button casts Azure Sweep. Devastation's real gaps are essence waste, Pyre at 3 targets and empower ranks.</li>
+      <li><strong>Covered by Assist Companion:</strong> Blood, Frost and Unholy Death Knight, Devastation and Augmentation Evoker (Augmentation isn't in this table: its losses need raid sims with allies).</li>
+    </ul>
+  </section>
+
+  <section class="findings" aria-label="Key findings" id="findings"></section>
+
+  <section class="shortlist" aria-labelledby="sl">
+    <h2 id="sl">Suggested phase 2 shortlist</h2>
+    <ol id="shortlist"></ol>
+  </section>
+
+  <div class="sheet">
+    <table>
+      <thead>
+        <tr>
+          <th class="left" data-key="spec"><button type="button" id="sort-spec">Spec <span class="arrow">▲</span></button></th>
+          <th data-key="l1"><button type="button" id="sort-l1">Loss 1T <span class="arrow">▲</span></button></th>
+          <th data-key="l3"><button type="button" id="sort-l3">3T <span class="arrow">▲</span></button></th>
+          <th data-key="l5"><button type="button" id="sort-l5">5T <span class="arrow">▲</span></button></th>
+          <th data-key="rec" aria-sort="descending"><button type="button" id="sort-rec">Est. recoverable <span class="arrow">▼</span></button></th>
+          <th class="left"><button type="button" tabindex="-1" style="cursor:default">Patterns</button></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <div class="notes">
+    <p><strong>Loss</strong> is the highlight's DPS on its best build versus the optimal rotation on its best build. Struck-through numbers are SimC's original figures for specs where its highlight sim couldn't press button overrides (Chaos Strike becomes Annihilation in Metamorphosis, Raging Blow becomes Crushing Blow, and so on); the bold number is re-simmed with those overrides working as they do in game.</p>
+    <p><strong>Est. recoverable</strong> is a rough upper-end guide: average loss across the three fights times the share of the damage gap sitting in abilities an addon could plausibly correct. It doesn't count cooldowns the in-game highlight never suggests, because SimC presses those in its highlight sims, so those specs lose more in game than shown here.</p>
+    <p><strong>Gap labels:</strong> <span class="lab fix">not suggested</span> missing from the in-game highlight; <span class="lab fix">simc only</span> never suggested in game; <span class="lab fix">threshold</span> resource, charge or range rules (readable in combat); <span class="lab fix">target count</span> enemy-count rules (the addon can count enemies in combat when enemy nameplates are on; confirmed in game); <span class="lab no">proc gated</span> needs hidden buffs; <span class="lab">indirect</span> procs, DoTs and pets; <span class="lab">button override</span> fixed by the re-sim above; <span class="lab maybe">override, real gap</span> a button override the re-sim couldn't resolve, so likely a real highlight gap; <span class="lab">SimC artifact</span> checked against game data and SimC's code: not a real gap.</p>
+  </div>
+</div>
+
+<script>
+const DATA = [
+ {
+  "spec": "Devastation Evoker",
+  "fights": {
+   "1": {
+    "loss": -32.3,
+    "corrected_loss": -32.3,
+    "artifact_share": 12.9,
+    "gaps": [
+     {
+      "ability": "disintegrate",
+      "dps_gap": 19137.630184126538,
+      "share": 14.00928753919391,
+      "label": "threshold",
+      "casts_opt": 86.0,
+      "casts_hl": 61.9
+     },
+     {
+      "ability": "azure_sweep",
+      "dps_gap": 15012.919687897604,
+      "share": 10.98988258666584,
+      "label": "simc-artifact",
+      "casts_opt": 34.2,
+      "casts_hl": 0
+     },
+     {
+      "ability": "bombardments",
+      "dps_gap": 5283.7391731690905,
+      "share": 3.867846783894099,
+      "label": "indirect",
+      "casts_opt": 150.5,
+      "casts_hl": 87.0
+     },
+     {
+      "ability": "unbound_flame",
+      "dps_gap": 2637.5204141781946,
+      "share": 1.9307396745164227,
+      "label": "override-unresolved",
+      "casts_opt": 7.0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "fire_breath",
+      "dps_gap": 1424.799212045572,
+      "share": 1.0429933933888662,
+      "label": "threshold",
+      "casts_opt": 16.4,
+      "casts_hl": 14.4
+     },
+     {
+      "ability": "deep_breath",
+      "dps_gap": 1021.9048971396824,
+      "share": 0.748063339295507,
+      "label": "target-count",
+      "casts_opt": 11.7,
+      "casts_hl": 11.7
+     }
+    ],
+    "fixable_share": 40,
+    "waste": [
+     {
+      "resource": "mana",
+      "opt": 57.3,
+      "hl": 61.9
+     },
+     {
+      "resource": "essence",
+      "opt": 8.5,
+      "hl": 24.0
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "azure_sweep",
+      "opt": 87.0,
+      "hl": 0
+     },
+     {
+      "buff": "hover",
+      "opt": 84.7,
+      "hl": 0
+     },
+     {
+      "buff": "burnout",
+      "opt": 82.7,
+      "hl": 28.7
+     },
+     {
+      "buff": "unbound_flame",
+      "opt": 47.7,
+      "hl": 0
+     }
+    ]
+   },
+   "3": {
+    "loss": -28.5,
+    "corrected_loss": -28.4,
+    "artifact_share": 11.6,
+    "gaps": [
+     {
+      "ability": "pyre",
+      "dps_gap": 38877.758279154004,
+      "share": 13.33773555595116,
+      "label": "target-count",
+      "casts_opt": 38.4,
+      "casts_hl": 0
+     },
+     {
+      "ability": "azure_sweep",
+      "dps_gap": 33768.886368488296,
+      "share": 11.585042356811055,
+      "label": "simc-artifact",
+      "casts_opt": 38.2,
+      "casts_hl": 0
+     },
+     {
+      "ability": "disintegrate",
+      "dps_gap": 6694.342523308049,
+      "share": 2.296618278650003,
+      "label": "threshold",
+      "casts_opt": 53.1,
+      "casts_hl": 60.9
+     },
+     {
+      "ability": "living_flame",
+      "dps_gap": 4098.132720584965,
+      "share": 1.4059403864769944,
+      "label": "threshold",
+      "casts_opt": 18.4,
+      "casts_hl": 10.7
+     },
+     {
+      "ability": "deep_breath",
+      "dps_gap": 2992.826297794949,
+      "share": 1.0267445318802981,
+      "label": "target-count",
+      "casts_opt": 14.2,
+      "casts_hl": 13.5
+     },
+     {
+      "ability": "fire_breath",
+      "dps_gap": 2679.6463424089106,
+      "share": 0.9193023435635068,
+      "label": "threshold",
+      "casts_opt": 16.2,
+      "casts_hl": 14.7
+     },
+     {
+      "ability": "bombardments",
+      "dps_gap": 2383.689182043777,
+      "share": 0.8177687542938561,
+      "label": "indirect",
+      "casts_opt": 113.1,
+      "casts_hl": 86.3
+     }
+    ],
+    "fixable_share": 34,
+    "waste": [
+     {
+      "resource": "mana",
+      "opt": 53.7,
+      "hl": 66.9
+     },
+     {
+      "resource": "essence",
+      "opt": 12.3,
+      "hl": 24.5
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "azure_sweep",
+      "opt": 80.4,
+      "hl": 0
+     },
+     {
+      "buff": "hover",
+      "opt": 74.3,
+      "hl": 0
+     },
+     {
+      "buff": "burnout",
+      "opt": 82.8,
+      "hl": 58.6
+     },
+     {
+      "buff": "iridescence_blue",
+      "opt": 38.2,
+      "hl": 19.4
+     }
+    ]
+   },
+   "5": {
+    "loss": -29.9,
+    "corrected_loss": -29.9,
+    "artifact_share": 13.6,
+    "gaps": [
+     {
+      "ability": "azure_sweep",
+      "dps_gap": 62455.45247556716,
+      "share": 13.622056965419096,
+      "label": "simc-artifact",
+      "casts_opt": 44.6,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pyre",
+      "dps_gap": 50234.26045202619,
+      "share": 10.956512688157996,
+      "label": "target-count",
+      "casts_opt": 53.2,
+      "casts_hl": 35.4
+     },
+     {
+      "ability": "disintegrate",
+      "dps_gap": 32631.255816510093,
+      "share": 7.117150032009709,
+      "label": "threshold",
+      "casts_opt": 40.5,
+      "casts_hl": 30.9
+     },
+     {
+      "ability": "deep_breath",
+      "dps_gap": 6929.366252546446,
+      "share": 1.5113527816225008,
+      "label": "target-count",
+      "casts_opt": 15.9,
+      "casts_hl": 14.6
+     },
+     {
+      "ability": "bombardments",
+      "dps_gap": 3227.305874566885,
+      "share": 0.7039024252587096,
+      "label": "indirect",
+      "casts_opt": 129.0,
+      "casts_hl": 93.2
+     },
+     {
+      "ability": "fire_breath",
+      "dps_gap": 3019.341240244823,
+      "share": 0.6585435977546431,
+      "label": "threshold",
+      "casts_opt": 18.2,
+      "casts_hl": 15.6
+     },
+     {
+      "ability": "dragonrage",
+      "dps_gap": 2324.5814571955616,
+      "share": 0.5070106736167284,
+      "label": "threshold",
+      "casts_opt": 3.0,
+      "casts_hl": 2.9
+     }
+    ],
+    "fixable_share": 36,
+    "waste": [
+     {
+      "resource": "mana",
+      "opt": 54.7,
+      "hl": 67.6
+     },
+     {
+      "resource": "essence",
+      "opt": 10.0,
+      "hl": 24.6
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "hover",
+      "opt": 78.3,
+      "hl": 0
+     },
+     {
+      "buff": "azure_sweep",
+      "opt": 69.0,
+      "hl": 0
+     },
+     {
+      "buff": "burnout",
+      "opt": 94.7,
+      "hl": 76.1
+     },
+     {
+      "buff": "charged_blast",
+      "opt": 71.0,
+      "hl": 57.9
+     }
+    ]
+   }
+  },
+  "simc_only": [],
+  "override_gain": 0.0,
+  "avg_loss": -30.2,
+  "est_recoverable": 11.1,
+  "patterns": [
+   "resource cap"
+  ]
+ },
+ {
+  "spec": "Devourer DH",
+  "fights": {
+   "1": {
+    "loss": -46.2,
+    "corrected_loss": -8.1,
+    "artifact_share": 36.3,
+    "gaps": [
+     {
+      "ability": "cull",
+      "dps_gap": 64608.017274962534,
+      "share": 25.328043558885074,
+      "label": "button-override",
+      "casts_opt": 42.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "devour",
+      "dps_gap": 27915.170140922135,
+      "share": 10.943481553905555,
+      "label": "button-override",
+      "casts_opt": 51.2,
+      "casts_hl": 0
+     },
+     {
+      "ability": "voidsurge",
+      "dps_gap": 21463.568990966156,
+      "share": 8.414284066615338,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "reapers_toll",
+      "dps_gap": 19456.087013099976,
+      "share": 7.627298284917693,
+      "label": "not-suggested",
+      "casts_opt": 19.2,
+      "casts_hl": 0
+     },
+     {
+      "ability": "burning_blades",
+      "dps_gap": 10913.124962281387,
+      "share": 4.278232270027193,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pierce_the_veil",
+      "dps_gap": 9411.522274458815,
+      "share": 3.6895644871505344,
+      "label": "not-suggested",
+      "casts_opt": 11.5,
+      "casts_hl": 0
+     },
+     {
+      "ability": "collapsing_star",
+      "dps_gap": 7409.654010596287,
+      "share": 2.9047794291216946,
+      "label": "not-suggested",
+      "casts_opt": 6.8,
+      "casts_hl": 0
+     },
+     {
+      "ability": "the_hunt_dot",
+      "dps_gap": 5439.325356717374,
+      "share": 2.1323587284774117,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 24,
+    "waste": [
+     {
+      "resource": "fury",
+      "opt": 23.3,
+      "hl": 34.3
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "demonsurge_demonic_intensity",
+      "opt": 60.0,
+      "hl": 0
+     },
+     {
+      "buff": "demonsurge_demonsurge",
+      "opt": 60.0,
+      "hl": 0
+     },
+     {
+      "buff": "voidsurge",
+      "opt": 40.1,
+      "hl": 0
+     },
+     {
+      "buff": "metamorphosis",
+      "opt": 60.0,
+      "hl": 30.2
+     }
+    ]
+   },
+   "3": {
+    "loss": -56.3,
+    "corrected_loss": -34.3,
+    "artifact_share": 37.5,
+    "gaps": [
+     {
+      "ability": "eradicate",
+      "dps_gap": 152599.79752755072,
+      "share": 28.01601272837292,
+      "label": "button-override",
+      "casts_opt": 38.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "collapsing_star",
+      "dps_gap": 68594.31319652179,
+      "share": 12.593327007926062,
+      "label": "not-suggested",
+      "casts_opt": 13.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "voidsurge",
+      "dps_gap": 40740.868119692066,
+      "share": 7.47967361883416,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "the_hunt_dot",
+      "dps_gap": 29830.62461027502,
+      "share": 5.476646576977888,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "void_ray",
+      "dps_gap": 28757.722746984262,
+      "share": 5.279671005940043,
+      "label": "threshold",
+      "casts_opt": 38.5,
+      "casts_hl": 39.8
+     },
+     {
+      "ability": "reapers_toll",
+      "dps_gap": 27555.177233562543,
+      "share": 5.058893973753037,
+      "label": "not-suggested",
+      "casts_opt": 26.5,
+      "casts_hl": 0
+     },
+     {
+      "ability": "cull",
+      "dps_gap": 27284.265677140316,
+      "share": 5.009156937820089,
+      "label": "button-override",
+      "casts_opt": 18.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "devour",
+      "dps_gap": 24320.669597591328,
+      "share": 4.4650661406392445,
+      "label": "button-override",
+      "casts_opt": 32.0,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 31,
+    "waste": [
+     {
+      "resource": "fury",
+      "opt": 19.6,
+      "hl": 35.3
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "student_of_suffering",
+      "opt": 72.3,
+      "hl": 0
+     },
+     {
+      "buff": "demonsurge_demonic_intensity",
+      "opt": 60.3,
+      "hl": 0
+     },
+     {
+      "buff": "demonsurge_demonsurge",
+      "opt": 60.3,
+      "hl": 0
+     },
+     {
+      "buff": "impending_apocalypse",
+      "opt": 46.7,
+      "hl": 0
+     }
+    ]
+   },
+   "5": {
+    "loss": -64.7,
+    "corrected_loss": -46.5,
+    "artifact_share": 35.8,
+    "gaps": [
+     {
+      "ability": "eradicate",
+      "dps_gap": 219259.05747516878,
+      "share": 28.860756523489982,
+      "label": "button-override",
+      "casts_opt": 34.4,
+      "casts_hl": 0
+     },
+     {
+      "ability": "collapsing_star",
+      "dps_gap": 121393.79794078747,
+      "share": 15.97889221168244,
+      "label": "not-suggested",
+      "casts_opt": 15.0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "reapers_toll",
+      "dps_gap": 73886.97191590293,
+      "share": 9.725636565615156,
+      "label": "not-suggested",
+      "casts_opt": 24.9,
+      "casts_hl": 0
+     },
+     {
+      "ability": "voidsurge",
+      "dps_gap": 53318.63805399378,
+      "share": 7.0182561612747705,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "the_hunt_dot",
+      "dps_gap": 52293.899328612126,
+      "share": 6.883371266693936,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "burning_blades",
+      "dps_gap": 30392.349264552915,
+      "share": 4.000501518166331,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "devour",
+      "dps_gap": 26762.07207220371,
+      "share": 3.5226533171950454,
+      "label": "button-override",
+      "casts_opt": 23.6,
+      "casts_hl": 0
+     },
+     {
+      "ability": "cull",
+      "dps_gap": 25923.84481110033,
+      "share": 3.41231866022519,
+      "label": "button-override",
+      "casts_opt": 16.8,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 36,
+    "waste": [
+     {
+      "resource": "fury",
+      "opt": 23.7,
+      "hl": 36.1
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "demonsurge_demonic_intensity",
+      "opt": 62.1,
+      "hl": 0
+     },
+     {
+      "buff": "demonsurge_demonsurge",
+      "opt": 62.1,
+      "hl": 0
+     },
+     {
+      "buff": "impending_apocalypse",
+      "opt": 49.7,
+      "hl": 0
+     },
+     {
+      "buff": "emptiness",
+      "opt": 61.3,
+      "hl": 24.0
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "the_hunt",
+   "voidblade"
+  ],
+  "override_gain": 26.1,
+  "avg_loss": -29.6,
+  "est_recoverable": 9.8,
+  "patterns": [
+   "resource cap",
+   "never suggested in game: the_hunt, voidblade",
+   "missing from highlight",
+   "SimC button-override artifact (highlight +26.1 pts better than SimC showed)"
+  ]
+ },
+ {
+  "spec": "Elemental Shaman",
+  "fights": {
+   "1": {
+    "loss": -4.6,
+    "corrected_loss": -5.1,
+    "artifact_share": 2.4,
+    "gaps": [
+     {
+      "ability": "elemental_blast",
+      "dps_gap": 5950.029345040137,
+      "share": 2.3714993517327065,
+      "label": "override-unresolved",
+      "casts_opt": 41.3,
+      "casts_hl": 38.4
+     },
+     {
+      "ability": "pet:primal_fire_elemental",
+      "dps_gap": 4030.8620833085206,
+      "share": 1.606578096200233,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "earthen_rage",
+      "dps_gap": 3171.4671767808136,
+      "share": 1.264049623561398,
+      "label": "indirect",
+      "casts_opt": 144.7,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 14,
+    "waste": [],
+    "buffs": []
+   },
+   "3": {
+    "loss": -42.8,
+    "corrected_loss": -42.8,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "pet:ancestor",
+      "dps_gap": 112743.48419751349,
+      "share": 25.269544078134295,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "earthquake",
+      "dps_gap": 84529.05090546932,
+      "share": 18.945756315252524,
+      "label": "target-count",
+      "casts_opt": 53.6,
+      "casts_hl": 0
+     },
+     {
+      "ability": "chain_lightning",
+      "dps_gap": 80549.13354861746,
+      "share": 18.05372518997604,
+      "label": "target-count",
+      "casts_opt": 127.7,
+      "casts_hl": 0
+     },
+     {
+      "ability": "voltaic_blaze",
+      "dps_gap": 65592.4025656059,
+      "share": 14.70142704582889,
+      "label": "not-suggested",
+      "casts_opt": 37.8,
+      "casts_hl": 0
+     },
+     {
+      "ability": "flame_shock",
+      "dps_gap": 21959.039366736637,
+      "share": 4.921747071601283,
+      "label": "target-count",
+      "casts_opt": 119.1,
+      "casts_hl": 9.0
+     }
+    ],
+    "fixable_share": 33,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "call_of_the_ancestors",
+      "opt": 76.7,
+      "hl": 0
+     },
+     {
+      "buff": "purging_flames",
+      "opt": 45.0,
+      "hl": 0
+     },
+     {
+      "buff": "lava_surge",
+      "opt": 28.2,
+      "hl": 5.8
+     }
+    ]
+   },
+   "5": {
+    "loss": -24.5,
+    "corrected_loss": -24.5,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "voltaic_blaze",
+      "dps_gap": 119947.4327998779,
+      "share": 14.75194640349255,
+      "label": "not-suggested",
+      "casts_opt": 37.8,
+      "casts_hl": 0
+     },
+     {
+      "ability": "flame_shock",
+      "dps_gap": 53669.51745873282,
+      "share": 6.600640185217371,
+      "label": "target-count",
+      "casts_opt": 198.7,
+      "casts_hl": 15.0
+     },
+     {
+      "ability": "pet:ancestor",
+      "dps_gap": 52627.13452636931,
+      "share": 6.472440883313199,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:primal_storm_elemental",
+      "dps_gap": 27713.902140907274,
+      "share": 3.4084430943712345,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "lava_burst",
+      "dps_gap": 22812.911577285504,
+      "share": 2.8056861330013647,
+      "label": "threshold",
+      "casts_opt": 35.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "earthquake",
+      "dps_gap": 20819.133906594623,
+      "share": 2.560477872582955,
+      "label": "target-count",
+      "casts_opt": 86.8,
+      "casts_hl": 84.6
+     }
+    ],
+    "fixable_share": 52,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "call_lightning",
+      "opt": 84.8,
+      "hl": 0
+     },
+     {
+      "buff": "purging_flames",
+      "opt": 45.7,
+      "hl": 0
+     },
+     {
+      "buff": "storm_elemental",
+      "opt": 26.2,
+      "hl": 0
+     },
+     {
+      "buff": "wind_gust",
+      "opt": 24.8,
+      "hl": 0
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "ascendance"
+  ],
+  "override_gain": -0.2,
+  "avg_loss": -24.1,
+  "est_recoverable": 9.2,
+  "patterns": [
+   "3-target hole",
+   "never suggested in game: ascendance",
+   "missing from highlight"
+  ]
+ },
+ {
+  "spec": "Brewmaster Monk (tank)",
+  "fights": {
+   "1": {
+    "loss": -24.9,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "aspect_of_harmony_damage",
+      "dps_gap": 21532.78152947178,
+      "share": 15.106623624232132,
+      "label": "indirect",
+      "casts_opt": 138.8,
+      "casts_hl": 0
+     },
+     {
+      "ability": "keg_smash",
+      "dps_gap": 11931.980558165833,
+      "share": 8.371047611157751,
+      "label": "threshold",
+      "casts_opt": 58.1,
+      "casts_hl": 13.3
+     },
+     {
+      "ability": "tiger_palm",
+      "dps_gap": 9918.834792151705,
+      "share": 6.958697081976584,
+      "label": "target-count",
+      "casts_opt": 73.4,
+      "casts_hl": 126.8
+     },
+     {
+      "ability": "breath_of_fire",
+      "dps_gap": 3924.2334981393437,
+      "share": 2.7531008192720536,
+      "label": "threshold",
+      "casts_opt": 56.9,
+      "casts_hl": 27.1
+     },
+     {
+      "ability": "special_delivery",
+      "dps_gap": 2710.310930257326,
+      "share": 1.9014564872634119,
+      "label": "indirect",
+      "casts_opt": 62.9,
+      "casts_hl": 0
+     },
+     {
+      "ability": "chi_burst_damage",
+      "dps_gap": 1600.9423082057604,
+      "share": 1.1231634362273277,
+      "label": "indirect",
+      "casts_opt": 9.9,
+      "casts_hl": 9.7
+     },
+     {
+      "ability": "blackout_kick",
+      "dps_gap": 1280.3958261474636,
+      "share": 0.8982795747578449,
+      "label": "proc-gated",
+      "casts_opt": 72.3,
+      "casts_hl": 71.9
+     },
+     {
+      "ability": "empty_the_cellar",
+      "dps_gap": 910.0748458329833,
+      "share": 0.6384757188504859,
+      "label": "not-suggested",
+      "casts_opt": 3.4,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 25,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "pretense_of_instability",
+      "opt": 94.3,
+      "hl": 0
+     },
+     {
+      "buff": "aspect_of_harmony_accumulator",
+      "opt": 87.9,
+      "hl": 0
+     },
+     {
+      "buff": "balanced_stratagem_magic",
+      "opt": 74.7,
+      "hl": 0
+     },
+     {
+      "buff": "light_stagger_stagger",
+      "opt": 74.0,
+      "hl": 2.7
+     }
+    ]
+   },
+   "3": {
+    "loss": -32.3,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "tiger_palm",
+      "dps_gap": 56711.50849461794,
+      "share": 20.721996598008328,
+      "label": "target-count",
+      "casts_opt": 75.3,
+      "casts_hl": 101.5
+     },
+     {
+      "ability": "aspect_of_harmony_damage",
+      "dps_gap": 36933.626611327585,
+      "share": 13.495294082411379,
+      "label": "indirect",
+      "casts_opt": 400.6,
+      "casts_hl": 0
+     },
+     {
+      "ability": "keg_smash",
+      "dps_gap": 18273.936423029518,
+      "share": 6.677171149947018,
+      "label": "threshold",
+      "casts_opt": 55.4,
+      "casts_hl": 28.2
+     },
+     {
+      "ability": "special_delivery",
+      "dps_gap": 8150.8187855403785,
+      "share": 2.978253332142968,
+      "label": "indirect",
+      "casts_opt": 63.8,
+      "casts_hl": 0
+     },
+     {
+      "ability": "breath_of_fire",
+      "dps_gap": 5348.10425628208,
+      "share": 1.954160648274566,
+      "label": "threshold",
+      "casts_opt": 54.7,
+      "casts_hl": 38.0
+     },
+     {
+      "ability": "chi_burst_damage",
+      "dps_gap": 4707.3778494863145,
+      "share": 1.7200436096996528,
+      "label": "indirect",
+      "casts_opt": 9.9,
+      "casts_hl": 9.8
+     },
+     {
+      "ability": "blackout_kick",
+      "dps_gap": 3655.114947640657,
+      "share": 1.3355539558170475,
+      "label": "proc-gated",
+      "casts_opt": 72.3,
+      "casts_hl": 72.6
+     }
+    ],
+    "fixable_share": 23,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "pretense_of_instability",
+      "opt": 93.9,
+      "hl": 0
+     },
+     {
+      "buff": "aspect_of_harmony_accumulator",
+      "opt": 87.6,
+      "hl": 0
+     },
+     {
+      "buff": "balanced_stratagem_magic",
+      "opt": 74.2,
+      "hl": 0
+     },
+     {
+      "buff": "harmonic_surge",
+      "opt": 62.3,
+      "hl": 0
+     }
+    ]
+   },
+   "5": {
+    "loss": -47.4,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "tiger_palm",
+      "dps_gap": 119957.02648193654,
+      "share": 32.452418351273295,
+      "label": "target-count",
+      "casts_opt": 75.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "aspect_of_harmony_damage",
+      "dps_gap": 46002.886493360056,
+      "share": 12.445331145928881,
+      "label": "indirect",
+      "casts_opt": 626.2,
+      "casts_hl": 0
+     },
+     {
+      "ability": "keg_smash",
+      "dps_gap": 29089.620299252252,
+      "share": 7.869722644160244,
+      "label": "threshold",
+      "casts_opt": 55.2,
+      "casts_hl": 20.1
+     },
+     {
+      "ability": "blackout_kick",
+      "dps_gap": 24337.069487002,
+      "share": 6.583997483091388,
+      "label": "proc-gated",
+      "casts_opt": 72.3,
+      "casts_hl": 32.8
+     },
+     {
+      "ability": "special_delivery",
+      "dps_gap": 13969.634989020822,
+      "share": 3.7792570570808146,
+      "label": "indirect",
+      "casts_opt": 64.4,
+      "casts_hl": 0
+     },
+     {
+      "ability": "breath_of_fire",
+      "dps_gap": 9603.428037641403,
+      "share": 2.5980509306040203,
+      "label": "threshold",
+      "casts_opt": 54.4,
+      "casts_hl": 33.5
+     },
+     {
+      "ability": "chi_burst_damage",
+      "dps_gap": 7681.109531444928,
+      "share": 2.0779989903629317,
+      "label": "indirect",
+      "casts_opt": 9.9,
+      "casts_hl": 9.9
+     }
+    ],
+    "fixable_share": 24,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "pretense_of_instability",
+      "opt": 93.8,
+      "hl": 0
+     },
+     {
+      "buff": "aspect_of_harmony_accumulator",
+      "opt": 87.5,
+      "hl": 0
+     },
+     {
+      "buff": "balanced_stratagem_magic",
+      "opt": 73.8,
+      "hl": 0
+     },
+     {
+      "buff": "light_stagger_stagger",
+      "opt": 75.4,
+      "hl": 11.0
+     }
+    ]
+   }
+  },
+  "simc_only": [],
+  "override_gain": 0.0,
+  "avg_loss": -34.9,
+  "est_recoverable": 8.3,
+  "patterns": [
+   "missing from highlight"
+  ]
+ },
+ {
+  "spec": "Blood DK (tank)",
+  "fights": {
+   "1": {
+    "loss": -12.8,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "death_strike",
+      "dps_gap": 13264.389687532439,
+      "share": 10.595957860859347,
+      "label": "threshold",
+      "casts_opt": 91.8,
+      "casts_hl": 82.1
+     },
+     {
+      "ability": "heart_strike",
+      "dps_gap": 9676.303383763101,
+      "share": 7.729696225648058,
+      "label": "threshold",
+      "casts_opt": 144.8,
+      "casts_hl": 114.9
+     },
+     {
+      "ability": "pet:dance_of_midnight",
+      "dps_gap": 4550.302448838615,
+      "share": 3.6349062518404054,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "dancing_rune_weapon",
+      "dps_gap": 2827.964428944119,
+      "share": 2.259055458033321,
+      "label": "threshold",
+      "casts_opt": 3.7,
+      "casts_hl": 3.7
+     },
+     {
+      "ability": "pet:everlasting_bond",
+      "dps_gap": 2823.7491473837945,
+      "share": 2.255688175645135,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "blood_boil",
+      "dps_gap": 2639.7807462118767,
+      "share": 2.108729176967682,
+      "label": "threshold",
+      "casts_opt": 52.9,
+      "casts_hl": 13.4
+     },
+     {
+      "ability": "bloody_reflection",
+      "dps_gap": 2038.446814908027,
+      "share": 1.628367159076318,
+      "label": "indirect",
+      "casts_opt": 39.0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "auto_attack_mh",
+      "dps_gap": 1048.9973389725055,
+      "share": 0.8379678116931133,
+      "label": "indirect",
+      "casts_opt": 201.5,
+      "casts_hl": 199.4
+     }
+    ],
+    "fixable_share": 44,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "essence_of_the_blood_queen",
+      "opt": 98.1,
+      "hl": 0
+     },
+     {
+      "buff": "transfusion",
+      "opt": 82.9,
+      "hl": 0
+     },
+     {
+      "buff": "bloodsoaked_ground",
+      "opt": 81.8,
+      "hl": 0
+     },
+     {
+      "buff": "visceral_strength",
+      "opt": 72.8,
+      "hl": 0
+     }
+    ]
+   },
+   "3": {
+    "loss": -19.6,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "death_strike",
+      "dps_gap": 24450.351112464487,
+      "share": 8.163597847963338,
+      "label": "threshold",
+      "casts_opt": 104.4,
+      "casts_hl": 95.4
+     },
+     {
+      "ability": "blood_boil",
+      "dps_gap": 12395.690161954457,
+      "share": 4.138731139879811,
+      "label": "threshold",
+      "casts_opt": 51.5,
+      "casts_hl": 7.4
+     },
+     {
+      "ability": "blood_boil_boiling_point",
+      "dps_gap": 9421.033173833954,
+      "share": 3.1455387200674827,
+      "label": "indirect",
+      "casts_opt": 50.3,
+      "casts_hl": 13.0
+     },
+     {
+      "ability": "pet:dance_of_midnight",
+      "dps_gap": 7010.570313521046,
+      "share": 2.3407220804808886,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "sanguinary_burst",
+      "dps_gap": 4879.517281598548,
+      "share": 1.6291961042167094,
+      "label": "indirect",
+      "casts_opt": 3.7,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:everlasting_bond",
+      "dps_gap": 3369.140420227388,
+      "share": 1.1249043973864754,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "dancing_rune_weapon",
+      "dps_gap": 3362.288628123464,
+      "share": 1.1226166889189366,
+      "label": "threshold",
+      "casts_opt": 3.7,
+      "casts_hl": 3.7
+     },
+     {
+      "ability": "marrowrend",
+      "dps_gap": 2990.525457742363,
+      "share": 0.9984906588380018,
+      "label": "proc-gated",
+      "casts_opt": 9.9,
+      "casts_hl": 10.2
+     }
+    ],
+    "fixable_share": 36,
+    "waste": [
+     {
+      "resource": "runic_power",
+      "opt": 0.0,
+      "hl": 7.5
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "boiling_point_echo",
+      "opt": 47.3,
+      "hl": 13.0
+     },
+     {
+      "buff": "hemostasis",
+      "opt": 42.9,
+      "hl": 11.5
+     },
+     {
+      "buff": "visceral_strength",
+      "opt": 72.7,
+      "hl": 43.0
+     },
+     {
+      "buff": "relentless_riders_strength",
+      "opt": 32.3,
+      "hl": 19.1
+     }
+    ]
+   },
+   "5": {
+    "loss": -18.3,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "death_strike",
+      "dps_gap": 26987.660352746025,
+      "share": 6.508294338264663,
+      "label": "threshold",
+      "casts_opt": 112.2,
+      "casts_hl": 107.5
+     },
+     {
+      "ability": "blood_boil",
+      "dps_gap": 24480.202774089506,
+      "share": 5.9036004985873545,
+      "label": "threshold",
+      "casts_opt": 55.8,
+      "casts_hl": 6.8
+     },
+     {
+      "ability": "blood_boil_boiling_point",
+      "dps_gap": 23184.222528810547,
+      "share": 5.591064295648457,
+      "label": "indirect",
+      "casts_opt": 74.4,
+      "casts_hl": 22.3
+     },
+     {
+      "ability": "pet:dance_of_midnight",
+      "dps_gap": 9637.082240921172,
+      "share": 2.3240609584593455,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "sanguinary_burst",
+      "dps_gap": 9284.435277279195,
+      "share": 2.239017267865997,
+      "label": "indirect",
+      "casts_opt": 3.7,
+      "casts_hl": 0
+     },
+     {
+      "ability": "marrowrend",
+      "dps_gap": 4562.959115855607,
+      "share": 1.1003947949283595,
+      "label": "proc-gated",
+      "casts_opt": 10.1,
+      "casts_hl": 10.7
+     },
+     {
+      "ability": "pet:everlasting_bond",
+      "dps_gap": 3384.7401924923415,
+      "share": 0.8162576949377269,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "dancing_rune_weapon",
+      "dps_gap": 3383.1770199809616,
+      "share": 0.8158807231412626,
+      "label": "threshold",
+      "casts_opt": 3.7,
+      "casts_hl": 3.7
+     }
+    ],
+    "fixable_share": 31,
+    "waste": [
+     {
+      "resource": "runic_power",
+      "opt": 0.0,
+      "hl": 12.0
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "boiling_point_echo",
+      "opt": 68.5,
+      "hl": 22.2
+     },
+     {
+      "buff": "visceral_strength",
+      "opt": 72.8,
+      "hl": 42.3
+     },
+     {
+      "buff": "hemostasis",
+      "opt": 45.5,
+      "hl": 15.4
+     },
+     {
+      "buff": "relentless_riders_strength",
+      "opt": 33.3,
+      "hl": 20.5
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "raise_dead",
+   "vampiric_blood"
+  ],
+  "override_gain": 0.0,
+  "avg_loss": -16.9,
+  "est_recoverable": 6.1,
+  "patterns": [
+   "resource cap",
+   "never suggested in game: raise_dead, vampiric_blood"
+  ]
+ },
+ {
+  "spec": "Windwalker Monk",
+  "fights": {
+   "1": {
+    "loss": -5.6,
+    "corrected_loss": -5.6,
+    "artifact_share": 3.2,
+    "gaps": [
+     {
+      "ability": "spinning_crane_kick",
+      "dps_gap": 9407.237236276167,
+      "share": 3.6474074874764795,
+      "label": "target-count",
+      "casts_opt": 18.9,
+      "casts_hl": 6.5
+     },
+     {
+      "ability": "rushing_wind_kick",
+      "dps_gap": 8228.732026921714,
+      "share": 3.190473255175667,
+      "label": "override-unresolved",
+      "casts_opt": 14.5,
+      "casts_hl": 9.8
+     },
+     {
+      "ability": "fists_of_fury",
+      "dps_gap": 4883.939537253464,
+      "share": 1.8936184119889607,
+      "label": "threshold",
+      "casts_opt": 31.5,
+      "casts_hl": 29.9
+     },
+     {
+      "ability": "flurry_strikes",
+      "dps_gap": 1349.6092381596209,
+      "share": 0.5232752950513895,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 34,
+    "waste": [
+     {
+      "resource": "chi",
+      "opt": 2.7,
+      "hl": 6.3
+     }
+    ],
+    "buffs": []
+   },
+   "3": {
+    "loss": -32.3,
+    "corrected_loss": -32.3,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "spinning_crane_kick",
+      "dps_gap": 210980.13603107492,
+      "share": 40.82945161467157,
+      "label": "target-count",
+      "casts_opt": 73.2,
+      "casts_hl": 5.2
+     },
+     {
+      "ability": "zenith",
+      "dps_gap": 11412.467955072181,
+      "share": 2.2085719392416086,
+      "label": "simc-only",
+      "casts_opt": 4.7,
+      "casts_hl": 5.3
+     },
+     {
+      "ability": "empowered_tiger_lightning",
+      "dps_gap": 9062.466012679424,
+      "share": 1.7537931510282143,
+      "label": "indirect",
+      "casts_opt": 53.8,
+      "casts_hl": 0
+     },
+     {
+      "ability": "whirling_dragon_punch",
+      "dps_gap": 8212.365465012403,
+      "share": 1.5892793734209034,
+      "label": "proc-gated",
+      "casts_opt": 12.1,
+      "casts_hl": 8.6
+     },
+     {
+      "ability": "flurry_of_xuen",
+      "dps_gap": 5466.8979327196475,
+      "share": 1.0579690051647734,
+      "label": "indirect",
+      "casts_opt": 178.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:xuen_the_white_tiger",
+      "dps_gap": 4764.529624988478,
+      "share": 0.9220447737387176,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "fists_of_fury",
+      "dps_gap": 3550.739753823931,
+      "share": 0.6871488458690346,
+      "label": "threshold",
+      "casts_opt": 33.9,
+      "casts_hl": 27.0
+     },
+     {
+      "ability": "strength_of_the_black_ox_damage_celestial",
+      "dps_gap": 3129.2147182431886,
+      "share": 0.6055741707911794,
+      "label": "indirect",
+      "casts_opt": 16.2,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 30,
+    "waste": [
+     {
+      "resource": "chi",
+      "opt": 0.3,
+      "hl": 15.1
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "celestial_conduit",
+      "opt": 68.5,
+      "hl": 0
+     },
+     {
+      "buff": "strength_of_the_black_ox",
+      "opt": 40.2,
+      "hl": 0
+     },
+     {
+      "buff": "combo_breaker",
+      "opt": 44.4,
+      "hl": 15.7
+     },
+     {
+      "buff": "courage_of_the_white_tiger",
+      "opt": 28.7,
+      "hl": 0
+     }
+    ]
+   },
+   "5": {
+    "loss": -21.2,
+    "corrected_loss": -21.2,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "spinning_crane_kick",
+      "dps_gap": 204205.64354221735,
+      "share": 25.08119269256147,
+      "label": "target-count",
+      "casts_opt": 70.6,
+      "casts_hl": 51.6
+     },
+     {
+      "ability": "zenith",
+      "dps_gap": 14925.21945874708,
+      "share": 1.8331633677215793,
+      "label": "simc-only",
+      "casts_opt": 4.7,
+      "casts_hl": 6.5
+     },
+     {
+      "ability": "empowered_tiger_lightning",
+      "dps_gap": 14463.27582407014,
+      "share": 1.7764259675525225,
+      "label": "indirect",
+      "casts_opt": 89.6,
+      "casts_hl": 0
+     },
+     {
+      "ability": "whirling_dragon_punch",
+      "dps_gap": 12314.426726682745,
+      "share": 1.5124974230523913,
+      "label": "proc-gated",
+      "casts_opt": 12.0,
+      "casts_hl": 8.6
+     },
+     {
+      "ability": "fists_of_fury",
+      "dps_gap": 5941.365708872327,
+      "share": 0.7297376096777478,
+      "label": "threshold",
+      "casts_opt": 36.4,
+      "casts_hl": 32.4
+     },
+     {
+      "ability": "strength_of_the_black_ox_damage_celestial",
+      "dps_gap": 5069.117363125222,
+      "share": 0.6226052677112621,
+      "label": "indirect",
+      "casts_opt": 15.7,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:xuen_the_white_tiger",
+      "dps_gap": 4756.598568741376,
+      "share": 0.5842207061192228,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 30,
+    "waste": [
+     {
+      "resource": "chi",
+      "opt": 0.3,
+      "hl": 8.6
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "celestial_conduit",
+      "opt": 68.5,
+      "hl": 0
+     },
+     {
+      "buff": "strength_of_the_black_ox",
+      "opt": 41.3,
+      "hl": 0
+     },
+     {
+      "buff": "courage_of_the_white_tiger",
+      "opt": 28.5,
+      "hl": 0
+     },
+     {
+      "buff": "combo_breaker",
+      "opt": 45.8,
+      "hl": 17.7
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "celestial_conduit",
+   "invoke_xuen_the_white_tiger",
+   "touch_of_karma",
+   "zenith"
+  ],
+  "override_gain": 0.0,
+  "avg_loss": -19.7,
+  "est_recoverable": 6.0,
+  "patterns": [
+   "resource cap",
+   "3-target hole",
+   "never suggested in game: celestial_conduit, invoke_xuen_the_white_tiger, touch_of_karma, zenith"
+  ]
+ },
+ {
+  "spec": "Marksmanship Hunter",
+  "fights": {
+   "1": {
+    "loss": -12.6,
+    "corrected_loss": -8.8,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "arcane_shot",
+      "dps_gap": 10890.61986865419,
+      "share": 4.39310583904276,
+      "label": "threshold",
+      "casts_opt": 64.5,
+      "casts_hl": 34.7
+     },
+     {
+      "ability": "moonlight_chakram",
+      "dps_gap": 10689.303033522023,
+      "share": 4.311897774250943,
+      "label": "not-suggested",
+      "casts_opt": 2.8,
+      "casts_hl": 0
+     },
+     {
+      "ability": "aimed_shot",
+      "dps_gap": 7245.807912199103,
+      "share": 2.9228456627416666,
+      "label": "threshold",
+      "casts_opt": 50.4,
+      "casts_hl": 53.2
+     },
+     {
+      "ability": "lunar_storm",
+      "dps_gap": 3617.9217302768693,
+      "share": 1.4594130793441324,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "master_marksman",
+      "dps_gap": 3387.240267141784,
+      "share": 1.366359782573165,
+      "label": "indirect",
+      "casts_opt": 376.0,
+      "casts_hl": 362.8
+     },
+     {
+      "ability": "blood_fletching",
+      "dps_gap": 1412.1476560090468,
+      "share": 0.5696382931388199,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "rapid_fire",
+      "dps_gap": 1322.0027495019203,
+      "share": 0.5332752467821794,
+      "label": "threshold",
+      "casts_opt": 23.4,
+      "casts_hl": 24.9
+     }
+    ],
+    "fixable_share": 58,
+    "waste": [
+     {
+      "resource": "focus",
+      "opt": 15.3,
+      "hl": 37.9
+     }
+    ],
+    "buffs": []
+   },
+   "3": {
+    "loss": -23.9,
+    "corrected_loss": -23.2,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "multishot",
+      "dps_gap": 50444.6112075657,
+      "share": 9.946572747495559,
+      "label": "target-count",
+      "casts_opt": 83.5,
+      "casts_hl": 0
+     },
+     {
+      "ability": "lunar_storm",
+      "dps_gap": 40631.32467564999,
+      "share": 8.011607524350401,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "aimed_shot",
+      "dps_gap": 38405.27765372447,
+      "share": 7.572679795245271,
+      "label": "threshold",
+      "casts_opt": 49.8,
+      "casts_hl": 46.1
+     },
+     {
+      "ability": "rapid_fire",
+      "dps_gap": 36346.906451111405,
+      "share": 7.166814066121163,
+      "label": "threshold",
+      "casts_opt": 24.3,
+      "casts_hl": 23.9
+     },
+     {
+      "ability": "sanctified_armaments",
+      "dps_gap": 18853.844644646724,
+      "share": 3.7175653224150964,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "blood_fletching",
+      "dps_gap": 12568.154191774536,
+      "share": 2.478164802496835,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "master_marksman",
+      "dps_gap": 11445.639354826926,
+      "share": 2.256829456291055,
+      "label": "indirect",
+      "casts_opt": 1005.3,
+      "casts_hl": 808.7
+     },
+     {
+      "ability": "auto_shot",
+      "dps_gap": 10360.834304740158,
+      "share": 2.0429296543252837,
+      "label": "simc-only",
+      "casts_opt": 99.8,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 35,
+    "waste": [
+     {
+      "resource": "focus",
+      "opt": 7.7,
+      "hl": 38.6
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "stargazer",
+      "opt": 98.7,
+      "hl": 0
+     },
+     {
+      "buff": "trick_shots",
+      "opt": 88.3,
+      "hl": 53.4
+     },
+     {
+      "buff": "moonlight_chakram",
+      "opt": 14.1,
+      "hl": 0
+     }
+    ]
+   },
+   "5": {
+    "loss": -9.0,
+    "corrected_loss": -8.8,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "lunar_storm",
+      "dps_gap": 23026.972156007512,
+      "share": 3.0408592259485143,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "aimed_shot",
+      "dps_gap": 13230.081661685137,
+      "share": 1.7471170594389966,
+      "label": "threshold",
+      "casts_opt": 49.8,
+      "casts_hl": 48.8
+     },
+     {
+      "ability": "rapid_fire",
+      "dps_gap": 10877.246429410472,
+      "share": 1.436410090466849,
+      "label": "threshold",
+      "casts_opt": 24.3,
+      "casts_hl": 24.2
+     },
+     {
+      "ability": "moonlight_chakram",
+      "dps_gap": 8800.834509598752,
+      "share": 1.1622065911769237,
+      "label": "not-suggested",
+      "casts_opt": 2.7,
+      "casts_hl": 0
+     },
+     {
+      "ability": "blood_fletching",
+      "dps_gap": 5659.891634338055,
+      "share": 0.7474249578946716,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "multishot",
+      "dps_gap": 5180.503033929199,
+      "share": 0.6841186213736755,
+      "label": "target-count",
+      "casts_opt": 83.4,
+      "casts_hl": 80.3
+     },
+     {
+      "ability": "master_marksman",
+      "dps_gap": 5082.3155544639085,
+      "share": 0.6711523355423548,
+      "label": "indirect",
+      "casts_opt": 1585.6,
+      "casts_hl": 1543.4
+     }
+    ],
+    "fixable_share": 35,
+    "waste": [
+     {
+      "resource": "focus",
+      "opt": 7.7,
+      "hl": 12.0
+     }
+    ],
+    "buffs": []
+   }
+  },
+  "simc_only": [
+   "trueshot"
+  ],
+  "override_gain": 1.6,
+  "avg_loss": -13.6,
+  "est_recoverable": 5.4,
+  "patterns": [
+   "resource cap",
+   "3-target hole",
+   "never suggested in game: trueshot",
+   "missing from highlight",
+   "SimC button-override artifact (highlight +1.6 pts better than SimC showed)"
+  ]
+ },
+ {
+  "spec": "Arms Warrior",
+  "fights": {
+   "1": {
+    "loss": -2.2,
+    "corrected_loss": -2.2,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "bladestorm",
+      "dps_gap": 2682.891038963957,
+      "share": 1.1005408988682044,
+      "label": "threshold",
+      "casts_opt": 10.4,
+      "casts_hl": 10.8
+     },
+     {
+      "ability": "execute",
+      "dps_gap": 2370.819773877971,
+      "share": 0.9725270564867053,
+      "label": "threshold",
+      "casts_opt": 72.2,
+      "casts_hl": 69.9
+     },
+     {
+      "ability": "cleave",
+      "dps_gap": 1716.5141903299132,
+      "share": 0.7041262736764801,
+      "label": "target-count",
+      "casts_opt": 13.9,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 52,
+    "waste": [],
+    "buffs": []
+   },
+   "3": {
+    "loss": -21.1,
+    "corrected_loss": -21.1,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "cleave",
+      "dps_gap": 130090.21947759252,
+      "share": 24.090981564862485,
+      "label": "target-count",
+      "casts_opt": 81.4,
+      "casts_hl": 0
+     },
+     {
+      "ability": "overpower",
+      "dps_gap": 20403.30938062493,
+      "share": 3.778422022229626,
+      "label": "threshold",
+      "casts_opt": 51.9,
+      "casts_hl": 34.9
+     },
+     {
+      "ability": "bladestorm",
+      "dps_gap": 14594.35584304588,
+      "share": 2.702680946944068,
+      "label": "threshold",
+      "casts_opt": 13.0,
+      "casts_hl": 10.5
+     },
+     {
+      "ability": "slayers_strike",
+      "dps_gap": 11872.62779205865,
+      "share": 2.198653045659787,
+      "label": "indirect",
+      "casts_opt": 103.5,
+      "casts_hl": 66.3
+     },
+     {
+      "ability": "execute",
+      "dps_gap": 7002.83679140298,
+      "share": 1.2968324038571455,
+      "label": "threshold",
+      "casts_opt": 62.3,
+      "casts_hl": 64.5
+     },
+     {
+      "ability": "rend_dot",
+      "dps_gap": 5684.597971121269,
+      "share": 1.052712075326507,
+      "label": "indirect",
+      "casts_opt": 270.8,
+      "casts_hl": 73.4
+     },
+     {
+      "ability": "deep_wounds",
+      "dps_gap": 3552.6356857827595,
+      "share": 0.6579009640890564,
+      "label": "indirect",
+      "casts_opt": 257.4,
+      "casts_hl": 257.8
+     },
+     {
+      "ability": "concussive_slam",
+      "dps_gap": 3301.9165543219824,
+      "share": 0.6114711094986405,
+      "label": "indirect",
+      "casts_opt": 91.0,
+      "casts_hl": 61.3
+     }
+    ],
+    "fixable_share": 33,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "collateral_damage",
+      "opt": 80.9,
+      "hl": 0
+     },
+     {
+      "buff": "executioners_precision",
+      "opt": 54.5,
+      "hl": 39.0
+     }
+    ]
+   },
+   "5": {
+    "loss": -21.3,
+    "corrected_loss": -21.4,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "cleave",
+      "dps_gap": 151653.09093547048,
+      "share": 21.17709006011916,
+      "label": "target-count",
+      "casts_opt": 81.2,
+      "casts_hl": 12.7
+     },
+     {
+      "ability": "execute",
+      "dps_gap": 24361.1214462723,
+      "share": 3.401827550305105,
+      "label": "threshold",
+      "casts_opt": 63.7,
+      "casts_hl": 57.0
+     },
+     {
+      "ability": "bladestorm",
+      "dps_gap": 19489.73317324779,
+      "share": 2.7215787829420677,
+      "label": "threshold",
+      "casts_opt": 13.4,
+      "casts_hl": 11.0
+     },
+     {
+      "ability": "overpower",
+      "dps_gap": 13470.626095114872,
+      "share": 1.881060651139797,
+      "label": "threshold",
+      "casts_opt": 51.1,
+      "casts_hl": 41.3
+     },
+     {
+      "ability": "slayers_strike",
+      "dps_gap": 10930.359604357422,
+      "share": 1.5263336098402314,
+      "label": "indirect",
+      "casts_opt": 109.0,
+      "casts_hl": 75.1
+     },
+     {
+      "ability": "rend_dot",
+      "dps_gap": 4313.025361586844,
+      "share": 0.602278040958409,
+      "label": "indirect",
+      "casts_opt": 432.9,
+      "casts_hl": 113.8
+     }
+    ],
+    "fixable_share": 36,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "executioners_precision",
+      "opt": 55.1,
+      "hl": 37.1
+     }
+    ]
+   }
+  },
+  "simc_only": [],
+  "override_gain": -0.0,
+  "avg_loss": -14.9,
+  "est_recoverable": 5.3,
+  "patterns": []
+ },
+ {
+  "spec": "Vengeance DH (tank)",
+  "fights": {
+   "1": {
+    "loss": -30.3,
+    "corrected_loss": -30.2,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "voidfall_meteor",
+      "dps_gap": 15899.605131719585,
+      "share": 11.014506171107392,
+      "label": "indirect",
+      "casts_opt": 69.7,
+      "casts_hl": 43.4
+     },
+     {
+      "ability": "spirit_bomb",
+      "dps_gap": 7590.900516035948,
+      "share": 5.258622455430602,
+      "label": "proc-gated",
+      "casts_opt": 27.1,
+      "casts_hl": 17.0
+     },
+     {
+      "ability": "immolation_aura",
+      "dps_gap": 6316.949944784102,
+      "share": 4.376088813085884,
+      "label": "target-count",
+      "casts_opt": 28.4,
+      "casts_hl": 0
+     },
+     {
+      "ability": "catastrophe",
+      "dps_gap": 6186.80694686421,
+      "share": 4.285931803409252,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "fiery_brand",
+      "dps_gap": 3625.4320573331815,
+      "share": 2.511530534098749,
+      "label": "not-suggested",
+      "casts_opt": 7.6,
+      "casts_hl": 0
+     },
+     {
+      "ability": "sigil_of_flame",
+      "dps_gap": 1837.7248942488768,
+      "share": 1.2730902447457666,
+      "label": "proc-gated",
+      "casts_opt": 10.3,
+      "casts_hl": 8.7
+     },
+     {
+      "ability": "felblade",
+      "dps_gap": 1253.6568860669677,
+      "share": 0.8684751220952162,
+      "label": "not-suggested",
+      "casts_opt": 23.0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "infernal_strike",
+      "dps_gap": 1150.3578041708483,
+      "share": 0.7969143276233677,
+      "label": "not-suggested",
+      "casts_opt": 43.7,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 18,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "demon_spikes",
+      "opt": 91.5,
+      "hl": 0
+     },
+     {
+      "buff": "immolation_aura",
+      "opt": 85.7,
+      "hl": 0
+     },
+     {
+      "buff": "fiery_brand",
+      "opt": 29.8,
+      "hl": 0
+     }
+    ]
+   },
+   "3": {
+    "loss": -30.7,
+    "corrected_loss": -30.8,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "voidfall_meteor",
+      "dps_gap": 39937.89136922383,
+      "share": 12.518604934959018,
+      "label": "indirect",
+      "casts_opt": 71.2,
+      "casts_hl": 49.4
+     },
+     {
+      "ability": "spirit_bomb",
+      "dps_gap": 15694.851148684284,
+      "share": 4.919579735117717,
+      "label": "proc-gated",
+      "casts_opt": 28.1,
+      "casts_hl": 20.1
+     },
+     {
+      "ability": "catastrophe",
+      "dps_gap": 14624.9659614113,
+      "share": 4.584222270663393,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "sigil_of_flame",
+      "dps_gap": 9480.867885461414,
+      "share": 2.9717953409551363,
+      "label": "proc-gated",
+      "casts_opt": 10.3,
+      "casts_hl": 1.0
+     },
+     {
+      "ability": "fiery_brand",
+      "dps_gap": 8356.717859497252,
+      "share": 2.6194284637816017,
+      "label": "not-suggested",
+      "casts_opt": 7.6,
+      "casts_hl": 0
+     },
+     {
+      "ability": "immolation_aura",
+      "dps_gap": 4187.7534321049825,
+      "share": 1.312658955799044,
+      "label": "target-count",
+      "casts_opt": 28.3,
+      "casts_hl": 30.7
+     },
+     {
+      "ability": "infernal_strike",
+      "dps_gap": 3311.5039377576745,
+      "share": 1.0379969526707418,
+      "label": "not-suggested",
+      "casts_opt": 43.8,
+      "casts_hl": 0
+     },
+     {
+      "ability": "sigil_of_spite",
+      "dps_gap": 2755.5150994494243,
+      "share": 0.8637212366425456,
+      "label": "threshold",
+      "casts_opt": 5.1,
+      "casts_hl": 5.5
+     }
+    ],
+    "fixable_share": 15,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "demon_spikes",
+      "opt": 95.7,
+      "hl": 0
+     },
+     {
+      "buff": "fiery_brand",
+      "opt": 34.7,
+      "hl": 0
+     },
+     {
+      "buff": "soul_fragments",
+      "opt": 68.8,
+      "hl": 56.4
+     }
+    ]
+   },
+   "5": {
+    "loss": -32.1,
+    "corrected_loss": -32.4,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "voidfall_meteor",
+      "dps_gap": 58911.94111934611,
+      "share": 12.708022903444533,
+      "label": "indirect",
+      "casts_opt": 72.0,
+      "casts_hl": 50.5
+     },
+     {
+      "ability": "catastrophe",
+      "dps_gap": 21021.515015346406,
+      "share": 4.534596708313155,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "spirit_bomb",
+      "dps_gap": 20078.457922686954,
+      "share": 4.331167812488899,
+      "label": "proc-gated",
+      "casts_opt": 28.7,
+      "casts_hl": 22.0
+     },
+     {
+      "ability": "sigil_of_flame",
+      "dps_gap": 17958.576405086103,
+      "share": 3.873883561343868,
+      "label": "proc-gated",
+      "casts_opt": 10.3,
+      "casts_hl": 1.0
+     },
+     {
+      "ability": "fiery_brand",
+      "dps_gap": 13108.58893240052,
+      "share": 2.827682218912333,
+      "label": "not-suggested",
+      "casts_opt": 7.6,
+      "casts_hl": 0
+     },
+     {
+      "ability": "immolation_aura",
+      "dps_gap": 7795.0424717576425,
+      "share": 1.6814855593323643,
+      "label": "target-count",
+      "casts_opt": 28.3,
+      "casts_hl": 30.7
+     },
+     {
+      "ability": "infernal_strike",
+      "dps_gap": 5486.163759951126,
+      "share": 1.1834323125131496,
+      "label": "not-suggested",
+      "casts_opt": 43.8,
+      "casts_hl": 0
+     },
+     {
+      "ability": "sigil_of_spite",
+      "dps_gap": 4997.473649995384,
+      "share": 1.0780159063990928,
+      "label": "threshold",
+      "casts_opt": 5.1,
+      "casts_hl": 5.5
+     }
+    ],
+    "fixable_share": 16,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "demon_spikes",
+      "opt": 95.8,
+      "hl": 0
+     },
+     {
+      "buff": "fiery_brand",
+      "opt": 39.5,
+      "hl": 0
+     },
+     {
+      "buff": "soul_fragments",
+      "opt": 70.8,
+      "hl": 57.7
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "metamorphosis"
+  ],
+  "override_gain": -0.1,
+  "avg_loss": -31.1,
+  "est_recoverable": 5.1,
+  "patterns": [
+   "never suggested in game: metamorphosis",
+   "missing from highlight"
+  ]
+ },
+ {
+  "spec": "Outlaw Rogue",
+  "fights": {
+   "1": {
+    "loss": -13.9,
+    "corrected_loss": -13.8,
+    "artifact_share": 0.7,
+    "gaps": [
+     {
+      "ability": "killing_spree",
+      "dps_gap": 23342.00324643415,
+      "share": 9.077768859328941,
+      "label": "target-count",
+      "casts_opt": 11.4,
+      "casts_hl": 9.7
+     },
+     {
+      "ability": "between_the_eyes",
+      "dps_gap": 9619.061108517519,
+      "share": 3.7408791552722396,
+      "label": "threshold",
+      "casts_opt": 69.1,
+      "casts_hl": 65.0
+     },
+     {
+      "ability": "pistol_shot",
+      "dps_gap": 3285.2647913265682,
+      "share": 1.2776484564112986,
+      "label": "threshold",
+      "casts_opt": 54.0,
+      "casts_hl": 46.7
+     },
+     {
+      "ability": "sinister_strike",
+      "dps_gap": 2025.2835349447487,
+      "share": 0.7876383021085251,
+      "label": "threshold",
+      "casts_opt": 99.4,
+      "casts_hl": 85.5
+     },
+     {
+      "ability": "coup_de_grace",
+      "dps_gap": 1678.3286905140922,
+      "share": 0.6527066148358367,
+      "label": "override-unresolved",
+      "casts_opt": 14.7,
+      "casts_hl": 14.4
+     },
+     {
+      "ability": "unseen_blade",
+      "dps_gap": 1523.0964775073771,
+      "share": 0.5923363829272988,
+      "label": "indirect",
+      "casts_opt": 70.7,
+      "casts_hl": 65.9
+     },
+     {
+      "ability": "main_gauche",
+      "dps_gap": 1327.0252139595977,
+      "share": 0.5160837326447995,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 38,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "triple_threat",
+      "opt": 47.7,
+      "hl": 24.9
+     },
+     {
+      "buff": "opportunity",
+      "opt": 59.9,
+      "hl": 41.7
+     },
+     {
+      "buff": "loaded_dice",
+      "opt": 61.2,
+      "hl": 48.9
+     }
+    ]
+   },
+   "3": {
+    "loss": -15.8,
+    "corrected_loss": -15.7,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "blade_flurry",
+      "dps_gap": 42127.24035905351,
+      "share": 9.100245400499787,
+      "label": "target-count",
+      "casts_opt": 44.1,
+      "casts_hl": 28.9
+     },
+     {
+      "ability": "killing_spree",
+      "dps_gap": 21608.2344096398,
+      "share": 4.667769218284106,
+      "label": "target-count",
+      "casts_opt": 10.9,
+      "casts_hl": 9.2
+     },
+     {
+      "ability": "between_the_eyes",
+      "dps_gap": 8049.481434695706,
+      "share": 1.7388334905909755,
+      "label": "threshold",
+      "casts_opt": 65.4,
+      "casts_hl": 62.5
+     }
+    ],
+    "fixable_share": 33,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "opportunity",
+      "opt": 65.7,
+      "hl": 40.4
+     },
+     {
+      "buff": "triple_threat",
+      "opt": 49.0,
+      "hl": 25.2
+     },
+     {
+      "buff": "fazed",
+      "opt": 41.6,
+      "hl": 23.1
+     },
+     {
+      "buff": "loaded_dice",
+      "opt": 58.8,
+      "hl": 46.1
+     }
+    ]
+   },
+   "5": {
+    "loss": -13.5,
+    "corrected_loss": -13.3,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "blade_flurry",
+      "dps_gap": 81008.19774008502,
+      "share": 11.76751835769561,
+      "label": "target-count",
+      "casts_opt": 45.4,
+      "casts_hl": 40.5
+     },
+     {
+      "ability": "killing_spree",
+      "dps_gap": 20687.819414103775,
+      "share": 3.0051809758470296,
+      "label": "target-count",
+      "casts_opt": 11.3,
+      "casts_hl": 10.2
+     },
+     {
+      "ability": "between_the_eyes",
+      "dps_gap": 8696.40394303562,
+      "share": 1.263268359258535,
+      "label": "threshold",
+      "casts_opt": 68.6,
+      "casts_hl": 65.6
+     },
+     {
+      "ability": "pistol_shot",
+      "dps_gap": 6420.4747742711315,
+      "share": 0.9326593712622674,
+      "label": "threshold",
+      "casts_opt": 35.0,
+      "casts_hl": 28.2
+     },
+     {
+      "ability": "sinister_strike",
+      "dps_gap": 4028.224121279419,
+      "share": 0.5851531402804183,
+      "label": "threshold",
+      "casts_opt": 66.6,
+      "casts_hl": 53.1
+     }
+    ],
+    "fixable_share": 35,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "triple_threat",
+      "opt": 48.8,
+      "hl": 22.7
+     },
+     {
+      "buff": "loaded_dice",
+      "opt": 60.9,
+      "hl": 43.4
+     },
+     {
+      "buff": "opportunity",
+      "opt": 57.7,
+      "hl": 44.4
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "adrenaline_rush",
+   "keep_it_rolling",
+   "vanish"
+  ],
+  "override_gain": 0.1,
+  "avg_loss": -14.3,
+  "est_recoverable": 5.0,
+  "patterns": [
+   "never suggested in game: adrenaline_rush, keep_it_rolling, vanish"
+  ]
+ },
+ {
+  "spec": "Balance Druid",
+  "fights": {
+   "1": {
+    "loss": -6.6,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "starsurge",
+      "dps_gap": 3523.6752292043893,
+      "share": 2.698399945712072,
+      "label": "target-count",
+      "casts_opt": 84.0,
+      "casts_hl": 85.0
+     },
+     {
+      "ability": "fury_of_elune",
+      "dps_gap": 2217.5379070879667,
+      "share": 1.6981713066251327,
+      "label": "threshold",
+      "casts_opt": 6.7,
+      "casts_hl": 5.3
+     },
+     {
+      "ability": "astral_smolder",
+      "dps_gap": 1877.8885117999016,
+      "share": 1.4380707439483074,
+      "label": "indirect",
+      "casts_opt": 482.7,
+      "casts_hl": 412.8
+     },
+     {
+      "ability": "sunseeker_mushroom",
+      "dps_gap": 1502.4509923054588,
+      "share": 1.1505639459819061,
+      "label": "indirect",
+      "casts_opt": 9.2,
+      "casts_hl": 0
+     },
+     {
+      "ability": "shooting_stars",
+      "dps_gap": 1271.5285950314246,
+      "share": 0.9737255758893677,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "sundered_firmament",
+      "dps_gap": 663.4092404722069,
+      "share": 0.5080330456218823,
+      "label": "indirect",
+      "casts_opt": 9.0,
+      "casts_hl": 8.0
+     }
+    ],
+    "fixable_share": 22,
+    "waste": [],
+    "buffs": []
+   },
+   "3": {
+    "loss": -24.3,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "starfall",
+      "dps_gap": 60746.93772462167,
+      "share": 25.085291181394457,
+      "label": "target-count",
+      "casts_opt": 86.9,
+      "casts_hl": 0
+     },
+     {
+      "ability": "starfire",
+      "dps_gap": 9940.373613219985,
+      "share": 4.104851633342584,
+      "label": "target-count",
+      "casts_opt": 93.7,
+      "casts_hl": 78.0
+     },
+     {
+      "ability": "shooting_stars",
+      "dps_gap": 7527.742014589683,
+      "share": 3.1085616402662084,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "fury_of_elune",
+      "dps_gap": 7082.369586997102,
+      "share": 2.924646245535189,
+      "label": "threshold",
+      "casts_opt": 13.6,
+      "casts_hl": 6.9
+     },
+     {
+      "ability": "moonfire",
+      "dps_gap": 6429.157473473482,
+      "share": 2.654903988810492,
+      "label": "threshold",
+      "casts_opt": 5.8,
+      "casts_hl": 13.6
+     },
+     {
+      "ability": "astral_smolder",
+      "dps_gap": 4711.502067585636,
+      "share": 1.9456026212037965,
+      "label": "indirect",
+      "casts_opt": 1394.8,
+      "casts_hl": 1061.9
+     },
+     {
+      "ability": "minor_moon",
+      "dps_gap": 2141.636195618166,
+      "share": 0.8843831406816836,
+      "label": "indirect",
+      "casts_opt": 20.2,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 30,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "orbit_breaker",
+      "opt": 96.7,
+      "hl": 0
+     },
+     {
+      "buff": "starfall",
+      "opt": 96.1,
+      "hl": 0
+     },
+     {
+      "buff": "dreamstate",
+      "opt": 33.2,
+      "hl": 0
+     },
+     {
+      "buff": "fury_of_elune",
+      "opt": 35.7,
+      "hl": 18.2
+     }
+    ]
+   },
+   "5": {
+    "loss": -12.1,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "moonfire",
+      "dps_gap": 39309.132188148214,
+      "share": 10.920055006914787,
+      "label": "threshold",
+      "casts_opt": 7.1,
+      "casts_hl": 0.3
+     },
+     {
+      "ability": "starfire",
+      "dps_gap": 30274.054104052484,
+      "share": 8.410115352234675,
+      "label": "target-count",
+      "casts_opt": 91.1,
+      "casts_hl": 86.7
+     },
+     {
+      "ability": "fury_of_elune",
+      "dps_gap": 16864.149176494095,
+      "share": 4.684851239419019,
+      "label": "threshold",
+      "casts_opt": 13.6,
+      "casts_hl": 5.3
+     },
+     {
+      "ability": "starfall",
+      "dps_gap": 16802.666821298495,
+      "share": 4.667771475422269,
+      "label": "target-count",
+      "casts_opt": 90.9,
+      "casts_hl": 85.9
+     },
+     {
+      "ability": "astral_smolder",
+      "dps_gap": 5366.406479737929,
+      "share": 1.4907847282843498,
+      "label": "indirect",
+      "casts_opt": 2172.7,
+      "casts_hl": 2041.0
+     },
+     {
+      "ability": "starsurge_cascade",
+      "dps_gap": 5264.226881061184,
+      "share": 1.4623992927373664,
+      "label": "indirect",
+      "casts_opt": 33.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "minor_moon",
+      "dps_gap": 3120.3965948929904,
+      "share": 0.8668444344313129,
+      "label": "indirect",
+      "casts_opt": 22.8,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 41,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "fury_of_elune",
+      "opt": 35.7,
+      "hl": 14.0
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "celestial_alignment"
+  ],
+  "override_gain": 0.0,
+  "avg_loss": -14.3,
+  "est_recoverable": 4.6,
+  "patterns": [
+   "3-target hole",
+   "never suggested in game: celestial_alignment"
+  ]
+ },
+ {
+  "spec": "Feral Druid",
+  "fights": {
+   "1": {
+    "loss": -3.4,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "bloodseeker_vines",
+      "dps_gap": 27222.802834923936,
+      "share": 10.360942256401037,
+      "label": "indirect",
+      "casts_opt": 59.2,
+      "casts_hl": 0
+     },
+     {
+      "ability": "lunar_inspiration",
+      "dps_gap": 13891.036474084185,
+      "share": 5.286899650351489,
+      "label": "threshold",
+      "casts_opt": 18.9,
+      "casts_hl": 0
+     },
+     {
+      "ability": "rake",
+      "dps_gap": 12293.137586683622,
+      "share": 4.678742650342458,
+      "label": "threshold",
+      "casts_opt": 28.0,
+      "casts_hl": 33.5
+     },
+     {
+      "ability": "rip",
+      "dps_gap": 12228.362429741912,
+      "share": 4.654089360055193,
+      "label": "proc-gated",
+      "casts_opt": 16.1,
+      "casts_hl": 12.0
+     },
+     {
+      "ability": "feral_frenzy",
+      "dps_gap": 4054.4165352158598,
+      "share": 1.5431025181168292,
+      "label": "threshold",
+      "casts_opt": 10.0,
+      "casts_hl": 9.2
+     }
+    ],
+    "fixable_share": 26,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "strategic_infusion",
+      "opt": 20.7,
+      "hl": 0
+     }
+    ]
+   },
+   "3": {
+    "loss": -27.4,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "primal_wrath",
+      "dps_gap": 126368.78739727498,
+      "share": 27.31916603727247,
+      "label": "target-count",
+      "casts_opt": 35.5,
+      "casts_hl": 0
+     },
+     {
+      "ability": "bloodseeker_vines",
+      "dps_gap": 64130.60857814816,
+      "share": 13.864141453774367,
+      "label": "indirect",
+      "casts_opt": 101.4,
+      "casts_hl": 0
+     },
+     {
+      "ability": "convoke_the_spirits",
+      "dps_gap": 29658.743486916315,
+      "share": 6.411805909228916,
+      "label": "proc-gated",
+      "casts_opt": 2.9,
+      "casts_hl": 0
+     },
+     {
+      "ability": "swipe_cat",
+      "dps_gap": 26519.08394669459,
+      "share": 5.73305538826227,
+      "label": "not-suggested",
+      "casts_opt": 110.6,
+      "casts_hl": 0
+     },
+     {
+      "ability": "rake",
+      "dps_gap": 14687.753239215803,
+      "share": 3.175287012885239,
+      "label": "threshold",
+      "casts_opt": 44.6,
+      "casts_hl": 36.6
+     },
+     {
+      "ability": "frantic_frenzy",
+      "dps_gap": 4927.685861354534,
+      "share": 1.0652968268394374,
+      "label": "threshold",
+      "casts_opt": 7.0,
+      "casts_hl": 6.3
+     }
+    ],
+    "fixable_share": 29,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "root_network",
+      "opt": 98.9,
+      "hl": 0
+     },
+     {
+      "buff": "berserk_cat",
+      "opt": 23.7,
+      "hl": 0
+     },
+     {
+      "buff": "strategic_infusion",
+      "opt": 20.3,
+      "hl": 0
+     }
+    ]
+   },
+   "5": {
+    "loss": -13.8,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "bloodseeker_vines",
+      "dps_gap": 113663.32905706295,
+      "share": 15.269839364272382,
+      "label": "indirect",
+      "casts_opt": 129.6,
+      "casts_hl": 0
+     },
+     {
+      "ability": "primal_wrath",
+      "dps_gap": 73548.28271811301,
+      "share": 9.880675429274607,
+      "label": "target-count",
+      "casts_opt": 35.5,
+      "casts_hl": 22.7
+     },
+     {
+      "ability": "rake",
+      "dps_gap": 54427.0780311908,
+      "share": 7.311881021765291,
+      "label": "threshold",
+      "casts_opt": 66.0,
+      "casts_hl": 23.2
+     },
+     {
+      "ability": "convoke_the_spirits",
+      "dps_gap": 39882.844124475574,
+      "share": 5.357969260827431,
+      "label": "proc-gated",
+      "casts_opt": 2.9,
+      "casts_hl": 0
+     },
+     {
+      "ability": "frantic_frenzy",
+      "dps_gap": 8673.283067659497,
+      "share": 1.165192329863353,
+      "label": "threshold",
+      "casts_opt": 7.0,
+      "casts_hl": 6.3
+     }
+    ],
+    "fixable_share": 21,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "root_network",
+      "opt": 99.0,
+      "hl": 0
+     },
+     {
+      "buff": "berserk_cat",
+      "opt": 23.7,
+      "hl": 0
+     },
+     {
+      "buff": "strategic_infusion",
+      "opt": 20.3,
+      "hl": 0
+     },
+     {
+      "buff": "clearcasting_cat",
+      "opt": 51.1,
+      "hl": 39.7
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "berserk"
+  ],
+  "override_gain": 0.0,
+  "avg_loss": -14.9,
+  "est_recoverable": 3.9,
+  "patterns": [
+   "3-target hole",
+   "never suggested in game: berserk",
+   "missing from highlight"
+  ]
+ },
+ {
+  "spec": "Enhancement Shaman",
+  "fights": {
+   "1": {
+    "loss": -18.7,
+    "corrected_loss": -18.7,
+    "artifact_share": 1.4,
+    "gaps": [
+     {
+      "ability": "crash_lightning",
+      "dps_gap": 7316.3593431028785,
+      "share": 2.9471114469405193,
+      "label": "threshold",
+      "casts_opt": 55.9,
+      "casts_hl": 50.9
+     },
+     {
+      "ability": "main_hand",
+      "dps_gap": 6988.259789706175,
+      "share": 2.814949273897032,
+      "label": "indirect",
+      "casts_opt": 236.2,
+      "casts_hl": 0
+     },
+     {
+      "ability": "thorims_invocation",
+      "dps_gap": 6795.335189023543,
+      "share": 2.737237085033017,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "windfury_attack",
+      "dps_gap": 4264.396389415243,
+      "share": 1.7177466037647522,
+      "label": "indirect",
+      "casts_opt": 682.8,
+      "casts_hl": 378.5
+     },
+     {
+      "ability": "offhand",
+      "dps_gap": 3453.3682213966963,
+      "share": 1.3910553785706417,
+      "label": "indirect",
+      "casts_opt": 236.3,
+      "casts_hl": 0
+     },
+     {
+      "ability": "fire_nova",
+      "dps_gap": 3410.5318653196227,
+      "share": 1.3738004148079646,
+      "label": "override-unresolved",
+      "casts_opt": 8.3,
+      "casts_hl": 7.0
+     },
+     {
+      "ability": "windlash",
+      "dps_gap": 2960.162254529626,
+      "share": 1.1923864938850426,
+      "label": "indirect",
+      "casts_opt": 49.4,
+      "casts_hl": 0
+     },
+     {
+      "ability": "flametongue_attack",
+      "dps_gap": 2870.137708035926,
+      "share": 1.1561235987707779,
+      "label": "indirect",
+      "casts_opt": 1548.5,
+      "casts_hl": 748.3
+     }
+    ],
+    "fixable_share": 14,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "storm_swell",
+      "opt": 43.9,
+      "hl": 0
+     }
+    ]
+   },
+   "3": {
+    "loss": -23.0,
+    "corrected_loss": -23.0,
+    "artifact_share": 1.4,
+    "gaps": [
+     {
+      "ability": "chain_lightning",
+      "dps_gap": 37450.299113905836,
+      "share": 7.437882099353626,
+      "label": "target-count",
+      "casts_opt": 42.2,
+      "casts_hl": 0
+     },
+     {
+      "ability": "thorims_invocation",
+      "dps_gap": 29543.921132389703,
+      "share": 5.867622084057601,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "lightning_rod",
+      "dps_gap": 13649.25603197244,
+      "share": 2.710834346100213,
+      "label": "indirect",
+      "casts_opt": 817.8,
+      "casts_hl": 796.7
+     },
+     {
+      "ability": "crash_lightning",
+      "dps_gap": 9649.092768250586,
+      "share": 1.9163749308833895,
+      "label": "threshold",
+      "casts_opt": 58.7,
+      "casts_hl": 53.4
+     },
+     {
+      "ability": "main_hand",
+      "dps_gap": 7089.72578667709,
+      "share": 1.4080673790525475,
+      "label": "indirect",
+      "casts_opt": 240.0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "fire_nova",
+      "dps_gap": 6911.168621029807,
+      "share": 1.3726047211431984,
+      "label": "override-unresolved",
+      "casts_opt": 8.3,
+      "casts_hl": 6.9
+     },
+     {
+      "ability": "windfury_attack",
+      "dps_gap": 4486.85107755368,
+      "share": 0.891118898962553,
+      "label": "indirect",
+      "casts_opt": 826.1,
+      "casts_hl": 510.8
+     },
+     {
+      "ability": "offhand",
+      "dps_gap": 3499.745987837772,
+      "share": 0.6950731676681766,
+      "label": "indirect",
+      "casts_opt": 240.1,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 17,
+    "waste": [],
+    "buffs": []
+   },
+   "5": {
+    "loss": -19.0,
+    "corrected_loss": -18.7,
+    "artifact_share": 7.9,
+    "gaps": [
+     {
+      "ability": "tempest",
+      "dps_gap": 49366.833997755355,
+      "share": 6.207762465194489,
+      "label": "override-unresolved",
+      "casts_opt": 17.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "thorims_invocation",
+      "dps_gap": 30037.99601459298,
+      "share": 3.777206863165064,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "lightning_rod",
+      "dps_gap": 21628.127200750314,
+      "share": 2.7196857759882773,
+      "label": "indirect",
+      "casts_opt": 1269.9,
+      "casts_hl": 1240.2
+     },
+     {
+      "ability": "crash_lightning",
+      "dps_gap": 16414.892679810102,
+      "share": 2.0641338809078618,
+      "label": "threshold",
+      "casts_opt": 61.2,
+      "casts_hl": 56.9
+     },
+     {
+      "ability": "fire_nova",
+      "dps_gap": 13258.405688698978,
+      "share": 1.6672131169353277,
+      "label": "override-unresolved",
+      "casts_opt": 8.4,
+      "casts_hl": 6.7
+     },
+     {
+      "ability": "arc_discharge",
+      "dps_gap": 7812.640593150005,
+      "share": 0.9824210527743503,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "main_hand",
+      "dps_gap": 7196.707794056042,
+      "share": 0.9049689619339386,
+      "label": "indirect",
+      "casts_opt": 243.4,
+      "casts_hl": 0
+     },
+     {
+      "ability": "voltaic_blaze",
+      "dps_gap": 6428.981239064506,
+      "share": 0.808429165765802,
+      "label": "threshold",
+      "casts_opt": 29.1,
+      "casts_hl": 23.9
+     }
+    ],
+    "fixable_share": 21,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "storm_swell",
+      "opt": 47.3,
+      "hl": 0
+     },
+     {
+      "buff": "arc_discharge",
+      "opt": 13.6,
+      "hl": 3.6
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "ascendance",
+   "doom_winds"
+  ],
+  "override_gain": 0.1,
+  "avg_loss": -20.1,
+  "est_recoverable": 3.5,
+  "patterns": [
+   "3-target hole",
+   "never suggested in game: ascendance, doom_winds"
+  ]
+ },
+ {
+  "spec": "Protection Paladin (tank)",
+  "fights": {
+   "1": {
+    "loss": -17.7,
+    "corrected_loss": -17.7,
+    "artifact_share": 5.4,
+    "gaps": [
+     {
+      "ability": "shield_of_the_righteous",
+      "dps_gap": 10131.385144167834,
+      "share": 5.9817682073544916,
+      "label": "proc-gated",
+      "casts_opt": 89.4,
+      "casts_hl": 102.5
+     },
+     {
+      "ability": "hammer_of_wrath",
+      "dps_gap": 9092.625567852978,
+      "share": 5.368464209898416,
+      "label": "override-unresolved",
+      "casts_opt": 54.2,
+      "casts_hl": 38.0
+     },
+     {
+      "ability": "avengers_shield",
+      "dps_gap": 3206.675715562693,
+      "share": 1.8932841436484704,
+      "label": "threshold",
+      "casts_opt": 45.5,
+      "casts_hl": 43.4
+     },
+     {
+      "ability": "lesser_weapon_proc_damage",
+      "dps_gap": 2405.9113187828016,
+      "share": 1.4204971612093786,
+      "label": "indirect",
+      "casts_opt": 76.1,
+      "casts_hl": 55.9
+     },
+     {
+      "ability": "consecration",
+      "dps_gap": 2325.3757823496308,
+      "share": 1.372947403250024,
+      "label": "threshold",
+      "casts_opt": 26.8,
+      "casts_hl": 19.8
+     },
+     {
+      "ability": "sacred_weapon_proc_damage",
+      "dps_gap": 2185.981262665552,
+      "share": 1.2906461488548473,
+      "label": "indirect",
+      "casts_opt": 35.2,
+      "casts_hl": 26.1
+     },
+     {
+      "ability": "refining_fire",
+      "dps_gap": 1006.7907214788011,
+      "share": 0.5944289594664349,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "eye_for_an_eye",
+      "dps_gap": 855.1019212880149,
+      "share": 0.5048689210826093,
+      "label": "indirect",
+      "casts_opt": 61.1,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 19,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "holy_bulwark",
+      "opt": 38.1,
+      "hl": 14.0
+     },
+     {
+      "buff": "masterwork_bulwark",
+      "opt": 23.7,
+      "hl": 0
+     },
+     {
+      "buff": "fake_solidarity_bulwark",
+      "opt": 35.4,
+      "hl": 13.9
+     },
+     {
+      "buff": "masterwork_weapon",
+      "opt": 39.9,
+      "hl": 19.0
+     }
+    ]
+   },
+   "3": {
+    "loss": -15.6,
+    "corrected_loss": -15.5,
+    "artifact_share": 5.9,
+    "gaps": [
+     {
+      "ability": "hammer_of_wrath",
+      "dps_gap": 16785.56506072748,
+      "share": 5.86024934627693,
+      "label": "override-unresolved",
+      "casts_opt": 51.3,
+      "casts_hl": 36.7
+     },
+     {
+      "ability": "shield_of_the_righteous",
+      "dps_gap": 12108.646439720636,
+      "share": 4.227423213097121,
+      "label": "proc-gated",
+      "casts_opt": 128.8,
+      "casts_hl": 117.7
+     },
+     {
+      "ability": "consecration",
+      "dps_gap": 5651.302504489351,
+      "share": 1.9730072647379542,
+      "label": "threshold",
+      "casts_opt": 31.2,
+      "casts_hl": 23.5
+     },
+     {
+      "ability": "sacred_weapon_proc_damage",
+      "dps_gap": 4673.18065488605,
+      "share": 1.63152111821984,
+      "label": "indirect",
+      "casts_opt": 30.7,
+      "casts_hl": 17.9
+     },
+     {
+      "ability": "avengers_shield",
+      "dps_gap": 3368.372872466345,
+      "share": 1.1759809605737717,
+      "label": "threshold",
+      "casts_opt": 42.3,
+      "casts_hl": 37.6
+     },
+     {
+      "ability": "lesser_weapon_proc_damage",
+      "dps_gap": 2657.7387836260987,
+      "share": 0.9278813023554343,
+      "label": "indirect",
+      "casts_opt": 77.9,
+      "casts_hl": 56.0
+     },
+     {
+      "ability": "refining_fire",
+      "dps_gap": 1782.2556992493192,
+      "share": 0.6222288471456139,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 22,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "afterimage",
+      "opt": 99.7,
+      "hl": 0
+     },
+     {
+      "buff": "fake_solidarity_bulwark",
+      "opt": 30.1,
+      "hl": 0
+     },
+     {
+      "buff": "holy_bulwark",
+      "opt": 30.1,
+      "hl": 0
+     },
+     {
+      "buff": "holy_bulwark_absorb",
+      "opt": 28.2,
+      "hl": 0
+     }
+    ]
+   },
+   "5": {
+    "loss": -15.3,
+    "corrected_loss": -15.4,
+    "artifact_share": 4.9,
+    "gaps": [
+     {
+      "ability": "shield_of_the_righteous",
+      "dps_gap": 20317.186631958568,
+      "share": 4.946608001514758,
+      "label": "proc-gated",
+      "casts_opt": 129.4,
+      "casts_hl": 118.1
+     },
+     {
+      "ability": "hammer_of_wrath",
+      "dps_gap": 20051.86057188995,
+      "share": 4.882009293262439,
+      "label": "override-unresolved",
+      "casts_opt": 52.4,
+      "casts_hl": 37.1
+     },
+     {
+      "ability": "sacred_weapon_proc_damage",
+      "dps_gap": 7759.977373221891,
+      "share": 1.8893150346698633,
+      "label": "indirect",
+      "casts_opt": 30.6,
+      "casts_hl": 18.0
+     },
+     {
+      "ability": "consecration",
+      "dps_gap": 6310.948411905269,
+      "share": 1.536521196412718,
+      "label": "threshold",
+      "casts_opt": 31.3,
+      "casts_hl": 23.4
+     },
+     {
+      "ability": "avengers_shield",
+      "dps_gap": 6175.019715166061,
+      "share": 1.5034267532151553,
+      "label": "threshold",
+      "casts_opt": 43.2,
+      "casts_hl": 38.1
+     },
+     {
+      "ability": "refining_fire",
+      "dps_gap": 3612.1809583511895,
+      "share": 0.8794545994568526,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "divine_toll",
+      "dps_gap": 2316.8505993983417,
+      "share": 0.5640816280769336,
+      "label": "threshold",
+      "casts_opt": 5.4,
+      "casts_hl": 5.5
+     },
+     {
+      "ability": "lesser_weapon_proc_damage",
+      "dps_gap": 2285.25124052502,
+      "share": 0.5563881592774869,
+      "label": "indirect",
+      "casts_opt": 76.7,
+      "casts_hl": 55.9
+     }
+    ],
+    "fixable_share": 22,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "afterimage",
+      "opt": 99.7,
+      "hl": 0
+     },
+     {
+      "buff": "fake_solidarity_bulwark",
+      "opt": 30.2,
+      "hl": 0
+     },
+     {
+      "buff": "holy_bulwark",
+      "opt": 30.2,
+      "hl": 0
+     },
+     {
+      "buff": "masterwork_bulwark",
+      "opt": 29.7,
+      "hl": 0
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "avenging_wrath"
+  ],
+  "override_gain": 0.0,
+  "avg_loss": -16.2,
+  "est_recoverable": 3.4,
+  "patterns": [
+   "never suggested in game: avenging_wrath"
+  ]
+ },
+ {
+  "spec": "Destruction Warlock",
+  "fights": {
+   "1": {
+    "loss": -1.5,
+    "corrected_loss": -1.5,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "blackened_soul",
+      "dps_gap": 3605.5344889813005,
+      "share": 1.5562396001140877,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 0,
+    "waste": [],
+    "buffs": []
+   },
+   "3": {
+    "loss": -31.9,
+    "corrected_loss": -31.8,
+    "artifact_share": 8.0,
+    "gaps": [
+     {
+      "ability": "rain_of_fire",
+      "dps_gap": 63957.24762555869,
+      "share": 13.963119558968108,
+      "label": "target-count",
+      "casts_opt": 56.2,
+      "casts_hl": 0
+     },
+     {
+      "ability": "shadowburn",
+      "dps_gap": 52311.40838800509,
+      "share": 11.42060480613657,
+      "label": "target-count",
+      "casts_opt": 52.7,
+      "casts_hl": 0
+     },
+     {
+      "ability": "diabolic_oculi",
+      "dps_gap": 33042.31825172387,
+      "share": 7.213785104628542,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "ruination",
+      "dps_gap": 28317.76794450756,
+      "share": 6.182323257048066,
+      "label": "override-unresolved",
+      "casts_opt": 7.5,
+      "casts_hl": 0
+     },
+     {
+      "ability": "chaos_bolt",
+      "dps_gap": 26682.8521280596,
+      "share": 5.825389119613607,
+      "label": "target-count",
+      "casts_opt": 23.9,
+      "casts_hl": 0
+     },
+     {
+      "ability": "soul_fire",
+      "dps_gap": 20123.165197378625,
+      "share": 4.393281011729738,
+      "label": "threshold",
+      "casts_opt": 6.6,
+      "casts_hl": 0
+     },
+     {
+      "ability": "immolate_direct",
+      "dps_gap": 17326.39358675627,
+      "share": 3.78269100312152,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "conflagrate",
+      "dps_gap": 13847.601099687596,
+      "share": 3.023202481943064,
+      "label": "threshold",
+      "casts_opt": 39.6,
+      "casts_hl": 38.7
+     }
+    ],
+    "fixable_share": 28,
+    "waste": [
+     {
+      "resource": "soul_shard",
+      "opt": 0.2,
+      "hl": 99.4
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "demonic_oculi",
+      "opt": 82.8,
+      "hl": 0
+     },
+     {
+      "buff": "minds_eyes",
+      "opt": 72.7,
+      "hl": 0
+     },
+     {
+      "buff": "diabolic_ritual_overlord",
+      "opt": 30.5,
+      "hl": 0
+     },
+     {
+      "buff": "diabolic_ritual_mother_of_chaos",
+      "opt": 29.7,
+      "hl": 0
+     }
+    ]
+   },
+   "5": {
+    "loss": -5.3,
+    "corrected_loss": -5.2,
+    "artifact_share": 8.1,
+    "gaps": [
+     {
+      "ability": "diabolic_oculi",
+      "dps_gap": 52364.26494698477,
+      "share": 7.067976448258774,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "ruination",
+      "dps_gap": 51090.27270422109,
+      "share": 6.896016674236652,
+      "label": "override-unresolved",
+      "casts_opt": 7.4,
+      "casts_hl": 0
+     },
+     {
+      "ability": "immolate_direct",
+      "dps_gap": 31395.20513112052,
+      "share": 4.237633635832986,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:overlord",
+      "dps_gap": 20378.23687594339,
+      "share": 2.7505952473892217,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:mother_of_chaos",
+      "dps_gap": 19596.722196623636,
+      "share": 2.6451086650225464,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:pit_lord",
+      "dps_gap": 19330.694825553204,
+      "share": 2.609201062858711,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:infernal_roc",
+      "dps_gap": 19252.720429754256,
+      "share": 2.598676305304448,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "shadowburn",
+      "dps_gap": 13872.60260334492,
+      "share": 1.872483621717318,
+      "label": "target-count",
+      "casts_opt": 19.8,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 9,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "demonic_oculi",
+      "opt": 85.5,
+      "hl": 0
+     },
+     {
+      "buff": "minds_eyes",
+      "opt": 73.0,
+      "hl": 0
+     },
+     {
+      "buff": "rain_of_chaos",
+      "opt": 36.2,
+      "hl": 0
+     },
+     {
+      "buff": "diabolic_ritual_overlord",
+      "opt": 31.4,
+      "hl": 0
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "summon_infernal"
+  ],
+  "override_gain": 0.1,
+  "avg_loss": -12.8,
+  "est_recoverable": 3.1,
+  "patterns": [
+   "resource cap",
+   "3-target hole",
+   "never suggested in game: summon_infernal"
+  ]
+ },
+ {
+  "spec": "Fury Warrior",
+  "fights": {
+   "1": {
+    "loss": -23.8,
+    "corrected_loss": -12.6,
+    "artifact_share": 16.8,
+    "gaps": [
+     {
+      "ability": "crushing_blow",
+      "dps_gap": 43349.28217162669,
+      "share": 16.843406475416824,
+      "label": "button-override",
+      "casts_opt": 70.6,
+      "casts_hl": 0
+     },
+     {
+      "ability": "rampage",
+      "dps_gap": 13563.123216676111,
+      "share": 5.269964944521389,
+      "label": "threshold",
+      "casts_opt": 146.6,
+      "casts_hl": 111.9
+     },
+     {
+      "ability": "slayers_strike",
+      "dps_gap": 8046.500352073628,
+      "share": 3.1264756726068508,
+      "label": "indirect",
+      "casts_opt": 59.3,
+      "casts_hl": 44.9
+     },
+     {
+      "ability": "bladestorm",
+      "dps_gap": 7242.468051227246,
+      "share": 2.8140681266432805,
+      "label": "proc-gated",
+      "casts_opt": 8.4,
+      "casts_hl": 8.0
+     },
+     {
+      "ability": "auto_attack_mh",
+      "dps_gap": 4414.3766441019525,
+      "share": 1.715210412431277,
+      "label": "indirect",
+      "casts_opt": 259.3,
+      "casts_hl": 227.3
+     },
+     {
+      "ability": "bloodbath_dot",
+      "dps_gap": 2829.9268161687496,
+      "share": 1.0995708642117008,
+      "label": "indirect",
+      "casts_opt": 31.8,
+      "casts_hl": 12.1
+     },
+     {
+      "ability": "auto_attack_oh",
+      "dps_gap": 2113.817572285434,
+      "share": 0.821325909017845,
+      "label": "indirect",
+      "casts_opt": 250.8,
+      "casts_hl": 219.9
+     },
+     {
+      "ability": "raging_blow",
+      "dps_gap": 1861.4555259602803,
+      "share": 0.7232703862437055,
+      "label": "threshold",
+      "casts_opt": 50.1,
+      "casts_hl": 44.2
+     }
+    ],
+    "fixable_share": 12,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "fury_mid2_4pc_crit",
+      "opt": 51.3,
+      "hl": 14.2
+     },
+     {
+      "buff": "surge_of_adrenaline",
+      "opt": 58.4,
+      "hl": 24.7
+     },
+     {
+      "buff": "recklessness",
+      "opt": 63.9,
+      "hl": 43.8
+     }
+    ]
+   },
+   "3": {
+    "loss": -30.1,
+    "corrected_loss": -31.0,
+    "artifact_share": 32.5,
+    "gaps": [
+     {
+      "ability": "thunder_blast",
+      "dps_gap": 90841.29802064235,
+      "share": 16.937012802940778,
+      "label": "button-override",
+      "casts_opt": 42.7,
+      "casts_hl": 0
+     },
+     {
+      "ability": "bloodbath",
+      "dps_gap": 59627.031427442154,
+      "share": 11.117232103601758,
+      "label": "button-override",
+      "casts_opt": 40.3,
+      "casts_hl": 0
+     },
+     {
+      "ability": "thunder_clap",
+      "dps_gap": 57128.35528798363,
+      "share": 10.651363487823117,
+      "label": "target-count",
+      "casts_opt": 52.0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "rampage",
+      "dps_gap": 37450.13412684918,
+      "share": 6.982434366296266,
+      "label": "threshold",
+      "casts_opt": 103.0,
+      "casts_hl": 109.9
+     },
+     {
+      "ability": "bloodthirst",
+      "dps_gap": 25295.233498486916,
+      "share": 4.716199602518844,
+      "label": "threshold",
+      "casts_opt": 45.0,
+      "casts_hl": 47.0
+     },
+     {
+      "ability": "crushing_blow",
+      "dps_gap": 23720.968532923107,
+      "share": 4.422683916834603,
+      "label": "button-override",
+      "casts_opt": 13.5,
+      "casts_hl": 0
+     },
+     {
+      "ability": "bloodbath_dot",
+      "dps_gap": 17557.39644666484,
+      "share": 3.2735094597161787,
+      "label": "indirect",
+      "casts_opt": 120.8,
+      "casts_hl": 12.2
+     },
+     {
+      "ability": "gushing_wound",
+      "dps_gap": 11988.058662626,
+      "share": 2.23512771696815,
+      "label": "indirect",
+      "casts_opt": 141.9,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 17,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "scent_of_blood",
+      "opt": 82.7,
+      "hl": 0
+     },
+     {
+      "buff": "avatar",
+      "opt": 70.3,
+      "hl": 0
+     },
+     {
+      "buff": "whirlwind",
+      "opt": 91.9,
+      "hl": 50.8
+     },
+     {
+      "buff": "sudden_death",
+      "opt": 42.9,
+      "hl": 14.8
+     }
+    ]
+   },
+   "5": {
+    "loss": -20.7,
+    "corrected_loss": -16.6,
+    "artifact_share": 32.8,
+    "gaps": [
+     {
+      "ability": "thunder_blast",
+      "dps_gap": 145546.14642858342,
+      "share": 17.431405298095065,
+      "label": "button-override",
+      "casts_opt": 42.7,
+      "casts_hl": 0
+     },
+     {
+      "ability": "thunder_clap",
+      "dps_gap": 93328.67695122556,
+      "share": 11.177554568028764,
+      "label": "target-count",
+      "casts_opt": 52.0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "bloodbath",
+      "dps_gap": 92122.69459328336,
+      "share": 11.033119502041238,
+      "label": "button-override",
+      "casts_opt": 40.2,
+      "casts_hl": 0
+     },
+     {
+      "ability": "crushing_blow",
+      "dps_gap": 36226.45590732098,
+      "share": 4.338679181340853,
+      "label": "button-override",
+      "casts_opt": 13.4,
+      "casts_hl": 0
+     },
+     {
+      "ability": "bloodbath_dot",
+      "dps_gap": 30490.097146109012,
+      "share": 3.6516613732051444,
+      "label": "indirect",
+      "casts_opt": 201.2,
+      "casts_hl": 13.5
+     },
+     {
+      "ability": "bloodthirst",
+      "dps_gap": 30015.443327209534,
+      "share": 3.594814226808278,
+      "label": "threshold",
+      "casts_opt": 45.0,
+      "casts_hl": 41.1
+     },
+     {
+      "ability": "gushing_wound",
+      "dps_gap": 19924.605330842765,
+      "share": 2.386280086755342,
+      "label": "indirect",
+      "casts_opt": 236.4,
+      "casts_hl": 0
+     },
+     {
+      "ability": "rend_dot",
+      "dps_gap": 6361.371796421408,
+      "share": 0.7618727994952654,
+      "label": "indirect",
+      "casts_opt": 473.8,
+      "casts_hl": 409.1
+     }
+    ],
+    "fixable_share": 11,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "bloodborne",
+      "opt": 98.3,
+      "hl": 0
+     },
+     {
+      "buff": "scent_of_blood",
+      "opt": 83.0,
+      "hl": 0
+     },
+     {
+      "buff": "avatar",
+      "opt": 70.3,
+      "hl": 0
+     },
+     {
+      "buff": "sudden_death",
+      "opt": 42.6,
+      "hl": 16.2
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "avatar",
+   "recklessness"
+  ],
+  "override_gain": 4.8,
+  "avg_loss": -20.1,
+  "est_recoverable": 2.9,
+  "patterns": [
+   "3-target hole",
+   "never suggested in game: avatar, recklessness",
+   "SimC button-override artifact (highlight +4.8 pts better than SimC showed)"
+  ]
+ },
+ {
+  "spec": "Subtlety Rogue",
+  "fights": {
+   "1": {
+    "loss": -8.2,
+    "corrected_loss": -8.1,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "eviscerate",
+      "dps_gap": 16620.910750191702,
+      "share": 6.339917208400629,
+      "label": "threshold",
+      "casts_opt": 130.5,
+      "casts_hl": 142.2
+     },
+     {
+      "ability": "backstab",
+      "dps_gap": 11870.773543515377,
+      "share": 4.528014294565177,
+      "label": "threshold",
+      "casts_opt": 84.4,
+      "casts_hl": 0
+     },
+     {
+      "ability": "secret_technique",
+      "dps_gap": 4199.070910016704,
+      "share": 1.6017029585098002,
+      "label": "proc-gated",
+      "casts_opt": 12.6,
+      "casts_hl": 14.9
+     },
+     {
+      "ability": "goremaws_bite",
+      "dps_gap": 3750.100071793371,
+      "share": 1.4304465221987313,
+      "label": "threshold",
+      "casts_opt": 6.6,
+      "casts_hl": 7.0
+     },
+     {
+      "ability": "shadow_blades",
+      "dps_gap": 3662.450026803881,
+      "share": 1.3970130938566925,
+      "label": "simc-only",
+      "casts_opt": 3.6,
+      "casts_hl": 3.7
+     },
+     {
+      "ability": "lingering_shadow",
+      "dps_gap": 2261.813583664207,
+      "share": 0.8627512100142652,
+      "label": "indirect",
+      "casts_opt": 354.3,
+      "casts_hl": 404.4
+     },
+     {
+      "ability": "shuriken_storm",
+      "dps_gap": 1600.7431110293548,
+      "share": 0.6105910168446524,
+      "label": "target-count",
+      "casts_opt": 9.2,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 53,
+    "waste": [
+     {
+      "resource": "energy",
+      "opt": 17.0,
+      "hl": 20.0
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "momentum_of_despair",
+      "opt": 24.3,
+      "hl": 0
+     }
+    ]
+   },
+   "3": {
+    "loss": -8.9,
+    "corrected_loss": -8.9,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "eviscerate",
+      "dps_gap": 54955.603207462125,
+      "share": 12.37438769373422,
+      "label": "threshold",
+      "casts_opt": 43.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "deathstalkers_mark",
+      "dps_gap": 33319.291230217255,
+      "share": 7.5025257353041335,
+      "label": "indirect",
+      "casts_opt": 128.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "shuriken_storm",
+      "dps_gap": 24135.32287490456,
+      "share": 5.434565811971065,
+      "label": "target-count",
+      "casts_opt": 130.6,
+      "casts_hl": 120.3
+     },
+     {
+      "ability": "lingering_shadow",
+      "dps_gap": 17532.306924429653,
+      "share": 3.947760562820551,
+      "label": "indirect",
+      "casts_opt": 1094.1,
+      "casts_hl": 1404.3
+     },
+     {
+      "ability": "singular_focus",
+      "dps_gap": 8600.087673978749,
+      "share": 1.9364871435615085,
+      "label": "indirect",
+      "casts_opt": 1236.5,
+      "casts_hl": 0
+     },
+     {
+      "ability": "shadow_blades",
+      "dps_gap": 5888.078654866167,
+      "share": 1.3258223692215172,
+      "label": "simc-only",
+      "casts_opt": 3.6,
+      "casts_hl": 3.7
+     },
+     {
+      "ability": "auto_attack",
+      "dps_gap": 4332.188546422081,
+      "share": 0.9754816161949176,
+      "label": "indirect",
+      "casts_opt": 3.7,
+      "casts_hl": 1.0
+     },
+     {
+      "ability": "goremaws_bite",
+      "dps_gap": 3220.7243343002374,
+      "share": 0.7252125214024322,
+      "label": "threshold",
+      "casts_opt": 6.7,
+      "casts_hl": 7.0
+     }
+    ],
+    "fixable_share": 32,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "unshakeable_drive",
+      "opt": 99.7,
+      "hl": 0
+     },
+     {
+      "buff": "momentum_of_despair",
+      "opt": 98.9,
+      "hl": 0
+     },
+     {
+      "buff": "lingering_darkness",
+      "opt": 32.7,
+      "hl": 0
+     },
+     {
+      "buff": "lingering_darkness_dark_brew",
+      "opt": 32.7,
+      "hl": 0
+     }
+    ]
+   },
+   "5": {
+    "loss": -6.7,
+    "corrected_loss": -6.6,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "secret_technique",
+      "dps_gap": 49000.28369673916,
+      "share": 7.0935463557861,
+      "label": "proc-gated",
+      "casts_opt": 17.2,
+      "casts_hl": 15.9
+     },
+     {
+      "ability": "shadow_blades",
+      "dps_gap": 7001.703995236396,
+      "share": 1.0136045776201763,
+      "label": "simc-only",
+      "casts_opt": 3.6,
+      "casts_hl": 3.7
+     },
+     {
+      "ability": "nimble_flurry",
+      "dps_gap": 6320.234128989061,
+      "share": 0.9149513103000421,
+      "label": "indirect",
+      "casts_opt": 1061.0,
+      "casts_hl": 1030.6
+     }
+    ],
+    "fixable_share": 11,
+    "waste": [
+     {
+      "resource": "energy",
+      "opt": 8.9,
+      "hl": 12.9
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "cold_blood",
+      "opt": 39.0,
+      "hl": 29.0
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "shadow_blades"
+  ],
+  "override_gain": 0.1,
+  "avg_loss": -7.9,
+  "est_recoverable": 2.6,
+  "patterns": [
+   "resource cap",
+   "never suggested in game: shadow_blades"
+  ]
+ },
+ {
+  "spec": "Arcane Mage",
+  "fights": {
+   "1": {
+    "loss": -6.3,
+    "corrected_loss": -6.2,
+    "artifact_share": 6.6,
+    "gaps": [
+     {
+      "ability": "arcane_splinter",
+      "dps_gap": 18694.621192246883,
+      "share": 9.194015872708146,
+      "label": "indirect",
+      "casts_opt": 970.4,
+      "casts_hl": 0
+     },
+     {
+      "ability": "prismatic_bolt",
+      "dps_gap": 13326.429533316506,
+      "share": 6.553938878775036,
+      "label": "override-unresolved",
+      "casts_opt": 25.4,
+      "casts_hl": 15.9
+     },
+     {
+      "ability": "arcane_barrage",
+      "dps_gap": 8573.042492330838,
+      "share": 4.216222834436463,
+      "label": "threshold",
+      "casts_opt": 65.1,
+      "casts_hl": 60.3
+     },
+     {
+      "ability": "touch_of_the_magi",
+      "dps_gap": 3561.3786888919403,
+      "share": 1.7514862621541913,
+      "label": "proc-gated",
+      "casts_opt": 6.9,
+      "casts_hl": 7.0
+     },
+     {
+      "ability": "arcane_assault",
+      "dps_gap": 1187.1081080750964,
+      "share": 0.583819841869243,
+      "label": "indirect",
+      "casts_opt": 214.7,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 20,
+    "waste": [
+     {
+      "resource": "mana",
+      "opt": 25.3,
+      "hl": 35.0
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "arcane_salvo",
+      "opt": 96.3,
+      "hl": 76.2
+     }
+    ]
+   },
+   "3": {
+    "loss": -10.6,
+    "corrected_loss": -10.5,
+    "artifact_share": 6.6,
+    "gaps": [
+     {
+      "ability": "prismatic_bolt",
+      "dps_gap": 29586.82174109172,
+      "share": 6.60824533977615,
+      "label": "override-unresolved",
+      "casts_opt": 26.5,
+      "casts_hl": 17.2
+     },
+     {
+      "ability": "arcane_missiles",
+      "dps_gap": 8309.949790330487,
+      "share": 1.8560353476378149,
+      "label": "target-count",
+      "casts_opt": 77.2,
+      "casts_hl": 73.5
+     },
+     {
+      "ability": "arcane_barrage",
+      "dps_gap": 7894.975163760857,
+      "share": 1.7633503622023727,
+      "label": "threshold",
+      "casts_opt": 67.2,
+      "casts_hl": 63.2
+     },
+     {
+      "ability": "touch_of_the_magi",
+      "dps_gap": 5558.4734330998,
+      "share": 1.241490433882471,
+      "label": "proc-gated",
+      "casts_opt": 7.0,
+      "casts_hl": 7.0
+     },
+     {
+      "ability": "meteorite",
+      "dps_gap": 2742.3569227472035,
+      "share": 0.6125080792161619,
+      "label": "indirect",
+      "casts_opt": 429.0,
+      "casts_hl": 399.2
+     }
+    ],
+    "fixable_share": 30,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "clearcasting",
+      "opt": 58.9,
+      "hl": 47.7
+     }
+    ]
+   },
+   "5": {
+    "loss": -11.4,
+    "corrected_loss": -11.4,
+    "artifact_share": 6.8,
+    "gaps": [
+     {
+      "ability": "arcane_splinter",
+      "dps_gap": 87436.84753617481,
+      "share": 12.692999703016678,
+      "label": "indirect",
+      "casts_opt": 1760.3,
+      "casts_hl": 0
+     },
+     {
+      "ability": "arcane_orb",
+      "dps_gap": 67580.56856528706,
+      "share": 9.810510796080493,
+      "label": "target-count",
+      "casts_opt": 40.3,
+      "casts_hl": 1.9
+     },
+     {
+      "ability": "prismatic_bolt",
+      "dps_gap": 47049.733152516725,
+      "share": 6.830098130937661,
+      "label": "override-unresolved",
+      "casts_opt": 29.1,
+      "casts_hl": 17.3
+     },
+     {
+      "ability": "arcane_barrage",
+      "dps_gap": 41869.52839419682,
+      "share": 6.078100096794028,
+      "label": "threshold",
+      "casts_opt": 74.5,
+      "casts_hl": 63.9
+     },
+     {
+      "ability": "touch_of_the_magi",
+      "dps_gap": 10451.684322452806,
+      "share": 1.5172462152873416,
+      "label": "proc-gated",
+      "casts_opt": 6.9,
+      "casts_hl": 7.0
+     }
+    ],
+    "fixable_share": 23,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "clearcasting",
+      "opt": 78.2,
+      "hl": 47.7
+     },
+     {
+      "buff": "arcane_salvo",
+      "opt": 97.8,
+      "hl": 71.7
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "arcane_surge"
+  ],
+  "override_gain": 0.1,
+  "avg_loss": -9.4,
+  "est_recoverable": 2.3,
+  "patterns": [
+   "resource cap",
+   "never suggested in game: arcane_surge"
+  ]
+ },
+ {
+  "spec": "Affliction Warlock",
+  "fights": {
+   "1": {
+    "loss": -12.3,
+    "corrected_loss": -3.8,
+    "artifact_share": 7.8,
+    "gaps": [
+     {
+      "ability": "malefic_grasp",
+      "dps_gap": 19554.829380079278,
+      "share": 7.753371843029471,
+      "label": "button-override",
+      "casts_opt": 18.8,
+      "casts_hl": 0
+     },
+     {
+      "ability": "unstable_affliction",
+      "dps_gap": 7510.271279982815,
+      "share": 2.977777240800226,
+      "label": "threshold",
+      "casts_opt": 99.6,
+      "casts_hl": 97.1
+     },
+     {
+      "ability": "blackened_soul",
+      "dps_gap": 3049.6886896328942,
+      "share": 1.2091831616947233,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "shadowbolt_volley",
+      "dps_gap": 1888.2645117871125,
+      "share": 0.7486854839447663,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 14,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "shard_instability",
+      "opt": 34.6,
+      "hl": 8.4
+     }
+    ]
+   },
+   "3": {
+    "loss": -29.7,
+    "corrected_loss": -24.6,
+    "artifact_share": 3.9,
+    "gaps": [
+     {
+      "ability": "seed_of_corruption",
+      "dps_gap": 78246.06166372453,
+      "share": 19.14179510123749,
+      "label": "target-count",
+      "casts_opt": 107.6,
+      "casts_hl": 0
+     },
+     {
+      "ability": "corruption_direct",
+      "dps_gap": 37290.228209923414,
+      "share": 9.122528246091447,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "demonic_soul",
+      "dps_gap": 28497.046259343377,
+      "share": 6.971400334896703,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "malefic_grasp",
+      "dps_gap": 15814.345462264184,
+      "share": 3.8687565107086646,
+      "label": "button-override",
+      "casts_opt": 17.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "soul_anathema",
+      "dps_gap": 15637.36707463992,
+      "share": 3.8254612449634036,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "wicked_reaping",
+      "dps_gap": 13633.925962473792,
+      "share": 3.335347641146606,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:demonic_soul",
+      "dps_gap": 13575.97233429275,
+      "share": 3.321170103614016,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "shadow_of_nathreza",
+      "dps_gap": 12982.180968811086,
+      "share": 3.175907423176727,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 12,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "nightfall",
+      "opt": 57.3,
+      "hl": 27.9
+     },
+     {
+      "buff": "succulent_soul",
+      "opt": 29.2,
+      "hl": 0
+     },
+     {
+      "buff": "manifested_demonic_soul",
+      "opt": 17.8,
+      "hl": 0
+     }
+    ]
+   },
+   "5": {
+    "loss": -29.8,
+    "corrected_loss": -25.3,
+    "artifact_share": 2.0,
+    "gaps": [
+     {
+      "ability": "seed_of_corruption",
+      "dps_gap": 137646.65809478174,
+      "share": 22.640479875071858,
+      "label": "target-count",
+      "casts_opt": 105.6,
+      "casts_hl": 1.0
+     },
+     {
+      "ability": "agony",
+      "dps_gap": 78184.95002650494,
+      "share": 12.860063673973725,
+      "label": "proc-gated",
+      "casts_opt": 47.7,
+      "casts_hl": 17.2
+     },
+     {
+      "ability": "wither_direct",
+      "dps_gap": 72781.04734757627,
+      "share": 11.971215724139121,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "blackened_soul",
+      "dps_gap": 29489.901410167273,
+      "share": 4.850575587058564,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:darkglare",
+      "dps_gap": 15718.64478944862,
+      "share": 2.5854435257982193,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "malefic_grasp",
+      "dps_gap": 12267.449907205893,
+      "share": 2.017782026725983,
+      "label": "button-override",
+      "casts_opt": 14.8,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:desperate_soul",
+      "dps_gap": 7583.998892410687,
+      "share": 1.2474358380568693,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "malevolence_proc",
+      "dps_gap": 7325.302823502945,
+      "share": 1.2048848366527314,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 12,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "malevolence",
+      "opt": 56.3,
+      "hl": 0
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "summon_darkglare"
+  ],
+  "override_gain": 6.0,
+  "avg_loss": -17.9,
+  "est_recoverable": 2.2,
+  "patterns": [
+   "never suggested in game: summon_darkglare",
+   "SimC button-override artifact (highlight +6.0 pts better than SimC showed)"
+  ]
+ },
+ {
+  "spec": "Survival Hunter",
+  "fights": {
+   "1": {
+    "loss": -5.0,
+    "corrected_loss": -2.4,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "moonlight_chakram",
+      "dps_gap": 12516.53831721591,
+      "share": 4.848919543796033,
+      "label": "not-suggested",
+      "casts_opt": 3.6,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 100,
+    "waste": [],
+    "buffs": []
+   },
+   "3": {
+    "loss": -2.5,
+    "corrected_loss": -2.5,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "wildfire_bomb",
+      "dps_gap": 64188.485746558305,
+      "share": 12.697852166711916,
+      "label": "threshold",
+      "casts_opt": 49.0,
+      "casts_hl": 39.3
+     },
+     {
+      "ability": "lunar_storm",
+      "dps_gap": 43265.87753231295,
+      "share": 8.558913804845904,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "boomstick",
+      "dps_gap": 13953.354800254769,
+      "share": 2.760271323160402,
+      "label": "target-count",
+      "casts_opt": 13.0,
+      "casts_hl": 11.2
+     },
+     {
+      "ability": "moonlight_chakram",
+      "dps_gap": 11627.656888132773,
+      "share": 2.3001986492363398,
+      "label": "not-suggested",
+      "casts_opt": 3.7,
+      "casts_hl": 0
+     },
+     {
+      "ability": "sanctified_armaments",
+      "dps_gap": 7910.387631577268,
+      "share": 1.5648434693373374,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 39,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "stargazer",
+      "opt": 100.0,
+      "hl": 0
+     },
+     {
+      "buff": "tip_of_the_spear",
+      "opt": 80.1,
+      "hl": 65.9
+     }
+    ]
+   },
+   "5": {
+    "loss": -2.8,
+    "corrected_loss": -3.1,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "moonlight_chakram",
+      "dps_gap": 11449.59595041177,
+      "share": 1.6417136391410068,
+      "label": "not-suggested",
+      "casts_opt": 3.6,
+      "casts_hl": 0
+     },
+     {
+      "ability": "wildfire_bomb",
+      "dps_gap": 10628.593560563226,
+      "share": 1.5239932560795202,
+      "label": "threshold",
+      "casts_opt": 48.8,
+      "casts_hl": 46.8
+     },
+     {
+      "ability": "boomstick",
+      "dps_gap": 4197.0636265303765,
+      "share": 0.6018008521750264,
+      "label": "target-count",
+      "casts_opt": 16.5,
+      "casts_hl": 16.0
+     }
+    ],
+    "fixable_share": 73,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "tip_of_the_spear",
+      "opt": 84.0,
+      "hl": 67.1
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "takedown"
+  ],
+  "override_gain": 0.8,
+  "avg_loss": -2.7,
+  "est_recoverable": 1.9,
+  "patterns": [
+   "never suggested in game: takedown",
+   "missing from highlight"
+  ]
+ },
+ {
+  "spec": "Demonology Warlock",
+  "fights": {
+   "1": {
+    "loss": -4.0,
+    "corrected_loss": -4.0,
+    "artifact_share": 5.8,
+    "gaps": [
+     {
+      "ability": "pet:demonic_tyrant",
+      "dps_gap": 17208.730259052245,
+      "share": 7.290557040578955,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:grimoire_imp_lord",
+      "dps_gap": 9748.524259306765,
+      "share": 4.130006752622428,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "diabolic_oculi",
+      "dps_gap": 9124.30134755138,
+      "share": 3.8655518697995066,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "infernal_bolt",
+      "dps_gap": 8061.169106376481,
+      "share": 3.415151048281196,
+      "label": "override-unresolved",
+      "casts_opt": 8.4,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:dreadstalker",
+      "dps_gap": 7937.598812566561,
+      "share": 3.362799929867423,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "ruination",
+      "dps_gap": 5583.411323945971,
+      "share": 2.365437665967833,
+      "label": "override-unresolved",
+      "casts_opt": 8.4,
+      "casts_hl": 0
+     },
+     {
+      "ability": "blighted_maw",
+      "dps_gap": 4487.991448044773,
+      "share": 1.9013580407763904,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:wild_imp",
+      "dps_gap": 4196.269400377387,
+      "share": 1.777768665122436,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 6,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "minds_eyes",
+      "opt": 77.4,
+      "hl": 0
+     },
+     {
+      "buff": "demonic_oculi",
+      "opt": 63.1,
+      "hl": 0
+     },
+     {
+      "buff": "abyssal_dominion",
+      "opt": 33.3,
+      "hl": 0
+     },
+     {
+      "buff": "diabolic_ritual_overlord",
+      "opt": 28.3,
+      "hl": 0
+     }
+    ]
+   },
+   "3": {
+    "loss": -20.2,
+    "corrected_loss": -20.2,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "pet:wild_imp",
+      "dps_gap": 70290.33735006896,
+      "share": 13.463623201091918,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "implosion",
+      "dps_gap": 12582.026116843008,
+      "share": 2.409999227913874,
+      "label": "not-suggested",
+      "casts_opt": 19.0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:demonic_tyrant",
+      "dps_gap": 10269.112603946764,
+      "share": 1.9669767982552928,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:grimoire_imp_lord",
+      "dps_gap": 9773.937258819116,
+      "share": 1.8721294192753604,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:antoran_jailer",
+      "dps_gap": 2759.3407121540913,
+      "share": 0.5285324417615541,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 12,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "grimoire_imp_lord",
+      "opt": 19.3,
+      "hl": 0
+     },
+     {
+      "buff": "demonic_core",
+      "opt": 46.2,
+      "hl": 30.1
+     }
+    ]
+   },
+   "5": {
+    "loss": -16.6,
+    "corrected_loss": -16.5,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "pet:wild_imp",
+      "dps_gap": 69952.83930148726,
+      "share": 9.285624235209047,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "implosion",
+      "dps_gap": 22914.1772959146,
+      "share": 3.041655523256192,
+      "label": "not-suggested",
+      "casts_opt": 18.9,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:demonic_tyrant",
+      "dps_gap": 16882.968068653252,
+      "share": 2.2410655382391904,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:grimoire_imp_lord",
+      "dps_gap": 9737.68572700455,
+      "share": 1.2925921447137068,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:antoran_jailer",
+      "dps_gap": 3873.9369846204354,
+      "share": 0.5142310663764492,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:lady_sacrolash",
+      "dps_gap": 3868.248483312287,
+      "share": 0.5134759678538388,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 18,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "grimoire_imp_lord",
+      "opt": 19.3,
+      "hl": 0
+     },
+     {
+      "buff": "demonic_core",
+      "opt": 46.2,
+      "hl": 30.1
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "summon_demonic_tyrant"
+  ],
+  "override_gain": 0.0,
+  "avg_loss": -13.6,
+  "est_recoverable": 1.9,
+  "patterns": [
+   "never suggested in game: summon_demonic_tyrant",
+   "missing from highlight"
+  ]
+ },
+ {
+  "spec": "Beast Mastery Hunter",
+  "fights": {
+   "1": {
+    "loss": -3.0,
+    "corrected_loss": -3.0,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "barbed_shot",
+      "dps_gap": 4409.590646470126,
+      "share": 1.6729546780160995,
+      "label": "threshold",
+      "casts_opt": 65.4,
+      "casts_hl": 61.5
+     },
+     {
+      "ability": "cobra_shot",
+      "dps_gap": 2524.260463042425,
+      "share": 0.9576792243875059,
+      "label": "not-suggested",
+      "casts_opt": 94.4,
+      "casts_hl": 92.6
+     }
+    ],
+    "fixable_share": 75,
+    "waste": [],
+    "buffs": []
+   },
+   "3": {
+    "loss": -22.0,
+    "corrected_loss": -22.0,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "pet:animal_companion",
+      "dps_gap": 41975.48322224324,
+      "share": 9.545087362754275,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:duck",
+      "dps_gap": 39260.381519871255,
+      "share": 8.92768213097435,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:natures_ally_pet",
+      "dps_gap": 38804.88721549172,
+      "share": 8.824104218469563,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "barbed_shot",
+      "dps_gap": 25868.471792204764,
+      "share": 5.882405734085638,
+      "label": "threshold",
+      "casts_opt": 59.1,
+      "casts_hl": 44.9
+     },
+     {
+      "ability": "cobra_cleave",
+      "dps_gap": 19880.410011572632,
+      "share": 4.520740103529758,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "boar_charge",
+      "dps_gap": 18982.172939337448,
+      "share": 4.316483936148553,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "stampede_tick",
+      "dps_gap": 17334.79670530367,
+      "share": 3.941875977738081,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "auto_shot",
+      "dps_gap": 15907.85163838573,
+      "share": 3.6173933445431543,
+      "label": "simc-only",
+      "casts_opt": 143.4,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 14,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "bear_summon",
+      "opt": 100.0,
+      "hl": 0
+     },
+     {
+      "buff": "howl_of_the_pack_leader_cooldown",
+      "opt": 90.4,
+      "hl": 0
+     },
+     {
+      "buff": "wyverns_cry",
+      "opt": 49.4,
+      "hl": 0
+     },
+     {
+      "buff": "stampede",
+      "opt": 13.3,
+      "hl": 0
+     }
+    ]
+   },
+   "5": {
+    "loss": -5.8,
+    "corrected_loss": -5.8,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "pet:natures_ally_pet",
+      "dps_gap": 22212.697806971046,
+      "share": 3.2734641806426406,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "cobra_cleave",
+      "dps_gap": 14153.791533061965,
+      "share": 2.0858308165170736,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 0,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "beast_cleave",
+      "opt": 90.7,
+      "hl": 75.9
+     }
+    ]
+   }
+  },
+  "simc_only": [],
+  "override_gain": 0.0,
+  "avg_loss": -10.3,
+  "est_recoverable": 1.8,
+  "patterns": [
+   "3-target hole",
+   "missing from highlight"
+  ]
+ },
+ {
+  "spec": "Frost Mage",
+  "fights": {
+   "1": {
+    "loss": -3.8,
+    "corrected_loss": -3.9,
+    "artifact_share": 0.6,
+    "gaps": [
+     {
+      "ability": "ice_lance",
+      "dps_gap": 3255.536597735336,
+      "share": 1.431484537479905,
+      "label": "proc-gated",
+      "casts_opt": 134.4,
+      "casts_hl": 133.8
+     },
+     {
+      "ability": "flurry",
+      "dps_gap": 1646.6755216405636,
+      "share": 0.7240559203404032,
+      "label": "threshold",
+      "casts_opt": 38.8,
+      "casts_hl": 35.1
+     },
+     {
+      "ability": "font_of_venomous_rage",
+      "dps_gap": 1493.1947288813117,
+      "share": 0.6565692326503119,
+      "label": "indirect",
+      "casts_opt": 2.0,
+      "casts_hl": 2.0
+     },
+     {
+      "ability": "glacial_spike",
+      "dps_gap": 1330.4886168631965,
+      "share": 0.5850261009682947,
+      "label": "override-unresolved",
+      "casts_opt": 26.5,
+      "casts_hl": 25.3
+     },
+     {
+      "ability": "frost_splinter",
+      "dps_gap": 1162.4227924049446,
+      "share": 0.5111262624107562,
+      "label": "indirect",
+      "casts_opt": 1375.3,
+      "casts_hl": 1317.3
+     }
+    ],
+    "fixable_share": 16,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "fingers_of_frost",
+      "opt": 24.4,
+      "hl": 12.1
+     }
+    ]
+   },
+   "3": {
+    "loss": -8.8,
+    "corrected_loss": -8.8,
+    "artifact_share": 7.0,
+    "gaps": [
+     {
+      "ability": "glacial_spike",
+      "dps_gap": 29903.18486923346,
+      "share": 5.7350637996098675,
+      "label": "override-unresolved",
+      "casts_opt": 33.0,
+      "casts_hl": 29.2
+     },
+     {
+      "ability": "flurry",
+      "dps_gap": 12303.683820552316,
+      "share": 2.3596955304147174,
+      "label": "threshold",
+      "casts_opt": 50.1,
+      "casts_hl": 39.7
+     },
+     {
+      "ability": "comet_storm",
+      "dps_gap": 6574.973450548758,
+      "share": 1.2609992007384718,
+      "label": "override-unresolved",
+      "casts_opt": 7.3,
+      "casts_hl": 7.2
+     },
+     {
+      "ability": "frostfire_bolt",
+      "dps_gap": 6169.04329668016,
+      "share": 1.183146779974518,
+      "label": "indirect",
+      "casts_opt": 69.2,
+      "casts_hl": 55.8
+     },
+     {
+      "ability": "molten_chill_ignite",
+      "dps_gap": 4583.802946363827,
+      "share": 0.8791171394349911,
+      "label": "indirect",
+      "casts_opt": 627.4,
+      "casts_hl": 507.8
+     },
+     {
+      "ability": "ice_lance",
+      "dps_gap": 3129.704720295733,
+      "share": 0.6002389485711087,
+      "label": "proc-gated",
+      "casts_opt": 86.3,
+      "casts_hl": 98.7
+     }
+    ],
+    "fixable_share": 29,
+    "waste": [
+     {
+      "resource": "mana",
+      "opt": 22.2,
+      "hl": 29.2
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "fingers_of_frost",
+      "opt": 47.7,
+      "hl": 19.3
+     },
+     {
+      "buff": "brainstorm",
+      "opt": 73.6,
+      "hl": 57.8
+     },
+     {
+      "buff": "comet_storm",
+      "opt": 20.1,
+      "hl": 7.7
+     }
+    ]
+   },
+   "5": {
+    "loss": -10.0,
+    "corrected_loss": -10.0,
+    "artifact_share": 8.3,
+    "gaps": [
+     {
+      "ability": "glacial_spike",
+      "dps_gap": 47694.33665149586,
+      "share": 6.621166782617641,
+      "label": "override-unresolved",
+      "casts_opt": 33.6,
+      "casts_hl": 27.8
+     },
+     {
+      "ability": "ice_lance",
+      "dps_gap": 31981.274505827372,
+      "share": 4.43980076651552,
+      "label": "proc-gated",
+      "casts_opt": 88.4,
+      "casts_hl": 85.2
+     },
+     {
+      "ability": "frostfire_bolt",
+      "dps_gap": 15099.689408455954,
+      "share": 2.0962145394672627,
+      "label": "indirect",
+      "casts_opt": 68.0,
+      "casts_hl": 41.9
+     },
+     {
+      "ability": "flurry",
+      "dps_gap": 14758.375403365222,
+      "share": 2.0488316191540585,
+      "label": "threshold",
+      "casts_opt": 45.4,
+      "casts_hl": 34.5
+     },
+     {
+      "ability": "comet_storm",
+      "dps_gap": 12150.14213231043,
+      "share": 1.6867436081221554,
+      "label": "override-unresolved",
+      "casts_opt": 7.2,
+      "casts_hl": 6.9
+     },
+     {
+      "ability": "molten_chill_ignite",
+      "dps_gap": 6172.811975478471,
+      "share": 0.8569406868163365,
+      "label": "indirect",
+      "casts_opt": 602.8,
+      "casts_hl": 448.8
+     }
+    ],
+    "fixable_share": 21,
+    "waste": [
+     {
+      "resource": "mana",
+      "opt": 22.0,
+      "hl": 26.7
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "fingers_of_frost",
+      "opt": 52.9,
+      "hl": 24.4
+     },
+     {
+      "buff": "brainstorm",
+      "opt": 66.4,
+      "hl": 50.1
+     },
+     {
+      "buff": "comet_storm",
+      "opt": 20.6,
+      "hl": 7.5
+     }
+    ]
+   }
+  },
+  "simc_only": [],
+  "override_gain": -0.0,
+  "avg_loss": -7.6,
+  "est_recoverable": 1.8,
+  "patterns": [
+   "resource cap"
+  ]
+ },
+ {
+  "spec": "Guardian Druid (tank)",
+  "fights": {
+   "1": {
+    "loss": -11.2,
+    "corrected_loss": -9.2,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "maul",
+      "dps_gap": 8766.76514293976,
+      "share": 11.464929183602978,
+      "label": "threshold",
+      "casts_opt": 14.9,
+      "casts_hl": 56.1
+     },
+     {
+      "ability": "heart_of_the_wild_cat",
+      "dps_gap": 5987.077814504866,
+      "share": 7.829732180666271,
+      "label": "indirect",
+      "casts_opt": 2.9,
+      "casts_hl": 0
+     },
+     {
+      "ability": "mangle",
+      "dps_gap": 3998.947993862087,
+      "share": 5.229711850495168,
+      "label": "threshold",
+      "casts_opt": 92.9,
+      "casts_hl": 88.0
+     },
+     {
+      "ability": "vicious_brambles",
+      "dps_gap": 3411.43262862372,
+      "share": 4.461375759940586,
+      "label": "indirect",
+      "casts_opt": 159.3,
+      "casts_hl": 163.8
+     },
+     {
+      "ability": "moonless_night",
+      "dps_gap": 1835.1660635721073,
+      "share": 2.3999786256336613,
+      "label": "indirect",
+      "casts_opt": 209.8,
+      "casts_hl": 222.4
+     },
+     {
+      "ability": "spirits_wrath",
+      "dps_gap": 1816.1468616317002,
+      "share": 2.3751058476111977,
+      "label": "indirect",
+      "casts_opt": 43.2,
+      "casts_hl": 24.6
+     },
+     {
+      "ability": "twin_claw",
+      "dps_gap": 1328.0415695261402,
+      "share": 1.7367754581357984,
+      "label": "indirect",
+      "casts_opt": 19.5,
+      "casts_hl": 0
+     },
+     {
+      "ability": "swipe_bear",
+      "dps_gap": 722.8487268857498,
+      "share": 0.9453212592191872,
+      "label": "not-suggested",
+      "casts_opt": 47.5,
+      "casts_hl": 19.4
+     }
+    ],
+    "fixable_share": 30,
+    "waste": [
+     {
+      "resource": "rage",
+      "opt": 1.5,
+      "hl": 37.7
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "bear_form",
+      "opt": 98.7,
+      "hl": 0
+     },
+     {
+      "buff": "lycaras_teachings_vers",
+      "opt": 98.7,
+      "hl": 0
+     },
+     {
+      "buff": "gift_of_an_ancient_guardian",
+      "opt": 78.0,
+      "hl": 0
+     },
+     {
+      "buff": "ironfur",
+      "opt": 78.0,
+      "hl": 0
+     }
+    ]
+   },
+   "3": {
+    "loss": -15.8,
+    "corrected_loss": -14.9,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "raze",
+      "dps_gap": 32667.432372997937,
+      "share": 21.452102375108545,
+      "label": "indirect",
+      "casts_opt": 27.9,
+      "casts_hl": 52.8
+     },
+     {
+      "ability": "vicious_brambles",
+      "dps_gap": 9361.623465522664,
+      "share": 6.1476060526143055,
+      "label": "indirect",
+      "casts_opt": 406.9,
+      "casts_hl": 365.6
+     },
+     {
+      "ability": "heart_of_the_wild_cat",
+      "dps_gap": 6079.114702069197,
+      "share": 3.99204288386648,
+      "label": "indirect",
+      "casts_opt": 2.8,
+      "casts_hl": 0
+     },
+     {
+      "ability": "mangle",
+      "dps_gap": 5330.898233602105,
+      "share": 3.500702882086437,
+      "label": "threshold",
+      "casts_opt": 73.1,
+      "casts_hl": 81.4
+     },
+     {
+      "ability": "swipe_bear",
+      "dps_gap": 3313.3060884278143,
+      "share": 2.175787205968923,
+      "label": "not-suggested",
+      "casts_opt": 45.7,
+      "casts_hl": 0.4
+     },
+     {
+      "ability": "moonless_night",
+      "dps_gap": 2713.716763900493,
+      "share": 1.7820479176796462,
+      "label": "indirect",
+      "casts_opt": 417.2,
+      "casts_hl": 404.9
+     },
+     {
+      "ability": "spirits_wrath",
+      "dps_gap": 2443.7892517992614,
+      "share": 1.6047914820547802,
+      "label": "indirect",
+      "casts_opt": 45.4,
+      "casts_hl": 20.7
+     },
+     {
+      "ability": "galactic_guardian",
+      "dps_gap": 1927.6443856818514,
+      "share": 1.2658486358000642,
+      "label": "indirect",
+      "casts_opt": 60.6,
+      "casts_hl": 52.7
+     }
+    ],
+    "fixable_share": 10,
+    "waste": [
+     {
+      "resource": "rage",
+      "opt": 1.7,
+      "hl": 59.2
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "bear_form",
+      "opt": 98.9,
+      "hl": 0
+     },
+     {
+      "buff": "lycaras_teachings_vers",
+      "opt": 98.9,
+      "hl": 0
+     },
+     {
+      "buff": "ursocs_fury",
+      "opt": 92.4,
+      "hl": 0
+     },
+     {
+      "buff": "gift_of_an_ancient_guardian",
+      "opt": 74.6,
+      "hl": 0
+     }
+    ]
+   },
+   "5": {
+    "loss": -20.1,
+    "corrected_loss": -19.4,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "raze",
+      "dps_gap": 61585.845785250305,
+      "share": 27.375507851647964,
+      "label": "indirect",
+      "casts_opt": 37.2,
+      "casts_hl": 45.4
+     },
+     {
+      "ability": "vicious_brambles",
+      "dps_gap": 15467.52093556585,
+      "share": 6.87546359748985,
+      "label": "indirect",
+      "casts_opt": 644.4,
+      "casts_hl": 463.3
+     },
+     {
+      "ability": "heart_of_the_wild_cat",
+      "dps_gap": 5930.816459990174,
+      "share": 2.636305639664182,
+      "label": "indirect",
+      "casts_opt": 2.9,
+      "casts_hl": 0
+     },
+     {
+      "ability": "moonless_night",
+      "dps_gap": 5386.698039835048,
+      "share": 2.3944397061325784,
+      "label": "indirect",
+      "casts_opt": 635.2,
+      "casts_hl": 496.8
+     },
+     {
+      "ability": "swipe_bear",
+      "dps_gap": 4120.792692835952,
+      "share": 1.8317324586416843,
+      "label": "not-suggested",
+      "casts_opt": 34.2,
+      "casts_hl": 0.0
+     },
+     {
+      "ability": "spirits_wrath",
+      "dps_gap": 2910.064019771988,
+      "share": 1.293551779736145,
+      "label": "indirect",
+      "casts_opt": 49.1,
+      "casts_hl": 18.4
+     },
+     {
+      "ability": "galactic_guardian",
+      "dps_gap": 2119.0855687033363,
+      "share": 0.9419541598346548,
+      "label": "indirect",
+      "casts_opt": 75.1,
+      "casts_hl": 62.8
+     },
+     {
+      "ability": "mangle",
+      "dps_gap": 1686.938276183042,
+      "share": 0.7498604823245695,
+      "label": "threshold",
+      "casts_opt": 63.2,
+      "casts_hl": 80.0
+     }
+    ],
+    "fixable_share": 5,
+    "waste": [
+     {
+      "resource": "rage",
+      "opt": 0.3,
+      "hl": 70.1
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "bear_form",
+      "opt": 98.8,
+      "hl": 0
+     },
+     {
+      "buff": "lycaras_teachings_vers",
+      "opt": 98.8,
+      "hl": 0
+     },
+     {
+      "buff": "ursocs_fury",
+      "opt": 96.3,
+      "hl": 0
+     },
+     {
+      "buff": "gift_of_an_ancient_guardian",
+      "opt": 76.5,
+      "hl": 0
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "berserk"
+  ],
+  "override_gain": 1.2,
+  "avg_loss": -14.5,
+  "est_recoverable": 1.7,
+  "patterns": [
+   "resource cap",
+   "never suggested in game: berserk",
+   "missing from highlight",
+   "SimC button-override artifact (highlight +1.2 pts better than SimC showed)"
+  ]
+ },
+ {
+  "spec": "Protection Warrior (tank)",
+  "fights": {
+   "1": {
+    "loss": -5.4,
+    "corrected_loss": -5.5,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "auto_attack_mh",
+      "dps_gap": 2820.441022161649,
+      "share": 1.6644357127365705,
+      "label": "indirect",
+      "casts_opt": 253.0,
+      "casts_hl": 225.4
+     },
+     {
+      "ability": "shield_slam",
+      "dps_gap": 2811.1305467282727,
+      "share": 1.6589412926469096,
+      "label": "threshold",
+      "casts_opt": 101.5,
+      "casts_hl": 98.2
+     },
+     {
+      "ability": "execute",
+      "dps_gap": 1863.106419838612,
+      "share": 1.0994808391460245,
+      "label": "threshold",
+      "casts_opt": 31.4,
+      "casts_hl": 30.0
+     }
+    ],
+    "fixable_share": 37,
+    "waste": [],
+    "buffs": []
+   },
+   "3": {
+    "loss": -3.6,
+    "corrected_loss": -3.5,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "thunder_clap",
+      "dps_gap": 7590.435919570053,
+      "share": 2.5333862797356166,
+      "label": "threshold",
+      "casts_opt": 71.7,
+      "casts_hl": 59.5
+     },
+     {
+      "ability": "revenge",
+      "dps_gap": 3471.5045133695676,
+      "share": 1.1586504381831195,
+      "label": "target-count",
+      "casts_opt": 54.6,
+      "casts_hl": 45.8
+     },
+     {
+      "ability": "shield_slam",
+      "dps_gap": 3304.5229122379606,
+      "share": 1.102918606473109,
+      "label": "threshold",
+      "casts_opt": 99.3,
+      "casts_hl": 106.0
+     },
+     {
+      "ability": "auto_attack_mh",
+      "dps_gap": 2995.083207663887,
+      "share": 0.9996399133545449,
+      "label": "indirect",
+      "casts_opt": 250.3,
+      "casts_hl": 221.6
+     }
+    ],
+    "fixable_share": 44,
+    "waste": [],
+    "buffs": []
+   },
+   "5": {
+    "loss": -3.1,
+    "corrected_loss": -3.1,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "thunder_clap",
+      "dps_gap": 12561.550766352615,
+      "share": 2.865685743571078,
+      "label": "threshold",
+      "casts_opt": 72.1,
+      "casts_hl": 59.8
+     },
+     {
+      "ability": "shield_slam",
+      "dps_gap": 5659.234963042603,
+      "share": 1.2910499073530506,
+      "label": "threshold",
+      "casts_opt": 99.0,
+      "casts_hl": 105.9
+     },
+     {
+      "ability": "auto_attack_mh",
+      "dps_gap": 3005.483055410976,
+      "share": 0.6856454353952741,
+      "label": "indirect",
+      "casts_opt": 250.4,
+      "casts_hl": 221.5
+     }
+    ],
+    "fixable_share": 52,
+    "waste": [],
+    "buffs": []
+   }
+  },
+  "simc_only": [
+   "avatar",
+   "demoralizing_shout",
+   "ignore_pain",
+   "shield_block",
+   "shield_charge",
+   "shield_wall"
+  ],
+  "override_gain": 0.0,
+  "avg_loss": -4.0,
+  "est_recoverable": 1.7,
+  "patterns": [
+   "never suggested in game: avatar, demoralizing_shout, ignore_pain, shield_block, shield_charge, shield_wall"
+  ]
+ },
+ {
+  "spec": "Assassination Rogue",
+  "fights": {
+   "1": {
+    "loss": -5.7,
+    "corrected_loss": -5.8,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "rupture",
+      "dps_gap": 4259.476657271207,
+      "share": 1.7450368614057368,
+      "label": "proc-gated",
+      "casts_opt": 10.4,
+      "casts_hl": 9.6
+     },
+     {
+      "ability": "garrote",
+      "dps_gap": 3485.7107700102206,
+      "share": 1.4280378251359238,
+      "label": "threshold",
+      "casts_opt": 13.8,
+      "casts_hl": 12.4
+     },
+     {
+      "ability": "kingsbane",
+      "dps_gap": 2641.021364525579,
+      "share": 1.0819826010760953,
+      "label": "proc-gated",
+      "casts_opt": 5.2,
+      "casts_hl": 5.2
+     },
+     {
+      "ability": "deadly_poison_driver",
+      "dps_gap": 1530.1624627790043,
+      "share": 0.6268821539215519,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "envenom",
+      "dps_gap": 1461.0001496773984,
+      "share": 0.5985475026266892,
+      "label": "proc-gated",
+      "casts_opt": 57.5,
+      "casts_hl": 58.7
+     },
+     {
+      "ability": "amplifying_poison",
+      "dps_gap": 1349.9245137479338,
+      "share": 0.553041658905227,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 14,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "cold_blood",
+      "opt": 69.0,
+      "hl": 0
+     },
+     {
+      "buff": "inspiring_strike",
+      "opt": 79.1,
+      "hl": 66.7
+     }
+    ]
+   },
+   "3": {
+    "loss": -9.3,
+    "corrected_loss": -9.2,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "rupture",
+      "dps_gap": 26171.264841254713,
+      "share": 5.816088262073572,
+      "label": "proc-gated",
+      "casts_opt": 10.2,
+      "casts_hl": 9.8
+     },
+     {
+      "ability": "garrote",
+      "dps_gap": 14270.842528401721,
+      "share": 3.1714355505088516,
+      "label": "threshold",
+      "casts_opt": 14.3,
+      "casts_hl": 11.9
+     },
+     {
+      "ability": "singular_focus",
+      "dps_gap": 2760.719232124693,
+      "share": 0.6135197063739394,
+      "label": "indirect",
+      "casts_opt": 5839.0,
+      "casts_hl": 5782.2
+     },
+     {
+      "ability": "deathstalkers_mark",
+      "dps_gap": 2296.739482680472,
+      "share": 0.5104086343279085,
+      "label": "indirect",
+      "casts_opt": 60.4,
+      "casts_hl": 65.8
+     }
+    ],
+    "fixable_share": 19,
+    "waste": [],
+    "buffs": []
+   },
+   "5": {
+    "loss": -13.9,
+    "corrected_loss": -13.8,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "rupture",
+      "dps_gap": 47944.61529609405,
+      "share": 6.3900306250953305,
+      "label": "proc-gated",
+      "casts_opt": 10.0,
+      "casts_hl": 10.1
+     },
+     {
+      "ability": "garrote",
+      "dps_gap": 26047.85399993979,
+      "share": 3.471642931113209,
+      "label": "threshold",
+      "casts_opt": 14.3,
+      "casts_hl": 12.3
+     },
+     {
+      "ability": "deathstalkers_mark",
+      "dps_gap": 8759.304359944315,
+      "share": 1.1674350241190727,
+      "label": "indirect",
+      "casts_opt": 80.8,
+      "casts_hl": 81.8
+     },
+     {
+      "ability": "singular_focus",
+      "dps_gap": 6449.594917565348,
+      "share": 0.8595982841489044,
+      "label": "indirect",
+      "casts_opt": 11581.6,
+      "casts_hl": 11236.5
+     },
+     {
+      "ability": "caustic_spatter",
+      "dps_gap": 6344.64603376454,
+      "share": 0.8456107575535795,
+      "label": "indirect",
+      "casts_opt": 2471.1,
+      "casts_hl": 2464.9
+     }
+    ],
+    "fixable_share": 16,
+    "waste": [],
+    "buffs": []
+   }
+  },
+  "simc_only": [
+   "deathmark",
+   "vanish"
+  ],
+  "override_gain": 0.0,
+  "avg_loss": -9.6,
+  "est_recoverable": 1.6,
+  "patterns": [
+   "never suggested in game: deathmark, vanish"
+  ]
+ },
+ {
+  "spec": "Unholy DK",
+  "fights": {
+   "1": {
+    "loss": -10.7,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "lord_of_the_dead",
+      "dps_gap": 6958.377307177012,
+      "share": 2.900323654181574,
+      "label": "indirect",
+      "casts_opt": 22.7,
+      "casts_hl": 20.0
+     },
+     {
+      "ability": "lesser_ghoul",
+      "dps_gap": 6484.7815881393435,
+      "share": 2.702924058585149,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "dread_plague",
+      "dps_gap": 3565.891493268118,
+      "share": 1.4863004677115141,
+      "label": "indirect",
+      "casts_opt": 1.0,
+      "casts_hl": 6.6
+     },
+     {
+      "ability": "putrefy",
+      "dps_gap": 2754.5350204112474,
+      "share": 1.1481186953932785,
+      "label": "proc-gated",
+      "casts_opt": 16.4,
+      "casts_hl": 17.7
+     },
+     {
+      "ability": "raise_dead",
+      "dps_gap": 2302.10542397431,
+      "share": 0.959541358685128,
+      "label": "threshold",
+      "casts_opt": 1.0,
+      "casts_hl": 1.0
+     },
+     {
+      "ability": "death_coil",
+      "dps_gap": 1844.716251119722,
+      "share": 0.7688968192134832,
+      "label": "threshold",
+      "casts_opt": 61.6,
+      "casts_hl": 51.5
+     },
+     {
+      "ability": "virulent_plague",
+      "dps_gap": 1653.3235701399103,
+      "share": 0.6891223696000031,
+      "label": "indirect",
+      "casts_opt": 1.0,
+      "casts_hl": 6.6
+     }
+    ],
+    "fixable_share": 10,
+    "waste": [
+     {
+      "resource": "runic_power",
+      "opt": 0.0,
+      "hl": 12.2
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "festering_scythe_tt",
+      "opt": 99.2,
+      "hl": 59.0
+     },
+     {
+      "buff": "festering_scythe",
+      "opt": 34.8,
+      "hl": 18.2
+     },
+     {
+      "buff": "lesser_ghoul_ready",
+      "opt": 82.0,
+      "hl": 65.5
+     }
+    ]
+   },
+   "3": {
+    "loss": -7.6,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "epidemic",
+      "dps_gap": 26125.68148480914,
+      "share": 5.802461855754639,
+      "label": "target-count",
+      "casts_opt": 70.9,
+      "casts_hl": 0
+     },
+     {
+      "ability": "lord_of_the_dead",
+      "dps_gap": 13285.079933458415,
+      "share": 2.95058980985303,
+      "label": "indirect",
+      "casts_opt": 24.7,
+      "casts_hl": 24.0
+     },
+     {
+      "ability": "putrefy",
+      "dps_gap": 3454.721874817271,
+      "share": 0.7672868519247665,
+      "label": "proc-gated",
+      "casts_opt": 20.6,
+      "casts_hl": 22.2
+     },
+     {
+      "ability": "raise_dead",
+      "dps_gap": 2310.8439712799845,
+      "share": 0.5132338463878594,
+      "label": "threshold",
+      "casts_opt": 1.0,
+      "casts_hl": 1.0
+     }
+    ],
+    "fixable_share": 20,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "death_and_decay",
+      "opt": 36.3,
+      "hl": 0
+     }
+    ]
+   },
+   "5": {
+    "loss": -9.3,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "lord_of_the_dead",
+      "dps_gap": 29011.373852283927,
+      "share": 3.8805394514953857,
+      "label": "indirect",
+      "casts_opt": 25.5,
+      "casts_hl": 24.0
+     },
+     {
+      "ability": "epidemic",
+      "dps_gap": 25818.05770294054,
+      "share": 3.4534038955675923,
+      "label": "target-count",
+      "casts_opt": 110.8,
+      "casts_hl": 86.6
+     },
+     {
+      "ability": "raise_dead",
+      "dps_gap": 8136.420657543342,
+      "share": 1.0883214809585213,
+      "label": "threshold",
+      "casts_opt": 1.0,
+      "casts_hl": 1.0
+     },
+     {
+      "ability": "putrefy",
+      "dps_gap": 6782.117209317599,
+      "share": 0.9071708747550685,
+      "label": "proc-gated",
+      "casts_opt": 23.1,
+      "casts_hl": 22.3
+     },
+     {
+      "ability": "dark_transformation",
+      "dps_gap": 3768.156572653177,
+      "share": 0.5040257767193309,
+      "label": "threshold",
+      "casts_opt": 7.0,
+      "casts_hl": 7.1
+     }
+    ],
+    "fixable_share": 20,
+    "waste": [
+     {
+      "resource": "runic_power",
+      "opt": 0.3,
+      "hl": 15.4
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "death_and_decay",
+      "opt": 36.6,
+      "hl": 0
+     }
+    ]
+   }
+  },
+  "simc_only": [],
+  "override_gain": 0.0,
+  "avg_loss": -9.2,
+  "est_recoverable": 1.5,
+  "patterns": [
+   "resource cap"
+  ]
+ },
+ {
+  "spec": "Fire Mage",
+  "fights": {
+   "1": {
+    "loss": -5.2,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "scorch",
+      "dps_gap": 9213.403997891777,
+      "share": 3.746411318705963,
+      "label": "proc-gated",
+      "casts_opt": 29.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pyroblast",
+      "dps_gap": 7551.471173821541,
+      "share": 3.0706259146956314,
+      "label": "proc-gated",
+      "casts_opt": 175.9,
+      "casts_hl": 170.9
+     },
+     {
+      "ability": "ignite",
+      "dps_gap": 3966.0876720838787,
+      "share": 1.61271509955226,
+      "label": "indirect",
+      "casts_opt": 593.9,
+      "casts_hl": 577.2
+     }
+    ],
+    "fixable_share": 0,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "hot_streak",
+      "opt": 34.2,
+      "hl": 8.2
+     },
+     {
+      "buff": "overflowing_energy",
+      "opt": 48.7,
+      "hl": 26.7
+     },
+     {
+      "buff": "heat_shimmer",
+      "opt": 21.1,
+      "hl": 0
+     }
+    ]
+   },
+   "3": {
+    "loss": -10.5,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "flamestrike",
+      "dps_gap": 198398.86717732224,
+      "share": 43.01282549466784,
+      "label": "target-count",
+      "casts_opt": 155.3,
+      "casts_hl": 0
+     },
+     {
+      "ability": "meteorite",
+      "dps_gap": 23018.82629321764,
+      "share": 4.990475865758445,
+      "label": "indirect",
+      "casts_opt": 135.9,
+      "casts_hl": 0
+     },
+     {
+      "ability": "pet:arcane_phoenix",
+      "dps_gap": 19398.66366726187,
+      "share": 4.2056255008953105,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "fireball",
+      "dps_gap": 15551.491086957736,
+      "share": 3.3715594338920436,
+      "label": "threshold",
+      "casts_opt": 76.9,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 27,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "mana_cascade",
+      "opt": 96.9,
+      "hl": 0
+     },
+     {
+      "buff": "spellfire_sphere",
+      "opt": 94.8,
+      "hl": 0
+     },
+     {
+      "buff": "feel_the_burn",
+      "opt": 78.0,
+      "hl": 0
+     },
+     {
+      "buff": "fiery_rush",
+      "opt": 23.2,
+      "hl": 0
+     }
+    ]
+   },
+   "5": {
+    "loss": -2.3,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "flamestrike",
+      "dps_gap": 13425.920606896165,
+      "share": 1.7957629204932073,
+      "label": "target-count",
+      "casts_opt": 154.0,
+      "casts_hl": 153.2
+     },
+     {
+      "ability": "ignite",
+      "dps_gap": 4818.642879353662,
+      "share": 0.6445100089000438,
+      "label": "indirect",
+      "casts_opt": 2006.5,
+      "casts_hl": 1997.2
+     }
+    ],
+    "fixable_share": 22,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "hot_streak",
+      "opt": 24.7,
+      "hl": 8.5
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "combustion"
+  ],
+  "override_gain": 0.0,
+  "avg_loss": -6.0,
+  "est_recoverable": 1.1,
+  "patterns": [
+   "3-target hole",
+   "never suggested in game: combustion"
+  ]
+ },
+ {
+  "spec": "Frost DK",
+  "fights": {
+   "1": {
+    "loss": -0.7,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "reapers_mark",
+      "dps_gap": 26237.111462856403,
+      "share": 10.046798543205343,
+      "label": "threshold",
+      "casts_opt": 7.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "howling_blast",
+      "dps_gap": 8363.09435958779,
+      "share": 3.2024228104357046,
+      "label": "threshold",
+      "casts_opt": 59.4,
+      "casts_hl": 60.2
+     },
+     {
+      "ability": "frost_fever",
+      "dps_gap": 3026.4160190859884,
+      "share": 1.1588848907674756,
+      "label": "indirect",
+      "casts_opt": 80.2,
+      "casts_hl": 60.2
+     },
+     {
+      "ability": "frost_strike",
+      "dps_gap": 2628.9653739658534,
+      "share": 1.006691819969953,
+      "label": "threshold",
+      "casts_opt": 99.8,
+      "casts_hl": 101.0
+     }
+    ],
+    "fixable_share": 55,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "dark_talons",
+      "opt": 62.9,
+      "hl": 0
+     },
+     {
+      "buff": "bind_in_darkness",
+      "opt": 35.0,
+      "hl": 0
+     },
+     {
+      "buff": "swift_and_painful",
+      "opt": 18.6,
+      "hl": 0
+     }
+    ]
+   },
+   "3": {
+    "loss": -3.9,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "frostscythe",
+      "dps_gap": 97656.94592441162,
+      "share": 19.523267591603314,
+      "label": "target-count",
+      "casts_opt": 129.5,
+      "casts_hl": 0
+     },
+     {
+      "ability": "howling_blast",
+      "dps_gap": 3113.554272110334,
+      "share": 0.6224519171676725,
+      "label": "threshold",
+      "casts_opt": 62.3,
+      "casts_hl": 61.9
+     },
+     {
+      "ability": "frostwyrms_fury",
+      "dps_gap": 3107.1674585813325,
+      "share": 0.6211750856181698,
+      "label": "threshold",
+      "casts_opt": 7.4,
+      "casts_hl": 7.5
+     }
+    ],
+    "fixable_share": 32,
+    "waste": [],
+    "buffs": []
+   },
+   "5": {
+    "loss": -1.0,
+    "corrected_loss": null,
+    "artifact_share": 0,
+    "gaps": [
+     {
+      "ability": "frostwyrms_fury",
+      "dps_gap": 4803.412796806417,
+      "share": 0.6522599664869325,
+      "label": "threshold",
+      "casts_opt": 7.4,
+      "casts_hl": 7.5
+     }
+    ],
+    "fixable_share": 60,
+    "waste": [],
+    "buffs": []
+   }
+  },
+  "simc_only": [
+   "breath_of_sindragosa",
+   "raise_dead"
+  ],
+  "override_gain": 0.0,
+  "avg_loss": -1.9,
+  "est_recoverable": 0.7,
+  "patterns": [
+   "never suggested in game: breath_of_sindragosa, raise_dead"
+  ]
+ },
+ {
+  "spec": "Retribution Paladin",
+  "fights": {
+   "1": {
+    "loss": -6.6,
+    "corrected_loss": 0.5,
+    "artifact_share": 4.2,
+    "gaps": [
+     {
+      "ability": "dawnlight",
+      "dps_gap": 26860.108533427097,
+      "share": 11.737856917669225,
+      "label": "indirect",
+      "casts_opt": 30.7,
+      "casts_hl": 0
+     },
+     {
+      "ability": "blade_of_justice_walk_into_light",
+      "dps_gap": 13825.351455853473,
+      "share": 6.041673175793106,
+      "label": "indirect",
+      "casts_opt": 38.5,
+      "casts_hl": 0
+     },
+     {
+      "ability": "divine_arbiter",
+      "dps_gap": 12528.587811473935,
+      "share": 5.474987970674904,
+      "label": "indirect",
+      "casts_opt": 37.0,
+      "casts_hl": 17.5
+     },
+     {
+      "ability": "hammer_of_wrath",
+      "dps_gap": 9597.395930057735,
+      "share": 4.194058265589041,
+      "label": "button-override",
+      "casts_opt": 33.2,
+      "casts_hl": 0
+     },
+     {
+      "ability": "divine_storm",
+      "dps_gap": 8669.382608918144,
+      "share": 3.788516807419895,
+      "label": "target-count",
+      "casts_opt": 39.0,
+      "casts_hl": 5.5
+     },
+     {
+      "ability": "suns_avatar",
+      "dps_gap": 6469.916674909805,
+      "share": 2.8273510549975396,
+      "label": "indirect",
+      "casts_opt": 223.0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "highlords_judgment",
+      "dps_gap": 3374.4538889576356,
+      "share": 1.4746350289152566,
+      "label": "indirect",
+      "casts_opt": 33.0,
+      "casts_hl": 21.6
+     },
+     {
+      "ability": "execution_sentence",
+      "dps_gap": 2493.817787122065,
+      "share": 1.0897973970413606,
+      "label": "threshold",
+      "casts_opt": 5.2,
+      "casts_hl": 5.5
+     }
+    ],
+    "fixable_share": 5,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "born_in_sunlight",
+      "opt": 42.1,
+      "hl": 0
+     },
+     {
+      "buff": "blessing_of_anshe",
+      "opt": 19.7,
+      "hl": 0
+     },
+     {
+      "buff": "dawnlight",
+      "opt": 12.5,
+      "hl": 0
+     },
+     {
+      "buff": "rush_of_light",
+      "opt": 83.2,
+      "hl": 73.0
+     }
+    ]
+   },
+   "3": {
+    "loss": -23.1,
+    "corrected_loss": -13.7,
+    "artifact_share": 5.2,
+    "gaps": [
+     {
+      "ability": "hammer_of_wrath",
+      "dps_gap": 21452.008629719698,
+      "share": 4.284176673970738,
+      "label": "button-override",
+      "casts_opt": 29.9,
+      "casts_hl": 0
+     },
+     {
+      "ability": "blade_of_justice_walk_into_light",
+      "dps_gap": 21024.425422331904,
+      "share": 4.198784110743137,
+      "label": "indirect",
+      "casts_opt": 35.3,
+      "casts_hl": 0
+     },
+     {
+      "ability": "divine_arbiter",
+      "dps_gap": 20202.348176457977,
+      "share": 4.0346072160864805,
+      "label": "indirect",
+      "casts_opt": 37.3,
+      "casts_hl": 23.1
+     },
+     {
+      "ability": "divine_toll",
+      "dps_gap": 14123.217018689284,
+      "share": 2.8205450574483466,
+      "label": "target-count",
+      "casts_opt": 5.3,
+      "casts_hl": 0
+     },
+     {
+      "ability": "highlords_judgment",
+      "dps_gap": 13279.665953122825,
+      "share": 2.6520796302344007,
+      "label": "indirect",
+      "casts_opt": 90.8,
+      "casts_hl": 36.4
+     },
+     {
+      "ability": "execution_sentence",
+      "dps_gap": 11634.287267357926,
+      "share": 2.3234813573604676,
+      "label": "threshold",
+      "casts_opt": 5.2,
+      "casts_hl": 5.5
+     },
+     {
+      "ability": "divine_storm",
+      "dps_gap": 7652.513240864428,
+      "share": 1.528282003315229,
+      "label": "target-count",
+      "casts_opt": 145.2,
+      "casts_hl": 150.1
+     },
+     {
+      "ability": "dawnlight",
+      "dps_gap": 6212.199415669464,
+      "share": 1.2406371958006022,
+      "label": "indirect",
+      "casts_opt": 30.7,
+      "casts_hl": 29.8
+     }
+    ],
+    "fixable_share": 10,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "divine_resonance",
+      "opt": 14.7,
+      "hl": 0
+     }
+    ]
+   },
+   "5": {
+    "loss": -17.6,
+    "corrected_loss": -12.5,
+    "artifact_share": 5.4,
+    "gaps": [
+     {
+      "ability": "suns_avatar",
+      "dps_gap": 60551.14769604747,
+      "share": 8.129845815019802,
+      "label": "indirect",
+      "casts_opt": 394.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "dawnlight",
+      "dps_gap": 52510.16914329854,
+      "share": 7.05023100467993,
+      "label": "indirect",
+      "casts_opt": 30.7,
+      "casts_hl": 0
+     },
+     {
+      "ability": "divine_storm",
+      "dps_gap": 39427.735852089536,
+      "share": 5.293729772420812,
+      "label": "target-count",
+      "casts_opt": 145.1,
+      "casts_hl": 147.9
+     },
+     {
+      "ability": "hammer_of_wrath",
+      "dps_gap": 34115.36223492836,
+      "share": 4.5804686689963665,
+      "label": "button-override",
+      "casts_opt": 29.9,
+      "casts_hl": 0
+     },
+     {
+      "ability": "blade_of_justice_walk_into_light",
+      "dps_gap": 29313.208609945694,
+      "share": 3.935711797547406,
+      "label": "indirect",
+      "casts_opt": 35.3,
+      "casts_hl": 0
+     },
+     {
+      "ability": "divine_arbiter",
+      "dps_gap": 25211.27489884907,
+      "share": 3.384969328023176,
+      "label": "indirect",
+      "casts_opt": 37.2,
+      "casts_hl": 28.3
+     },
+     {
+      "ability": "highlords_judgment",
+      "dps_gap": 17382.671313440835,
+      "share": 2.3338688531690113,
+      "label": "indirect",
+      "casts_opt": 156.4,
+      "casts_hl": 87.1
+     },
+     {
+      "ability": "sun_sear",
+      "dps_gap": 14522.720955395878,
+      "share": 1.9498801703081925,
+      "label": "indirect",
+      "casts_opt": 604.7,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 6,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "born_in_sunlight",
+      "opt": 42.1,
+      "hl": 0
+     },
+     {
+      "buff": "blessing_of_anshe",
+      "opt": 19.5,
+      "hl": 0
+     },
+     {
+      "buff": "divine_resonance",
+      "opt": 14.6,
+      "hl": 0
+     },
+     {
+      "buff": "dawnlight",
+      "opt": 12.4,
+      "hl": 0
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "avenging_wrath"
+  ],
+  "override_gain": 7.2,
+  "avg_loss": -8.6,
+  "est_recoverable": 0.7,
+  "patterns": [
+   "never suggested in game: avenging_wrath",
+   "SimC button-override artifact (highlight +7.2 pts better than SimC showed)"
+  ]
+ },
+ {
+  "spec": "Shadow Priest",
+  "fights": {
+   "1": {
+    "loss": -22.5,
+    "corrected_loss": -2.0,
+    "artifact_share": 17.3,
+    "gaps": [
+     {
+      "ability": "void_volley",
+      "dps_gap": 22144.139864268895,
+      "share": 10.122173048001574,
+      "label": "button-override",
+      "casts_opt": 40.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "void_blast",
+      "dps_gap": 15779.002632778967,
+      "share": 7.212643893727246,
+      "label": "button-override",
+      "casts_opt": 29.9,
+      "casts_hl": 0
+     },
+     {
+      "ability": "shadow_word_pain",
+      "dps_gap": 10401.95076972189,
+      "share": 4.754772430687697,
+      "label": "proc-gated",
+      "casts_opt": 4.9,
+      "casts_hl": 6.6
+     },
+     {
+      "ability": "entropic_rift",
+      "dps_gap": 8164.832901503168,
+      "share": 3.7321770926125093,
+      "label": "indirect",
+      "casts_opt": 10.3,
+      "casts_hl": 0
+     },
+     {
+      "ability": "void_torrent",
+      "dps_gap": 7791.80823051258,
+      "share": 3.561666054744964,
+      "label": "threshold",
+      "casts_opt": 10.3,
+      "casts_hl": 0
+     },
+     {
+      "ability": "shadow_word_madness",
+      "dps_gap": 7451.146800163297,
+      "share": 3.4059483809084132,
+      "label": "threshold",
+      "casts_opt": 77.7,
+      "casts_hl": 69.3
+     },
+     {
+      "ability": "pet:thing_from_beyond",
+      "dps_gap": 4067.9332899834108,
+      "share": 1.8594682368033315,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "collapsing_void",
+      "dps_gap": 3533.468014434352,
+      "share": 1.6151620663936719,
+      "label": "indirect",
+      "casts_opt": 10.3,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 11,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "mental_fortitude",
+      "opt": 99.8,
+      "hl": 0
+     },
+     {
+      "buff": "voidheart",
+      "opt": 71.3,
+      "hl": 0
+     },
+     {
+      "buff": "entropic_rift",
+      "opt": 45.4,
+      "hl": 0
+     },
+     {
+      "buff": "collapsing_void",
+      "opt": 31.2,
+      "hl": 0
+     }
+    ]
+   },
+   "3": {
+    "loss": -29.9,
+    "corrected_loss": -12.1,
+    "artifact_share": 8.2,
+    "gaps": [
+     {
+      "ability": "shadow_word_pain",
+      "dps_gap": 48929.38829294982,
+      "share": 11.617251065048885,
+      "label": "proc-gated",
+      "casts_opt": 7.6,
+      "casts_hl": 69.3
+     },
+     {
+      "ability": "entropic_rift",
+      "dps_gap": 22701.974790337095,
+      "share": 5.390105006682819,
+      "label": "indirect",
+      "casts_opt": 10.2,
+      "casts_hl": 0
+     },
+     {
+      "ability": "void_volley",
+      "dps_gap": 20919.04475479881,
+      "share": 4.966785881369959,
+      "label": "button-override",
+      "casts_opt": 39.9,
+      "casts_hl": 0
+     },
+     {
+      "ability": "vampiric_touch",
+      "dps_gap": 15189.407090801997,
+      "share": 3.6064042870633304,
+      "label": "proc-gated",
+      "casts_opt": 78.9,
+      "casts_hl": 69.3
+     },
+     {
+      "ability": "void_blast",
+      "dps_gap": 13707.910670628922,
+      "share": 3.25465421485567,
+      "label": "button-override",
+      "casts_opt": 32.8,
+      "casts_hl": 0
+     },
+     {
+      "ability": "shadow_word_madness",
+      "dps_gap": 12124.75572652998,
+      "share": 2.878767470669233,
+      "label": "threshold",
+      "casts_opt": 87.4,
+      "casts_hl": 71.4
+     },
+     {
+      "ability": "shadeburst",
+      "dps_gap": 11168.294425506872,
+      "share": 2.6516759116768682,
+      "label": "indirect",
+      "casts_opt": 257.9,
+      "casts_hl": 203.5
+     },
+     {
+      "ability": "pet:thing_from_beyond",
+      "dps_gap": 9937.387683818859,
+      "share": 2.3594230723355,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     }
+    ],
+    "fixable_share": 7,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "voidheart",
+      "opt": 71.3,
+      "hl": 0
+     },
+     {
+      "buff": "entropic_rift",
+      "opt": 45.7,
+      "hl": 0
+     },
+     {
+      "buff": "collapsing_void",
+      "opt": 33.0,
+      "hl": 0
+     },
+     {
+      "buff": "darkening_horizon",
+      "opt": 29.0,
+      "hl": 0
+     }
+    ]
+   },
+   "5": {
+    "loss": -29.4,
+    "corrected_loss": -16.0,
+    "artifact_share": 3.8,
+    "gaps": [
+     {
+      "ability": "shadow_word_pain",
+      "dps_gap": 67695.01217909325,
+      "share": 10.688194254088337,
+      "label": "proc-gated",
+      "casts_opt": 10.0,
+      "casts_hl": 131.9
+     },
+     {
+      "ability": "void_volley",
+      "dps_gap": 24060.615414904125,
+      "share": 3.798869712100141,
+      "label": "button-override",
+      "casts_opt": 39.7,
+      "casts_hl": 0
+     },
+     {
+      "ability": "shadeburst",
+      "dps_gap": 16915.59811021707,
+      "share": 2.670761001531019,
+      "label": "indirect",
+      "casts_opt": 266.9,
+      "casts_hl": 219.8
+     },
+     {
+      "ability": "shadowy_apparitions",
+      "dps_gap": 15664.981978527943,
+      "share": 2.4733043836427355,
+      "label": "indirect",
+      "casts_opt": 989.3,
+      "casts_hl": 813.6
+     },
+     {
+      "ability": "pet:thing_from_beyond",
+      "dps_gap": 14679.013150710414,
+      "share": 2.317632259198623,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "shadow_word_madness",
+      "dps_gap": 13498.62953169557,
+      "share": 2.131264475099593,
+      "label": "threshold",
+      "casts_opt": 88.5,
+      "casts_hl": 75.1
+     },
+     {
+      "ability": "void_apparitions",
+      "dps_gap": 13072.322216123266,
+      "share": 2.0639558912895892,
+      "label": "indirect",
+      "casts_opt": 424.1,
+      "casts_hl": 348.9
+     },
+     {
+      "ability": "vampiric_touch",
+      "dps_gap": 12198.547363375226,
+      "share": 1.9259977898004996,
+      "label": "proc-gated",
+      "casts_opt": 131.4,
+      "casts_hl": 131.9
+     }
+    ],
+    "fixable_share": 5,
+    "waste": [],
+    "buffs": [
+     {
+      "buff": "voidform",
+      "opt": 25.3,
+      "hl": 0
+     },
+     {
+      "buff": "ancient_madness_extension",
+      "opt": 24.7,
+      "hl": 0
+     },
+     {
+      "buff": "freightrunners_flask",
+      "opt": 15.5,
+      "hl": 0
+     },
+     {
+      "buff": "void_volley",
+      "opt": 14.3,
+      "hl": 0
+     }
+    ]
+   }
+  },
+  "simc_only": [
+   "power_infusion"
+  ],
+  "override_gain": 17.2,
+  "avg_loss": -10.0,
+  "est_recoverable": 0.6,
+  "patterns": [
+   "never suggested in game: power_infusion",
+   "SimC button-override artifact (highlight +17.2 pts better than SimC showed)"
+  ]
+ },
+ {
+  "spec": "Havoc DH",
+  "fights": {
+   "1": {
+    "loss": -41.3,
+    "corrected_loss": -11.4,
+    "artifact_share": 28.7,
+    "gaps": [
+     {
+      "ability": "death_sweep",
+      "dps_gap": 32678.754969843045,
+      "share": 12.51895735846981,
+      "label": "button-override",
+      "casts_opt": 46.4,
+      "casts_hl": 0
+     },
+     {
+      "ability": "annihilation",
+      "dps_gap": 32483.881454939157,
+      "share": 12.44430294689176,
+      "label": "button-override",
+      "casts_opt": 122.6,
+      "casts_hl": 0
+     },
+     {
+      "ability": "burning_blades",
+      "dps_gap": 22657.742573407693,
+      "share": 8.679991431051736,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "demonsurge",
+      "dps_gap": 19012.807002591922,
+      "share": 7.283647138635395,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "essence_break",
+      "dps_gap": 10127.544265482084,
+      "share": 3.879777394291427,
+      "label": "proc-gated",
+      "casts_opt": 9.9,
+      "casts_hl": 7.8
+     },
+     {
+      "ability": "abyssal_gaze",
+      "dps_gap": 9810.903986309922,
+      "share": 3.758475155066329,
+      "label": "button-override",
+      "casts_opt": 6.5,
+      "casts_hl": 0
+     },
+     {
+      "ability": "font_of_venomous_rage",
+      "dps_gap": 4884.404647000814,
+      "share": 1.871174515483956,
+      "label": "indirect",
+      "casts_opt": 2.0,
+      "casts_hl": 2.0
+     }
+    ],
+    "fixable_share": 0,
+    "waste": [
+     {
+      "resource": "fury",
+      "opt": 0.6,
+      "hl": 31.8
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "immolation_aura",
+      "opt": 34.4,
+      "hl": 0
+     },
+     {
+      "buff": "demonsurge",
+      "opt": 67.0,
+      "hl": 40.4
+     },
+     {
+      "buff": "demonsurge_demonic_intensity",
+      "opt": 45.0,
+      "hl": 19.4
+     },
+     {
+      "buff": "metamorphosis",
+      "opt": 71.0,
+      "hl": 47.0
+     }
+    ]
+   },
+   "3": {
+    "loss": -32.4,
+    "corrected_loss": -13.9,
+    "artifact_share": 22.9,
+    "gaps": [
+     {
+      "ability": "wounded_quarry",
+      "dps_gap": 63251.53910424571,
+      "share": 13.858932265317906,
+      "label": "indirect",
+      "casts_opt": 187.2,
+      "casts_hl": 0
+     },
+     {
+      "ability": "soulscar",
+      "dps_gap": 61145.53346015582,
+      "share": 13.397489113338384,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "death_sweep",
+      "dps_gap": 55683.74067404167,
+      "share": 12.2007654076084,
+      "label": "button-override",
+      "casts_opt": 46.4,
+      "casts_hl": 0
+     },
+     {
+      "ability": "art_of_the_glaive",
+      "dps_gap": 30811.574941108436,
+      "share": 6.75106939916226,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "annihilation",
+      "dps_gap": 26304.69401959436,
+      "share": 5.763574734152211,
+      "label": "button-override",
+      "casts_opt": 115.0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "reavers_glaive",
+      "dps_gap": 22608.366813351386,
+      "share": 4.953679052446428,
+      "label": "button-override",
+      "casts_opt": 25.7,
+      "casts_hl": 0
+     },
+     {
+      "ability": "essence_break",
+      "dps_gap": 12598.05656366315,
+      "share": 2.7603377730097267,
+      "label": "proc-gated",
+      "casts_opt": 9.8,
+      "casts_hl": 7.8
+     },
+     {
+      "ability": "font_of_venomous_rage",
+      "dps_gap": 6405.265036519479,
+      "share": 1.4034462329245334,
+      "label": "indirect",
+      "casts_opt": 2.0,
+      "casts_hl": 2.0
+     }
+    ],
+    "fixable_share": 0,
+    "waste": [
+     {
+      "resource": "fury",
+      "opt": 3.5,
+      "hl": 33.5
+     }
+    ],
+    "buffs": [
+     {
+      "buff": "serrated_glaive",
+      "opt": 97.9,
+      "hl": 0
+     },
+     {
+      "buff": "thrill_of_the_fight_haste",
+      "opt": 96.9,
+      "hl": 0
+     },
+     {
+      "buff": "art_of_the_glaive",
+      "opt": 78.9,
+      "hl": 0
+     },
+     {
+      "buff": "thrill_of_the_fight_damage",
+      "opt": 69.0,
+      "hl": 0
+     }
+    ]
+   },
+   "5": {
+    "loss": -30.1,
+    "corrected_loss": -11.5,
+    "artifact_share": 13.6,
+    "gaps": [
+     {
+      "ability": "demonsurge",
+      "dps_gap": 61207.65817025662,
+      "share": 9.587291381846967,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "death_sweep",
+      "dps_gap": 45558.05480925343,
+      "share": 7.136008128778831,
+      "label": "button-override",
+      "casts_opt": 39.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "abyssal_gaze",
+      "dps_gap": 28750.07604413816,
+      "share": 4.503282179473313,
+      "label": "button-override",
+      "casts_opt": 4.0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "essence_break",
+      "dps_gap": 21148.374188464506,
+      "share": 3.3125859027828017,
+      "label": "proc-gated",
+      "casts_opt": 9.8,
+      "casts_hl": 7.8
+     },
+     {
+      "ability": "glaive_tempest",
+      "dps_gap": 14233.844115525393,
+      "share": 2.2295251133402028,
+      "label": "indirect",
+      "casts_opt": 49.5,
+      "casts_hl": 32.9
+     },
+     {
+      "ability": "annihilation",
+      "dps_gap": 12763.338928752395,
+      "share": 1.999191816403825,
+      "label": "button-override",
+      "casts_opt": 70.1,
+      "casts_hl": 0
+     },
+     {
+      "ability": "burning_blades",
+      "dps_gap": 12041.228069930516,
+      "share": 1.8860836299369668,
+      "label": "indirect",
+      "casts_opt": 0,
+      "casts_hl": 0
+     },
+     {
+      "ability": "font_of_venomous_rage",
+      "dps_gap": 7679.141790183516,
+      "share": 1.2028261185915365,
+      "label": "indirect",
+      "casts_opt": 2.0,
+      "casts_hl": 2.0
+     }
+    ],
+    "fixable_share": 3,
+    "waste": [
+     {
+      "resource": "fury",
+      "opt": 1.0,
+      "hl": 36.4
+     }
+    ],
+    "buffs": []
+   }
+  },
+  "simc_only": [
+   "felblade",
+   "metamorphosis",
+   "the_hunt",
+   "vengeful_retreat"
+  ],
+  "override_gain": 22.3,
+  "avg_loss": -12.3,
+  "est_recoverable": 0.1,
+  "patterns": [
+   "resource cap",
+   "never suggested in game: felblade, metamorphosis, the_hunt, vengeful_retreat",
+   "SimC button-override artifact (highlight +22.3 pts better than SimC showed)"
+  ]
+ }
+];
+const tbody = document.getElementById('rows');
+const name = s => s.replace(/_/g, ' ');
+const eff = (f) => f.corrected_loss !== null ? f.corrected_loss : f.loss;
+const sev = v => { const a = Math.abs(v); return a < 5 ? 's0' : a < 15 ? 's1' : a < 30 ? 's2' : 's3'; };
+const pct = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%';
+const LAB = { 'not-suggested': ['not suggested', 'fix'], 'simc-only': ['simc only', 'fix'], 'threshold': ['threshold', 'fix'],
+  'target-count': ['target count', 'fix'], 'proc-gated': ['proc gated', 'no'], 'indirect': ['indirect', ''], 'button-override': ['button override', ''], 'override-unresolved': ['override, real gap', 'maybe'], 'simc-artifact': ['SimC artifact', ''] };
+
+const rows = DATA.map(r => ({ ...r, l1: eff(r.fights['1']), l3: eff(r.fights['3']), l5: eff(r.fights['5']), rec: r.est_recoverable }));
+
+// Findings
+const cdSpecs = rows.filter(r => r.simc_only.length);
+const h3 = rows.filter(r => r.patterns.includes('3-target hole')).sort((a, b) => a.l3 - b.l3);
+const rc = rows.filter(r => r.patterns.includes('resource cap'));
+const art = rows.filter(r => r.override_gain >= 5).sort((a, b) => b.override_gain - a.override_gain);
+const f = document.getElementById('findings');
+const card = (n, t, p) => `<div class="finding"><div class="n">${n}</div><div class="t">${t}</div><p>${p}</p></div>`;
+f.innerHTML =
+  card(cdSpecs.length, 'specs with cooldowns the highlight never suggests', 'Their main cooldowns (Combustion, Trueshot, Summon Infernal, Avenging Wrath…) are missing from the in-game highlight. One reusable "cooldown ready" icon, like Frost\'s Breath of Sindragosa, covers all of them.') +
+  card(h3.length, 'specs with a 3-target hole', 'AoE rules start above 3 enemies, so exactly 3 plays like single target. Worst: ' + h3.slice(0, 3).map(r => `${r.spec} ${pct(r.l3)}`).join(', ') + '. An addon can fix these: enemy counts work in combat when enemy nameplates are on (confirmed in game).') +
+  card(rc.length, 'specs wasting resources', 'Spenders only fire on procs or late in the priority, so a resource caps. Fixable with a "spend at cap" rule, as for Unholy and Blood.') +
+  card(art.length, 'specs SimC made look much worse', art.map(r => `${r.spec} (+${r.override_gain} pts)`).join(', ') + '. SimC\'s highlight sim couldn\'t press button overrides; with them working as in game, the losses shrink by this much on average.');
+
+// Shortlist
+const shortlist = [
+  ['Devastation Evoker ✓', 'Done in Assist Companion 0.20.0: essence cap, Pyre at 3 targets, empower ranks. Azure Sweep turned out to be a SimC artifact, not a real gap.'],
+  ['Elemental Shaman', 'Worst 3-target hole (' + pct(rows.find(r => r.spec === 'Elemental Shaman').l3) + ') and Ascendance is never suggested.'],
+  ['Windwalker Monk', '3-target hole, resource waste, and four major cooldowns never suggested (Xuen, Zenith, Celestial Conduit, Touch of Karma).'],
+  ['Cooldown-ready template (all specs)', 'Built (0.11): Frost, Blood and Augmentation use it. Next: switch it on per spec with just the cooldown list. Cheapest win across the most specs.'],
+];
+document.getElementById('shortlist').innerHTML = shortlist.map(([s, w]) => `<li><strong>${s}</strong> <span class="why">${w}</span></li>`).join('');
+
+// Table
+let sortKey = 'rec', sortDir = -1;
+const open = new Set();
+// Specs Assist Companion corrects today.
+const ADDON = { 'Blood DK (tank)': true, 'Frost DK': true, 'Unholy DK': true, 'Devastation Evoker': true };
+function chips(r) {
+  const out = [];
+  if (ADDON[r.spec]) out.push(`<span class="chip addon" title="Assist Companion corrects this spec's highlight">In Assist Companion</span>`);
+  if (r.simc_only.length) out.push(`<span class="chip cd" title="${r.simc_only.map(name).join(', ')}">${r.simc_only.length} cooldown${r.simc_only.length > 1 ? 's' : ''} never suggested</span>`);
+  if (r.patterns.includes('3-target hole')) out.push('<span class="chip h3">3-target hole</span>');
+  if (r.patterns.includes('resource cap')) out.push('<span class="chip rc">resource waste</span>');
+  if (r.patterns.includes('missing from highlight')) out.push('<span class="chip miss">abilities missing</span>');
+  if (r.patterns.some(p => p.startsWith('SimC button-override'))) out.push('<span class="chip art">SimC artifact corrected</span>');
+  return `<div class="chips">${out.join('')}</div>`;
+}
+function lossCell(fx) {
+  const v = eff(fx);
+  const was = fx.corrected_loss !== null && Math.abs(fx.corrected_loss - fx.loss) >= 1 ? `<span class="was">${pct(fx.loss)}</span>` : '';
+  return `<td class="loss"><span class="${sev(v)}">${pct(v)}</span>${was}</td>`;
+}
+function detail(r) {
+  const cols = ['1', '3', '5'].map(t => {
+    const fx = r.fights[t];
+    const gaps = fx.gaps.slice(0, 6).map(g => {
+      const [txt, cls] = LAB[g.label] || [g.label, ''];
+      return `<div class="gap"><span class="nm">${name(g.ability)} <span class="small">(${g.casts_opt} → ${g.casts_hl} casts)</span></span><span class="sh">${g.share.toFixed(1)}%</span><span class="lab ${cls}">${txt}</span></div>`;
+    }).join('') || '<p class="small">No single ability gap above 0.5%.</p>';
+    const waste = fx.waste.length ? `<p class="small">Resource waste: ${fx.waste.map(w => `${name(w.resource)} ${w.opt}% → ${w.hl}%`).join(', ')}</p>` : '';
+    const buffs = fx.buffs.length ? `<p class="small">Buff uptime: ${fx.buffs.map(b => `${name(b.buff)} ${b.opt}% → ${b.hl}%`).join(', ')}</p>` : '';
+    return `<div class="dcol"><h3>${t} target${t === '1' ? '' : 's'} · ${pct(eff(fx))} · ${fx.fixable_share}% of gap looks fixable</h3>${gaps}${waste}${buffs}</div>`;
+  }).join('');
+  const cds = r.simc_only.length ? `<p class="small" style="margin-top:10px"><strong>Never suggested in game:</strong> ${r.simc_only.map(name).join(', ')}</p>` : '';
+  return `<div class="dgrid">${cols}</div>${cds}`;
+}
+function render() {
+  const sorted = [...rows].sort((a, b) => {
+    const x = a[sortKey], y = b[sortKey];
+    if (typeof x === 'string') return sortDir * x.localeCompare(y);
+    return sortDir * (x - y);
+  });
+  tbody.innerHTML = sorted.map((r, i) => {
+    const id = 'd' + r.spec.replace(/\W/g, '');
+    const isOpen = open.has(r.spec);
+    return `<tr class="row" tabindex="0" data-spec="${r.spec}" aria-expanded="${isOpen}" aria-controls="${id}">
+        <td class="left spec"><span class="caret">▸</span> ${r.spec}</td>
+        ${lossCell(r.fights['1'])}${lossCell(r.fights['3'])}${lossCell(r.fights['5'])}
+        <td class="rec">${r.rec.toFixed(1)}%</td>
+        <td class="left">${chips(r)}</td>
+      </tr>` + (isOpen ? `<tr class="detail" id="${id}"><td colspan="6">${detail(r)}</td></tr>` : '');
+  }).join('');
+  document.querySelectorAll('thead th[data-key]').forEach(th => {
+    const on = th.dataset.key === sortKey;
+    if (on) th.setAttribute('aria-sort', sortDir === 1 ? 'ascending' : 'descending'); else th.removeAttribute('aria-sort');
+    th.querySelector('.arrow').textContent = on && sortDir === -1 ? '▼' : '▲';
+  });
+}
+document.querySelectorAll('thead th[data-key] button').forEach(b => b.addEventListener('click', () => {
+  const k = b.parentElement.dataset.key;
+  if (k === sortKey) sortDir = -sortDir; else { sortKey = k; sortDir = k === 'spec' ? 1 : (k === 'rec' ? -1 : 1); }
+  render();
+}));
+function toggle(tr) { const s = tr.dataset.spec; open.has(s) ? open.delete(s) : open.add(s); render(); }
+tbody.addEventListener('click', e => { const tr = e.target.closest('tr.row'); if (tr) toggle(tr); });
+tbody.addEventListener('keydown', e => {
+  const tr = e.target.closest('tr.row');
+  if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggle(tr); }
+});
+render();
+</script>
+
+</body></html>
