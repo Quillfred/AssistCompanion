@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.20.2
+
+* **Debug log keeps 5000 lines** (was 500), enough for a whole boss fight (about 3 lines a second). Clear it between fights with ctrl-click on the minimap button.
+
 ## 0.20.1
 
 * **Augmentation: Time Skip is counted for as long as you actually channel it.** The addon assumed every Time Skip lasted its full 2 seconds and gave all your cooldowns 18 seconds for it. In your raid log (The Lost Explorers), one Time Skip ended the moment it started, and the addon then showed Ebon Might, Fire Breath and Upheaval about 13-17 seconds early and Breath of Eons about 19 seconds early. Under Fury of the Aspects the channel was also shorter (1.37s, haste). The addon now sees when the channel ends and counts only that.
