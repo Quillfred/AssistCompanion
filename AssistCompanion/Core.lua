@@ -30,6 +30,7 @@ local DEFAULTS = {
   healthFull = 35,         -- health % at or below which it's fully visible
   healthNone = 50,         -- health % at or above which it's invisible
   healthPoint = { "CENTER", "UIParent", "CENTER", 60, -100 },
+  powerPoint = { "CENTER", "UIParent", "CENTER", -60, -100 }, -- runic power icon (when the game hides runic power)
   minimapButton = true,    -- minimap button (left-click: options, right-click: lock/unlock)
   minimapAngle = 225,      -- its position around the minimap, degrees
   disabled = {},           -- rules turned off, as "<specID>:<key>" (options menu or /ac toggle <key>)
@@ -935,9 +936,86 @@ local function updateHealthIcon()
   if not ok or alpha == nil or not pcall(hf.SetAlpha, hf, alpha) then hf:SetAlpha(0) end
 end
 
+---------------------------------------------------------------------------
+-- Runic power icon (Rules.lua: ns.powerIcon). Runic power is hidden from addons (owner's logs:
+-- rp=hidden), so the "runic power cap" rules can't compare it. Like the low-health icon, the
+-- GAME evaluates a curve on your runic power (UnitPowerPercent) and the result drives this
+-- icon's alpha: invisible below the rule's threshold, fully visible at or above it. Only used
+-- while runic power is hidden; when it's readable the rule itself shows on the next-cast icon.
+---------------------------------------------------------------------------
+local pf = CreateFrame("Frame", "AssistCompanionPower", UIParent, "BackdropTemplate")
+makeMovable(pf, "powerPoint")
+pf.icon = pf:CreateTexture(nil, "ARTWORK")
+pf.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+pf.icon:SetPoint("CENTER")
+pf.black = blackBorder(pf, pf.icon)
+pf.glow = pf:CreateTexture(nil, "BORDER", nil, 0)
+pf.glow:SetColorTexture(0.25, 0.6, 1, 1) -- blue: runic power
+pf.glow:SetPoint("TOPLEFT", pf.icon, -BLACK_EDGE - 2, BLACK_EDGE + 2)
+pf.glow:SetPoint("BOTTOMRIGHT", pf.icon, BLACK_EDGE + 2, -BLACK_EDGE - 2)
+pf.key = pf:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+pf.key:SetPoint("TOPRIGHT", pf.icon, "TOPRIGHT", -2, -2)
+
+local powerCurve, powerCurveFor
+local powerIconState = "off" -- for the debug log: off / no api / error / hidden / a number
+-- Step curve: 0 below `frac` of max, 1 at or above. Covers both 0-1 and 0-100 scales like the
+-- health curve (on a 0-100 scale only exactly 1% would also light it, which never lasts).
+local function buildPowerCurve(frac)
+  if not (C_CurveUtil and C_CurveUtil.CreateCurve) then return nil end
+  local ok, c = pcall(C_CurveUtil.CreateCurve)
+  if not ok or not c then return nil end
+  if c.SetType and Enum and Enum.LuaCurveType then pcall(c.SetType, c, Enum.LuaCurveType.Linear) end
+  local t = math.max(0.01, math.min(0.99, frac))
+  c:AddPoint(0, 0); c:AddPoint(t - 0.001, 0); c:AddPoint(t, 1); c:AddPoint(1.0, 1)
+  local T = t * 100
+  c:AddPoint(1.001, 0); c:AddPoint(T - 0.1, 0); c:AddPoint(T, 1); c:AddPoint(100, 1)
+  return c
+end
+
+local function layoutPower()
+  local s = db.iconSize
+  pf:SetSize(s + 8, s + 8)
+  pf.icon:SetSize(s, s)
+  placeFrame(pf, "powerPoint")
+end
+
+local function updatePowerIcon(c)
+  local cfg = ns.powerIcon and specID and ns.powerIcon[specID]
+  if not cfg or not ns.ruleEnabled(specID, cfg.rule) then pf:Hide() powerIconState = "off" return end
+  local spell = cfg.spell
+  if type(spell) == "function" then spell = spell(c) end
+  if not spell or not knows(spell) then pf:Hide() powerIconState = "off" return end
+  pf.icon:SetTexture(spellIcon(spell))
+  pf.key:SetText(keybindFor(spell) or "")
+  if not db.locked then pf:Show() pf:SetAlpha(1) return end -- fully visible while positioning
+  -- Readable runic power: the rule shows it on the next-cast icon instead.
+  if c.power ~= nil or not inCombat then pf:Hide() powerIconState = c.power ~= nil and "readable" or "off" return end
+  local okWhen, when = pcall(cfg.when, c)
+  if not okWhen or not when then pf:Hide() powerIconState = "waiting" return end
+  local okAt, at = pcall(cfg.at, c)
+  local max = c.powerMax or 100
+  if not okAt or type(at) ~= "number" or max <= 0 then pf:Hide() return end
+  local frac = at / max
+  local key = string.format("%.3f", frac)
+  if powerCurveFor ~= key then powerCurve, powerCurveFor = buildPowerCurve(frac), key end
+  if not powerCurve or not UnitPowerPercent then pf:Hide() powerIconState = "no api" return end
+  local ok, alpha = pcall(UnitPowerPercent, "player", powerType(), false, powerCurve)
+  if not ok or alpha == nil then
+    if powerIconState ~= "error" then dlog("runic power icon: UnitPowerPercent failed: %s", tostring(alpha)) end
+    pf:Hide() powerIconState = "error" return
+  end
+  pf:Show()
+  if not pcall(pf.SetAlpha, pf, alpha) then
+    if powerIconState ~= "error" then dlog("runic power icon: the game refused the alpha") end
+    pf:Hide() powerIconState = "error" return
+  end
+  powerIconState = (issecretvalue and issecretvalue(alpha)) and "hidden" or tostring(alpha)
+end
+
 local function layoutAll()
   layoutNext()
   layoutHealth()
+  layoutPower()
   placeFrame(frame, "point")
   placeFrame(ob, "openerPoint")
 end
@@ -966,7 +1044,7 @@ local function tick()
   if not db then return end
   -- Dead or a ghost: hide everything until you're back up (unless you want it shown).
   if not db.showWhenDead and playerDead() then
-    nf:Hide(); ob:Hide(); hf:Hide(); frame:Hide()
+    nf:Hide(); ob:Hide(); hf:Hide(); pf:Hide(); frame:Hide()
     return
   end
   local openerStep = renderOpener()
@@ -990,6 +1068,7 @@ local function tick()
   ctx.inCombat = inCombat
   ctx.enemies = countEnemies()
   ctx.inMelee = inMelee()
+  updatePowerIcon(ctx)
 
   local onTick = ns.onTick and specID and ns.onTick[specID]
   if onTick then pcall(onTick, ctx) end
@@ -1057,6 +1136,7 @@ local function tick()
           local ok, raw = pcall(UnitPower, "player", powerType())
           rpText = (ok and issecretvalue and issecretvalue(raw)) and "hidden" or (ok and tostring(raw) or "error")
         end
+        if ns.powerIcon and specID and ns.powerIcon[specID] then extra = extra .. " rpicon=" .. powerIconState end
         dlog("status: highlight=%s rp=%s/%s%s runes=%s enemies=%s (%s) melee=%s opener=%s%s%s%s",
           ctx.next and (spellName(ctx.next) .. " " .. ctx.next) or "none",
           rpText, tostring(ctx.powerMax), powerMaxCache and "" or "(fb)",
@@ -1213,7 +1293,7 @@ SLASH_ASSISTCOMPANION2 = "/assistcompanion"
 SlashCmdList.ASSISTCOMPANION = function(input)
   local cmd, arg = (input or ""):lower():match("^(%S*)%s*(.-)$")
   if cmd == "unlock" then
-    db.locked = false; layoutAll(); nf:Show(); ob:Show(); frame:SetShown(db.showText); updateHealthIcon()
+    db.locked = false; layoutAll(); nf:Show(); ob:Show(); frame:SetShown(db.showText); updateHealthIcon(); updatePowerIcon(ctx)
     say("Unlocked. Drag the next-cast icon and the opener bar, then type /ac lock.")
   elseif cmd == "lock" then
     db.locked = true; layoutAll(); say("Locked.")
@@ -1316,7 +1396,7 @@ SlashCmdList.ASSISTCOMPANION = function(input)
   elseif cmd == "reset" then
     db.point = CopyTable(DEFAULTS.point); db.openerPoint = CopyTable(DEFAULTS.openerPoint)
     db.nextPoint = CopyTable(DEFAULTS.nextPoint); db.iconSize = DEFAULTS.iconSize
-    db.healthPoint = CopyTable(DEFAULTS.healthPoint)
+    db.healthPoint = CopyTable(DEFAULTS.healthPoint); db.powerPoint = CopyTable(DEFAULTS.powerPoint)
     db.scale = DEFAULTS.scale; layoutAll(); say("Position and size reset.")
   else
     say("commands (/ac on its own opens the options menu):")

@@ -121,7 +121,7 @@ ns.rules[252] = {
     key = "rpcap",
     name = "Runic power cap",
     spell = S.DEATH_COIL,
-    desc = "Shows Death Coil (1-3 targets) or Epidemic (4+) when runic power is about to cap.",
+    desc = "Shows Death Coil (1-3 targets) or Epidemic (4+) when runic power is about to cap. While the game hides runic power, a separate blue-bordered icon fades in instead (the game decides when; move it with /ac unlock). Counting targets needs enemy nameplates on.",
     -- The highlight only spends runic power on procs, or when you're out of runes.
     check = function(ctx)
       local p = ctx.power
@@ -182,7 +182,7 @@ ns.rules[250] = {
     key = "rpcap",
     name = "Death Strike at runic power cap",
     spell = S.DEATH_STRIKE,
-    desc = "Shows Death Strike within 20 runic power of max.",
+    desc = "Shows Death Strike within 20 runic power of max. While the game hides runic power, a separate blue-bordered icon fades in instead (the game decides when; move it with /ac unlock).",
     -- Optimal spends Death Strike within 20 runic power of max; the highlight wastes 7-12% in AoE.
     check = function(ctx)
       local p = ctx.power
@@ -1056,6 +1056,28 @@ ns.countRangeSpell = {
 -- Low-health icon: fades in as your health drops (the game evaluates your hidden health).
 ns.healthIcon = {
   [250] = { spell = S.DEATH_STRIKE },
+}
+
+-- Runic power icon (Core.lua): runic power is hidden from addons, so these rules' thresholds go
+-- to the game as a curve and a separate icon fades in at or above them. `rule` = the rule it
+-- stands in for (its on/off toggle covers this icon), `when` = readable conditions,
+-- `at` = runic power to show at.
+ns.powerIcon = {
+  [252] = {
+    rule = "rpcap",
+    spell = function(ctx)
+      if ctx.enemies and ctx.enemies >= 4 and ctx.knows(S.EPIDEMIC) then return S.EPIDEMIC end
+      return S.DEATH_COIL
+    end,
+    when = function(ctx) return isRuneSpender(ctx, ctx.next) end,
+    at = function(ctx) return ctx.db.unholyRP end,
+  },
+  [250] = {
+    rule = "rpcap",
+    spell = S.DEATH_STRIKE,
+    when = function(ctx) return ctx.next ~= S.DEATH_STRIKE end,
+    at = function(ctx) return (ctx.powerMax or 100) - 20 end,
+  },
 }
 
 -- Secondary reminder shown under the main alert (never replaces it).

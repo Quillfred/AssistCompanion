@@ -1555,6 +1555,63 @@ state.spec = 252; events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED"
 state.rp = "SECRET"; state.next = 55090; step()
 expect("Secret runic power -> no alert, no error", "nothing", (seen()))
 
+-- RUNIC POWER ICON (runic power hidden: the game evaluates a curve on it) -------------
+do
+  local pf = AssistCompanionPower
+  state.rpPct, state.rpScale = 0.9, 1
+  function UnitPowerPercent(unit, ptype, predicted, curve)
+    state.rpAskedType = ptype
+    return curve:Evaluate(state.rpPct * state.rpScale)
+  end
+  AssistCompanionDB.locked = true
+  state.spec = 252; state.known = { [207317] = true, [47541] = true }; state.overrides = {}
+  events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+  state.rp = "SECRET"; state.next = 55090; state.plates = 1
+  combat(true); step()
+  expect("RP icon: Unholy, hidden 90% RP + Scourge -> Death Coil icon shown", true, pf.shown and pf.alpha == 1)
+  expect("RP icon: shows Death Coil on 1 target", "icon:47541", pf.icon.texture)
+  expect("RP icon: asks for runic power", 6, state.rpAskedType)
+  state.rpPct = 0.7; step()
+  expect("RP icon: 70% (below 80) -> invisible", 0, pf.alpha)
+  state.rpPct, state.rpScale = 85, 1; step()
+  expect("RP icon: 0-100 scale, 85 -> visible", 1, pf.alpha)
+  state.rpPct = 50; step()
+  expect("RP icon: 0-100 scale, 50 -> invisible", 0, pf.alpha)
+  state.rpPct = 0.9; state.plates = 5; step()
+  expect("RP icon: 5 targets -> Epidemic", "icon:207317", pf.icon.texture)
+  state.next = 77575; step()
+  expect("RP icon: highlight not on a rune spender -> hidden", false, pf.shown)
+  state.next = 55090; state.rp = 90; step()
+  expect("RP icon: readable runic power -> hidden (the rule shows on the next-cast icon)", false, pf.shown)
+  expect("RP icon: ...and the rule fires", "icon:207317", nf.icon.texture)
+  state.rp = "SECRET"; ns.setRuleEnabled(252, "rpcap", false); step()
+  expect("RP icon: rule turned off -> hidden", false, pf.shown)
+  ns.setRuleEnabled(252, "rpcap", true)
+  combat(false); step()
+  expect("RP icon: out of combat -> hidden", false, pf.shown)
+  -- Blood: within 20 of max (100 in the mock -> 80%)
+  state.spec = 250; state.known = { [49998] = true }; state.next = 206930
+  events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+  combat(true); state.rpPct = 0.85; step()
+  expect("RP icon: Blood 85% -> Death Strike", true, pf.shown and pf.alpha == 1 and pf.icon.texture == "icon:49998")
+  state.rpPct = 0.75; step()
+  expect("RP icon: Blood 75% -> invisible", 0, pf.alpha)
+  state.next = 49998; step()
+  expect("RP icon: Blood, highlight already on Death Strike -> hidden", false, pf.shown)
+  -- debug line
+  AssistCompanionDB.debugLog = {}; AssistCompanionDB.debug = true
+  state.next = 206930; for _ = 1, 12 do step() end
+  local found = false
+  for _, l in ipairs(AssistCompanionDB.debugLog) do if l:find("rpicon=0", 1, true) then found = true end end
+  expect("RP icon: debug status shows rpicon=", true, found)
+  -- API errors are logged, icon hidden
+  UnitPowerPercent = function() error("bad args") end; step()
+  found = false
+  for _, l in ipairs(AssistCompanionDB.debugLog) do if l:find("UnitPowerPercent failed", 1, true) then found = true end end
+  expect("RP icon: API error logged and icon hidden", true, found and not pf.shown)
+  UnitPowerPercent = nil; AssistCompanionDB.debug = false; combat(false); state.rp = 10; step()
+end
+
 io.stdout:write(table.concat(printed, "\n"), "\n")
 io.stdout:write(("\n%d passed, %d failed\n"):format(pass, fail))
 os.exit(fail == 0 and 0 or 1)

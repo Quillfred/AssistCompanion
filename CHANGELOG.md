@@ -1,5 +1,10 @@
 # Assist Companion
 
+## 0.18.0
+
+* **Runic power icon (Unholy and Blood).** The game now hides your runic power from addons, so the "runic power cap" suggestions stopped showing. While it's hidden, a separate icon with a **blue border** appears instead: Death Coil (Epidemic on 4+ targets) for Unholy when the highlight asks for a rune spender, Death Strike for Blood within 20 of max. The addon can't see the number, so it hands the threshold to the game and the game makes the icon visible. Move it with `/ac unlock`. It's turned on or off with the same "Runic power cap" box in the options menu. This is a first try: if the game blocks it, the debug log says so (`rpicon=` on the status lines).
+* Unholy's target count (Death Coil vs Epidemic) needs enemy nameplates turned on: addons can only count enemies that have a nameplate.
+
 ## 0.17.4
 
 * **Opener fix after a fight on a dummy:** with some of its cooldowns still running, the opener skipped those steps, then reset itself again every frame (it filled the debug log). Steps skipped for cooldowns no longer count as casts, so it settles on the first step that's ready.
