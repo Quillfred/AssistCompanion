@@ -940,6 +940,24 @@ ns.openers[252] = {                     -- Unholy
   { id = S.DEATH_COIL },
 }
 
+-- Devastation, from SimC's optimal list (Scalecommander list `sc`, Flameshaper list `fs`); Living
+-- Flame is SimC's pre-pull cast. Scalecommander: Dragonrage, Eternity Surge, Tip the Scales into Fire
+-- Breath, Deep Breath (with Melt Armor / Maneuverability, as in the Deep Breath rule), then the Mass
+-- Disintegrate. Flameshaper: Dragonrage, Tip the Scales into
+-- Eternity Surge (SimC: Tip during Dragonrage when Eternity Surge comes before Fire Breath), Fire
+-- Breath, Disintegrate.
+ns.openers[1467] = {
+  { id = S.LIVING_FLAME },                                              -- before the pull
+  { id = S.DRAGONRAGE },
+  { id = S.TIP_THE_SCALES, without = S.MASS_DISINTEGRATE },             -- Flameshaper: Tip first
+  { id = S.ETERNITY_SURGE, alt = S.ETERNITY_SURGE_FOM },
+  { id = S.TIP_THE_SCALES, needs = S.MASS_DISINTEGRATE },               -- Scalecommander: Tip then Fire Breath
+  { id = S.FIRE_BREATH, alt = S.FIRE_BREATH_FOM },
+  { id = S.DEEP_BREATH, alt = S.DEEP_BREATH_STEER, needs = { S.MELT_ARMOR, S.MANEUVERABILITY } }, -- Scalecommander
+  { id = S.DISINTEGRATE },
+  { id = S.DISINTEGRATE, without = S.MASS_DISINTEGRATE },
+}
+
 ns.openers[250] = {                     -- Blood
   { id = S.DEATHS_CARESS },             -- before the pull (ranged; applies Bone Shield)
   { id = 46585, skipIfPet = true },     -- Raise Dead

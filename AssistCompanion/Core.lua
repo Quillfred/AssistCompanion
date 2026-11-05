@@ -814,8 +814,16 @@ local function buildOpener()
   local list = specID and ns.openers and ns.openers[specID]
   if not list then return end
   local hasPet = try(UnitExists, "pet")
+  -- Step options: needs = talent required (spell ID, or a list: any of them); without = a talent
+  -- that rules the step out; alt = another ID the same step can be cast as (e.g. Font of Magic).
+  local function knowsAny(x)
+    if type(x) ~= "table" then return knows(x) end
+    for _, id in ipairs(x) do if knows(id) then return true end end
+    return false
+  end
   for _, step in ipairs(list) do
-    if knows(step.id) and not (step.skipIfPet and hasPet) then
+    if (knows(step.id) or (step.alt and knows(step.alt))) and not (step.skipIfPet and hasPet)
+       and (not step.needs or knowsAny(step.needs)) and not (step.without and knowsAny(step.without)) then
       opener.steps[#opener.steps + 1] = step
     end
   end
@@ -827,7 +835,7 @@ local function advanceOpener(id)
   local steps = opener.steps
   for k = opener.index, math.min(opener.index + 2, #steps) do
     local want = steps[k].id
-    if id == want or id == override(want) then
+    if id == want or id == override(want) or (steps[k].alt and id == steps[k].alt) then
       dlog("opener: step %d/%d done (%s)%s", k, #steps, spellName(want),
         k > opener.index and (" - skipped ahead from step " .. opener.index) or "")
       opener.index = k + 1

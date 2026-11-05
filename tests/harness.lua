@@ -1741,6 +1741,20 @@ do
   threat = { nameplate1 = "SECRET", nameplate2 = "SECRET" }; issecretvalue = function(v) return v == "SECRET" end; step()
   expect("Enemies (ranged): threat hidden -> range count (2)", "2", nf.rank.text)
   issecretvalue = nil; UnitThreatSituation = nil; talented(436335, false)
+  -- Opener (SimC's optimal list): Scalecommander vs Flameshaper order
+  combat(false); now = now + 500
+  state.known = { [361469]=true, [375087]=true, [370553]=true, [359073]=true, [357208]=true, [356995]=true,
+                  [357210]=true, [436335]=true, [441176]=true }          -- Scalecommander with Melt Armor
+  events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED"); state.target = true; step()
+  expect("Devastation opener (Scalecommander): Living Flame, Dragonrage, Eternity Surge, Tip, Fire Breath, Deep Breath",
+    "icon:361469,icon:375087,icon:359073,icon:370553,icon:357208,icon:357210", openerIcons())
+  cast(361469); cast(375087); cast(382411); step()                    -- Eternity Surge cast as its Font of Magic ID
+  expect("Devastation opener: Font of Magic Eternity Surge counts as the step (4 of 7)", "Opener\n4/7", ob.label.text)
+  state.known[436335] = nil; state.known[441176] = nil; state.known[1264269] = true  -- Flameshaper
+  events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+  expect("Devastation opener (Flameshaper): Living Flame, Dragonrage, Tip, Eternity Surge, Fire Breath, Disintegrate",
+    "icon:361469,icon:375087,icon:370553,icon:359073,icon:357208,icon:356995", openerIcons())
+  state.target = nil
   expect("Devastation: listed in the options tree", true, (function()
     for _, sp in ipairs(ns.specInfo) do if sp.id == 1467 then return true end end return false end)())
   combat(false); state.rpmax = nil; state.rp = 10; state.plates = 0; state.next = nil
