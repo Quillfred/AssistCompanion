@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.18.0** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.18.1** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -139,7 +139,8 @@ prefers: 48px icon, text alerts off, HIGH strata (now an option, `db.strata`, 0.
 * **Runic power is hidden** (confirmed 0.17.2-0.17.4: `rp=hidden`). 0.18.0 adds a separate runic power icon
   (Core.lua `pf`, Rules.lua `ns.powerIcon`) whose alpha comes from `UnitPowerPercent("player", 6, false, curve)`
   with a step curve at the rule's threshold. **To confirm in game on Unholy/Blood:** the status line's
-  `rpicon=` reads `hidden` (working: the game returned a secret alpha), a number, `error` (signature wrong;
+  `rpicon=` reads `hidden` (the game returned a secret alpha: confirmed on Unholy, 0.18.0; whether it lights up
+  at the threshold is being checked by eye with `/ac rptest`), a number, `error` (signature wrong;
   the log line says why), `no api`, or `waiting` (highlight not on a rune spender). If it errors, try the other
   argument orders or a StatusBar fed the secret value.
 * **Enemy count: confirmed working** (0.17.3, Frost on 5 dummies with all nameplates shown: `enemies=5 inrange=5`
