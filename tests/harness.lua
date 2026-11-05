@@ -1756,7 +1756,15 @@ do
   UnitAffectingCombat = function(unit) return unit == "nameplate1" or unit == "nameplate2" or unit == "nameplate3" end
   threat = { nameplate1 = "SECRET", nameplate2 = "SECRET" }; issecretvalue = function(v) return v == "SECRET" end; step()
   expect("Enemies (ranged): threat hidden -> target + in combat within range (3)", "3", nf.rank.text)
-  issecretvalue = nil; UnitThreatSituation = nil; UnitIsUnit = nil; UnitAffectingCombat = savedCombat
+  -- the three cases, explicitly
+  issecretvalue = nil; threat = {}; UnitAffectingCombat = function() return false end
+  combat(false); state.plates = 8; step()
+  expect("Enemies (ranged, out of combat): 8 nearby -> target only (rank 1)", "1", nf.rank.text)
+  combat(true); state.plates = 3; step()
+  expect("Enemies (ranged, dummies: nothing reports combat): 3 in range -> 3", "3", nf.rank.text)
+  UnitAffectingCombat = function(unit) return unit == "nameplate2" end; step()
+  expect("Enemies (ranged, real fight): target + 1 in combat -> 2", "2", nf.rank.text)
+  UnitThreatSituation = nil; UnitIsUnit = nil; UnitAffectingCombat = savedCombat
   state.plates = 2; talented(436335, false)
   -- Opener (SimC's optimal list): Scalecommander vs Flameshaper order
   combat(false); now = now + 500

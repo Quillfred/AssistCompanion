@@ -1,5 +1,13 @@
 # Assist Companion
 
+## 0.21.3
+
+* **Ranged enemy count works on training dummies again.** Your log showed dummies report neither combat nor threat (`incombat=0 threat=0`, even the one being hit), so 0.21.2's count would have read 1 on a group of dummies. Now, for Devastation and Augmentation:
+  * before the pull: your target only (no more Eternity Surge rank 4 from dummies standing nearby);
+  * in combat with enemies that report combat (real fights): your target plus enemies in combat within range;
+  * in combat when nothing reports combat (dummies): everything within range.
+* Your last log was recorded with 0.21.1: the opener reset you saw is the one 0.21.2 fixed (it now waits 6 seconds out of combat).
+
 ## 0.21.2
 
 * **A short combat drop no longer resets the fight.** Deep Breath flew you off the dummies and combat dropped for a moment: the opener restarted from step 1 and the addon forgot your cooldowns. Now it waits until you've been out of combat for 6 seconds; back in combat sooner, it's the same fight (debug log: "combat resumed"). Deaths and boss kills/wipes still reset right away. All specs.
