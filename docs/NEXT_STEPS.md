@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.17.4** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.18.0** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -136,9 +136,12 @@ prefers: 48px icon, text alerts off, HIGH strata (now an option, `db.strata`, 0.
 
 ## Open in-game checks (owner to test, ideally with `/ac debug` and the saved log)
 
-* **Runic power is hidden** (confirmed 0.17.2: `rp=hidden`). Unholy `rpcap` and Blood `rpcap` are silent.
-  Proposed to the owner: drive those icons' visibility from the game itself (like the low-health icon: a curve
-  passed to `UnitPowerPercent`-style APIs that accept secret values), since the addon can't compare the number.
+* **Runic power is hidden** (confirmed 0.17.2-0.17.4: `rp=hidden`). 0.18.0 adds a separate runic power icon
+  (Core.lua `pf`, Rules.lua `ns.powerIcon`) whose alpha comes from `UnitPowerPercent("player", 6, false, curve)`
+  with a step curve at the rule's threshold. **To confirm in game on Unholy/Blood:** the status line's
+  `rpicon=` reads `hidden` (working: the game returned a secret alpha), a number, `error` (signature wrong;
+  the log line says why), `no api`, or `waiting` (highlight not on a rune spender). If it errors, try the other
+  argument orders or a StatusBar fed the secret value.
 * **Enemy count: confirmed working** (0.17.3, Frost on 5 dummies with all nameplates shown: `enemies=5 inrange=5`
   in combat). The highlight switches to AoE by itself (Frostscythe / Glacial Advance / Howling Blast), so the
   3-target corrections are a safety net. Still to check: Unholy and Blood on a group.
