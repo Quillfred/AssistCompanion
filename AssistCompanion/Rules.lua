@@ -859,10 +859,14 @@ ns.empowerRank = {
 
 -- Extra text for the once-a-second debug status line.
 ns.debugStatus = {
-  -- Devastation: es/fb = the ranks the badge would show (n = no badge)
+  -- Devastation: es/fb = the ranks the badge would show (n = no badge); db = Deep Breath cooldown
+  -- estimate; mass = Mass Disintegrate stacks; wl = seconds Wingleader has cut in the last 5 minutes
   [1467] = function(ctx)
     local f = ns.empowerRank[1467]
-    return ("es=%s fb=%s"):format(tostring(f(ctx, S.ETERNITY_SURGE) or "n"), tostring(f(ctx, S.FIRE_BREATH) or "n"))
+    local cut = 0
+    for _, c in ipairs(ns.devState.cuts) do cut = cut + c.s end
+    return ("es=%s fb=%s db=%.0f mass=%d wl=%.0f"):format(tostring(f(ctx, S.ETERNITY_SURGE) or "n"),
+      tostring(f(ctx, S.FIRE_BREATH) or "n"), ns.devDeepBreathLeft(ctx), ns.devState.mass, cut)
   end,
   -- em = our Ebon Might estimate (seconds left); up/emcd = Upheaval / Ebon Might cooldown estimates;
   -- x = learned empower recovery factor; upb = the Upheaval ID on your button; tip = Tip the Scales
@@ -1036,7 +1040,7 @@ ns.readyCooldowns = {
       key = "devdeepbreath", name = "Deep Breath", spell = S.DEEP_BREATH,
       desc = "Shows Deep Breath when it's ready: on 2+ targets, or any time with Melt Armor, Maneuverability or "
           .. "Imminent Destruction (SimC's optimal list). The in-game highlight never suggests it. Counts Onyx Legacy "
-          .. "(-1 min); with Wingleader it may come back a little sooner than shown.",
+          .. "(-1 min) and Wingleader (each Mass Disintegrate: -1s per target struck, up to 3).",
       check = function(ctx)
         if not ctx.inCombat then return end
         if not (ctx.knows(S.DEEP_BREATH) or ctx.knows(S.DEEP_BREATH_STEER)) then return end
@@ -1044,14 +1048,7 @@ ns.readyCooldowns = {
         if n == S.DEEP_BREATH or n == S.DEEP_BREATH_STEER then return end -- the highlight already says it
         local always = ctx.knows(S.MELT_ARMOR) or ctx.knows(S.MANEUVERABILITY) or ctx.knows(S.IMMINENT_DESTRUCTION)
         if not always and not (ctx.enemies and ctx.enemies >= 2) then return end
-        local cd = 120 - (ctx.knows(S.ONYX_LEGACY) and 60 or 0) -- game data (357210, 386348)
-        local a, b = ctx.lastCast[S.DEEP_BREATH], ctx.lastCast[S.DEEP_BREATH_STEER]
-        local last = (a and b) and math.max(a, b) or a or b
-        if last and ctx.now - last < cd then return end
-        if not last then
-          local r = ctx.readyIn and ctx.readyIn(S.DEEP_BREATH)
-          if r and r > 1 then return end
-        end
+        if ns.devDeepBreathLeft(ctx) > 0 then return end
         return { spell = S.DEEP_BREATH, iconOnly = true, text = "Deep Breath", sub = "Ready" }
       end,
     },
@@ -1171,6 +1168,57 @@ local function devSpender(ctx)
   local n = ctx.enemies
   if ctx.knows(S.PYRE) and n and (n >= 4 or (n == 3 and pyreAtThree(ctx))) then return S.PYRE end
   return S.DISINTEGRATE
+end
+
+-- Deep Breath's cooldown, from your casts. Wingleader (441206, Scalecommander; Devastation uses effect 1:
+-- 1000 ms): each Mass Disintegrate takes 1s per target struck off it. Mass Disintegrate (436335): each
+-- empower gives a stack (its buff 436336); the next Disintegrate uses one and strikes up to 3 targets
+-- (effect 1). Targets struck = the enemy count at that moment, capped at 3. (SimC sc_evoker.cpp:
+-- empowers trigger mass_disintegrate_stacks; Disintegrate adjusts cooldown.deep_breath.)
+local MASS_DISINTEGRATE_TARGETS, WINGLEADER_DEV_CUT = 3, 1.0
+local dev = { mass = 0, cuts = {}, enemies = nil, undo = nil }
+ns.devState = dev
+
+function ns.devDeepBreathLeft(ctx)
+  local cd = 120 - (ctx.knows(S.ONYX_LEGACY) and 60 or 0) -- game data (357210, 386348)
+  local a, b = ctx.lastCast[S.DEEP_BREATH], ctx.lastCast[S.DEEP_BREATH_STEER]
+  local last = (a and b) and math.max(a, b) or a or b
+  if not last then
+    local r = ctx.readyIn and ctx.readyIn(S.DEEP_BREATH)
+    return r or 0
+  end
+  local cut = 0
+  for _, c in ipairs(dev.cuts) do if c.t > last then cut = cut + c.s end end
+  return math.max(0, cd - (ctx.now - last) - cut)
+end
+
+local augOnCast, augOnCancel = ns.onCast, ns.onCastCancelled
+ns.onCast = function(spec, id, now)
+  if spec ~= 1467 then return augOnCast(spec, id, now) end
+  dev.undo = nil
+  if DEV_FIRE_BREATHS[id] or DEV_SURGES[id] then
+    if dev.hasMass then dev.mass = dev.mass + 1; dev.undo = id end
+  elseif id == S.DISINTEGRATE and dev.mass > 0 then
+    dev.mass = dev.mass - 1
+    if dev.hasWingleader then
+      local n = math.max(1, math.min(MASS_DISINTEGRATE_TARGETS, dev.enemies or 1))
+      dev.cuts[#dev.cuts + 1] = { t = now, s = n * WINGLEADER_DEV_CUT }
+      while dev.cuts[1] and now - dev.cuts[1].t > 300 do table.remove(dev.cuts, 1) end
+    end
+  end
+end
+ns.onCastCancelled = function(spec, id, now)
+  if spec ~= 1467 then return augOnCancel(spec, id, now) end
+  if dev.undo == id and dev.mass > 0 then dev.mass = dev.mass - 1 end -- a cancelled empower gives no stack
+  dev.undo = nil
+end
+
+ns.onTick = ns.onTick or {}
+ns.onTick[1467] = function(ctx)
+  dev.hasMass = ctx.knows(S.MASS_DISINTEGRATE)
+  dev.hasWingleader = ctx.knows(S.WINGLEADER)
+  dev.enemies = ctx.enemies
+  if not ctx.inCombat then dev.mass = 0 end
 end
 
 -- Added after the cooldown-ready rules (ns.readyCooldowns, which build ns.rules[1467] above):

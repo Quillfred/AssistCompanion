@@ -1,5 +1,10 @@
 # Assist Companion
 
+## 0.21.1
+
+* **Devastation: Wingleader counted for Deep Breath.** Each empower gives a Mass Disintegrate stack; the next Disintegrate uses it and takes 1 second per target struck (up to 3) off Deep Breath's cooldown (game data). Cancelled empowers give no stack.
+* **Debug log:** Devastation status lines show the Deep Breath cooldown estimate (`db=`), Mass Disintegrate stacks (`mass=`) and the seconds Wingleader cut (`wl=`).
+
 ## 0.21.0
 
 * **Devastation: Dragonrage, Deep Breath and Tip the Scales.** Your debug log confirmed the in-game highlight never suggests them (2 minutes single target plus the 5-target tests), like on Augmentation. Now:
