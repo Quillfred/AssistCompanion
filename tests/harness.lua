@@ -1556,6 +1556,96 @@ state.spec = 252; events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED"
 state.rp = "SECRET"; state.next = 55090; step()
 expect("Secret runic power -> no alert, no error", "nothing", (seen()))
 
+-- DEVASTATION ----------------------------------------------------------------
+do
+  AssistCompanionDB.openerIcon = false
+  issecretvalue = nil
+  state.spec = 1467; state.overrides = {}; state.target = nil; state.inRange = true; state.usable = {}; state.noPower = {}
+  state.known = { [356995]=true, [357211]=true, [361469]=true, [362969]=true, [357208]=true, [359073]=true, [370553]=true }
+  state.rpmax = 5
+  events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+  events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 500
+  combat(true)
+  state.rpmax = 5; state.rp = 5; state.plates = 1; state.next = 361469; step()
+  expect("Devastation: 5/5 essence + Living Flame -> Disintegrate", "icon:356995", nf.icon.texture)
+  expect("Devastation: ...as a correction (gold border)", true, nf.border.shown)
+  state.rp = 4; step()
+  expect("Devastation: 4/5 essence -> Living Flame stays", "icon:361469", nf.icon.texture)
+  state.rp = 5; state.next = 356995; step()
+  expect("Devastation: full essence, highlight already spends -> no change", "icon:356995", nf.icon.texture)
+  expect("Devastation: ...no gold border", false, nf.border.shown)
+  state.next = 362969; state.plates = 4; step()
+  expect("Devastation: full essence + Azure Strike on 4 targets -> Pyre", "icon:357211", nf.icon.texture)
+  state.usable = { [357211] = false }; step()
+  expect("Devastation: Pyre not usable -> no correction", "icon:362969", nf.icon.texture)
+  state.usable = {}
+  -- max essence hidden: 5, or 6 with Power Nexus
+  state.rpmaxSecret = true; issecretvalue = function(v) return v == "SECRET" end
+  state.plates = 1; state.next = 361469; talented(369908, true)
+  state.rp = 5; step()
+  expect("Devastation: hidden max + Power Nexus -> 5 essence isn't full", "icon:361469", nf.icon.texture)
+  state.rp = 6; step()
+  expect("Devastation: ...6 is", "icon:356995", nf.icon.texture)
+  state.rpmaxSecret = nil; issecretvalue = nil; talented(369908, false)
+  -- Pyre at exactly 3 targets (Flameshaper with Volatility / Feed the Flames)
+  state.rp = 3; state.plates = 3; state.next = 356995; step()
+  expect("Devastation: 3 targets, no Flameshaper talents -> Disintegrate stays", "icon:356995", nf.icon.texture)
+  state.known[1264269] = true; talented(369089, true)
+  expect("Devastation: 3 targets + Legacy of the Lifebinder + Volatility -> Pyre", "icon:357211", nf.icon.texture)
+  state.plates = 2; step()
+  expect("Devastation: 2 targets -> Disintegrate stays", "icon:356995", nf.icon.texture)
+  state.rp = 5; state.plates = 3; state.next = 361469; step()
+  expect("Devastation: essence cap on 3 targets with those talents -> Pyre", "icon:357211", nf.icon.texture)
+  state.known[1264269] = nil; talented(369089, false)
+  -- Azure Sweep: the icon shows what the button casts
+  state.rp = 2; state.plates = 1; state.overrides = { [362969] = 1265872 }; state.next = 362969; step()
+  expect("Devastation: Azure Strike while its button is Azure Sweep -> Azure Sweep icon", "icon:1265872", nf.icon.texture)
+  state.overrides = {}
+  -- Empower ranks
+  state.next = 359073; state.plates = 1; step()
+  expect("Devastation rank: Eternity Surge, 1 target -> 1", "1", nf.rank.text)
+  state.plates = 3; step()
+  expect("Devastation rank: Eternity Surge, 3 targets -> 3", "3", nf.rank.text)
+  state.plates = 5; step()
+  expect("Devastation rank: Eternity Surge, 5 targets, no Font of Magic -> 3 (max)", "3", nf.rank.text)
+  talented(411212, true)
+  expect("Devastation rank: ...with Font of Magic -> 4", "4", nf.rank.text)
+  state.plates = 3; talented(375757, true)
+  expect("Devastation rank: Eternity's Span, 3 targets -> 2", "2", nf.rank.text)
+  talented(375757, false); talented(411212, false)
+  state.next = 357208; state.plates = 1; step()
+  expect("Devastation rank: Fire Breath (Flameshaper), 1 target -> 1", "1", nf.rank.text)
+  state.plates = 2; step()
+  expect("Devastation rank: Fire Breath, 2 targets -> 2", "2", nf.rank.text)
+  state.plates = 3; step()
+  expect("Devastation rank: Fire Breath, 3 targets -> 3", "3", nf.rank.text)
+  cast(375087); step()
+  expect("Devastation rank: Fire Breath, 3 targets in Dragonrage -> 2", "2", nf.rank.text)
+  now = now + 19; step()
+  expect("Devastation rank: Dragonrage over -> 3", "3", nf.rank.text)
+  state.known[1264269] = true; talented(369846, true)
+  expect("Devastation rank: Flameshaper Pyre plan (Feed the Flames, 3 targets) -> 1", "1", nf.rank.text)
+  state.known[1264269] = nil; talented(369846, false)
+  talented(436335, true)
+  expect("Devastation rank: Scalecommander, 3 targets -> 3", "3", nf.rank.text)
+  state.plates = 6; step()
+  expect("Devastation rank: Scalecommander, 6 targets -> 1", "1", nf.rank.text)
+  talented(436335, false)
+  state.plates = 2; cast(370553); step()
+  expect("Devastation rank: after Tip the Scales -> no number", "", nf.rank.text)
+  cast(357208); step()
+  expect("Devastation rank: back after the empower", "2", nf.rank.text)
+  state.plates = 0; step()
+  expect("Devastation rank: enemy count unknown/0 -> no number", "", nf.rank.text)
+  AssistCompanionDB.empowerRank = false; state.plates = 2; step()
+  expect("Devastation rank: option off -> no number", "", nf.rank.text)
+  AssistCompanionDB.empowerRank = true
+  expect("Devastation: listed in the options tree", true, (function()
+    for _, sp in ipairs(ns.specInfo) do if sp.id == 1467 then return true end end return false end)())
+  combat(false); state.rpmax = nil; state.rp = 10; state.plates = 0; state.next = nil
+  issecretvalue = function(v) return v == "SECRET" end
+end
+
 -- RUNIC POWER ICON (runic power hidden: the game evaluates a curve on it) -------------
 do
   local pf = AssistCompanionPower

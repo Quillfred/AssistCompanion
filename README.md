@@ -1,6 +1,6 @@
 # Assist Companion
 
-A World of Warcraft (retail, Midnight 12.1.5) addon for **Blood, Frost and Unholy Death Knight** and **Augmentation Evoker** that sits alongside Blizzard's **Assisted Highlight**.
+A World of Warcraft (retail, Midnight 12.1.5) addon for **Blood, Frost and Unholy Death Knight** and **Devastation and Augmentation Evoker** that sits alongside Blizzard's **Assisted Highlight**.
 
 It shows the highlight's suggested spell as one icon with its keybind, the way a "single button" display does but without the Single-Button Assistant's global cooldown penalty. Where the highlight's own rules are known to be wrong, the icon shows the correct spell instead. It also shows an opener bar before and at the start of a pull.
 
@@ -25,9 +25,12 @@ The addon only displays information. You press every button yourself.
 | Augmentation | The highlight never says which **empower rank** to use | A number on **Fire Breath** (1 while Upheaval is ready, else 3) and **Upheaval** (1) |
 | Augmentation | **Prescience** is only cast when none is active, so its second charge sits capped | In a group, **Prescience** when both charges are ready |
 | Frost | At exactly 3 targets the highlight never uses Frostscythe (its rule starts above 3) | **Frostscythe** instead of Obliterate |
+| Devastation | The highlight keeps building essence at max (24% wasted vs 8–12% optimal) | **Disintegrate** (or **Pyre** on 4+ targets) at full essence when it asks for Living Flame or Azure Strike |
+| Devastation | **Pyre** only at 4+ targets, but Flameshaper builds with Volatility or Feed the Flames want it at 3 | **Pyre** instead of Disintegrate at exactly 3 targets |
+| Devastation | The highlight never says which **empower rank** to use | A number on **Eternity Surge** (one rank per target, two with Eternity's Span) and **Fire Breath** (by targets, hero talents and Dragonrage, from SimC's optimal list) |
 | Frost | **Empower Rune Weapon** is suggested while you're still running in (it has no range check, Pillar does) | Empower Rune Weapon **grayed out and red** until you're in melee |
 
-The game hides runic power from addons, so for the two runic power rows above the game itself decides: at the threshold the next-cast icon turns into the spender with a **blue border**, and back once you spend. Unholy's target count needs enemy nameplates turned on.
+The game hides runic power from addons, so for the two runic power rows above the game itself decides: at the threshold the next-cast icon turns into the spender with a **blue border**, and back once you spend. Target counts (Unholy, Frost, Devastation) need enemy nameplates turned on.
 
 Corrections have a gold border. While an opener is running, the icon follows the opener instead and has a blue border. Like Blizzard's action bars, the icon turns **red** when your target is out of range, **blue** when you don't have enough runes or runic power, and **dark gray** when it can't be used for another reason. A global cooldown swipe runs over it. See [`docs/FINDINGS.md`](docs/FINDINGS.md) for the sims and game data behind each rule.
 
