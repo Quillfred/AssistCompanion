@@ -209,7 +209,7 @@ local function enemyDiagnosis()
   if not (C_NamePlate and C_NamePlate.GetNamePlates) then return "np=noapi" end
   local ok, plates = pcall(C_NamePlate.GetNamePlates)
   if not ok or type(plates) ~= "table" then return "np=?" end
-  local units, attack, combat, range, hidden = 0, 0, 0, 0, 0
+  local units, attack, combat, range, hidden, threat, threatHidden = 0, 0, 0, 0, 0, 0, false
   local spell = countSpell()
   for _, plate in ipairs(plates) do
     local unit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
@@ -220,10 +220,15 @@ local function enemyDiagnosis()
       if a then attack = attack + 1 end
       if c then combat = combat + 1 end
       if r then range = range + 1 end
+      if UnitThreatSituation then
+        local okT, t = pcall(UnitThreatSituation, "player", unit)
+        if okT and issecretvalue and issecretvalue(t) then threatHidden = true
+        elseif okT and t ~= nil then threat = threat + 1 end
+      end
     end
   end
-  return ("np=%d units=%d attackable=%d incombat=%d inrange=%d hidden=%d"):format(#plates, units, attack, combat,
-    range, hidden)
+  return ("np=%d units=%d attackable=%d incombat=%d inrange=%d hidden=%d threat=%s"):format(#plates, units, attack,
+    combat, range, hidden, threatHidden and "hidden" or tostring(threat))
 end
 
 -- Counts attackable, living enemies with visible nameplates that are in combat OR within range of the
@@ -234,7 +239,12 @@ local function countEnemies()
   local plates = try(C_NamePlate.GetNamePlates)
   if type(plates) ~= "table" then return nil end
   local spell = countSpell()
-  local n, unknown = 0, false
+  -- Ranged specs: an enemy within 25 yd isn't necessarily one you're fighting (owner's Devastation
+  -- log: a second dummy nearby counted, so single target read 2 and Fire Breath said rank 2). Count
+  -- the enemies you're on the threat table of instead, when the game says (UnitThreatSituation);
+  -- otherwise (hidden, or nobody has threat yet, e.g. before the first hit) the range count.
+  local ranged = ns.countRangeSpell and specID and ns.countRangeSpell[specID] and UnitThreatSituation
+  local n, unknown, fighting, threatKnown = 0, false, 0, false
   for _, plate in ipairs(plates) do
     local unit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
     if unit then
@@ -245,11 +255,17 @@ local function countEnemies()
       elseif attack and not dead then
         local combat = try(UnitAffectingCombat, unit)
         local near = inRangeOf(spell, unit)
-        if combat or near then n = n + 1
+        if combat or near then
+          n = n + 1
+          if ranged then
+            local threat = try(UnitThreatSituation, "player", unit)
+            if threat ~= nil then threatKnown, fighting = true, fighting + 1 end
+          end
         elseif combat == nil and near == nil then unknown = true end
       end
     end
   end
+  if threatKnown and fighting > 0 then return fighting end
   if n == 0 and unknown then return nil end
   return n
 end

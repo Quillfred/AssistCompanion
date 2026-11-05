@@ -27,6 +27,7 @@ The addon only displays information. You press every button yourself.
 | Frost | At exactly 3 targets the highlight never uses Frostscythe (its rule starts above 3) | **Frostscythe** instead of Obliterate |
 | Devastation | The highlight keeps building essence at max (24% wasted vs 8–12% optimal) | **Disintegrate** (or **Pyre** on 4+ targets) at full essence when it asks for Living Flame or Azure Strike |
 | Devastation | **Pyre** only at 4+ targets, but Flameshaper builds with Volatility or Feed the Flames want it at 3 | **Pyre** instead of Disintegrate at exactly 3 targets |
+| Devastation | **Dragonrage**, **Deep Breath** and **Tip the Scales** are never suggested in game (all three are in the highlight's list) | **Dragonrage** when ready; **Deep Breath** when ready on 2+ targets (or always with Melt Armor, Maneuverability or Imminent Destruction); **Tip the Scales** with Fire Breath |
 | Devastation | The highlight never says which **empower rank** to use | A number on **Eternity Surge** (one rank per target, two with Eternity's Span) and **Fire Breath** (by targets, hero talents and Dragonrage, from SimC's optimal list) |
 | Frost | **Empower Rune Weapon** is suggested while you're still running in (it has no range check, Pillar does) | Empower Rune Weapon **grayed out and red** until you're in melee |
 

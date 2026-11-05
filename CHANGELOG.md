@@ -1,5 +1,15 @@
 # Assist Companion
 
+## 0.21.0
+
+* **Devastation: Dragonrage, Deep Breath and Tip the Scales.** Your debug log confirmed the in-game highlight never suggests them (2 minutes single target plus the 5-target tests), like on Augmentation. Now:
+  * **Dragonrage** whenever it's ready in combat.
+  * **Deep Breath** when it's ready on 2+ targets, or any time with Melt Armor, Maneuverability or Imminent Destruction (SimC's optimal list). Counts Onyx Legacy (-1 minute) and the steerable Maneuverability version. With Wingleader it can come back a little sooner than shown.
+  * **Tip the Scales** when the highlight asks for Fire Breath and Tip is ready: Fire Breath is then instant at max rank.
+  * Each can be turned off under Evoker > Devastation.
+* **Enemy count for ranged specs (Devastation, Augmentation):** counts the enemies you're actually fighting (on their threat table) instead of every enemy within 25 yards. In your log a second dummy nearby made single target read 2 and Fire Breath said rank 2. When the game doesn't say (or before the first hit), it falls back to the old count. Debug log: `threat=` on the enemy line.
+* Confirmed in your log: essence cap (Disintegrate at 5/5), Eternity Surge rank 3 with Eternity's Span on 6 targets, Scalecommander Fire Breath rank 1 on 5+, and that the highlight switches to Pyre / Azure Strike in AoE by itself (even with nameplates off).
+
 ## 0.20.3
 
 * **Augmentation: Ebon Might before Fire Breath, one more case.** With Ebon Might in its refresh window (about 4 seconds left) and ready again within a global cooldown, the icon now says Ebon Might first, then the empower. In your L'ura kill it showed Fire Breath rank 3 with 3 seconds of Ebon Might left, half a second before Ebon Might was ready.

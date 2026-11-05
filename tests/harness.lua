@@ -1599,6 +1599,8 @@ do
   state.spec = 1467; state.overrides = {}; state.target = nil; state.inRange = true; state.usable = {}; state.noPower = {}
   state.known = { [356995]=true, [357211]=true, [361469]=true, [362969]=true, [357208]=true, [359073]=true, [370553]=true }
   state.rpmax = 5
+  -- the cooldown rules have their own tests below; off for the essence / Pyre / rank tests
+  for _, k in ipairs({ "dragonrage", "devdeepbreath", "devtip" }) do ns.setRuleEnabled(1467, k, false) end
   events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
   events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 500
   combat(true)
@@ -1676,6 +1678,51 @@ do
   AssistCompanionDB.empowerRank = false; state.plates = 2; step()
   expect("Devastation rank: option off -> no number", "", nf.rank.text)
   AssistCompanionDB.empowerRank = true
+  -- Cooldowns the highlight never suggests (owner's log): Dragonrage, Deep Breath, Tip the Scales
+  for _, k in ipairs({ "dragonrage", "devdeepbreath", "devtip" }) do ns.setRuleEnabled(1467, k, true) end
+  state.known[375087] = true; state.known[357210] = true; talented(370553, true)
+  now = now + 300                                                    -- earlier tests used Dragonrage and Tip
+  state.rp = 2; state.plates = 1; state.next = 361469; step()
+  expect("Devastation CD: Dragonrage ready -> Dragonrage", "icon:375087", nf.icon.texture)
+  cast(375087); step()
+  expect("Devastation CD: Dragonrage used, 1 target, no Deep Breath talents -> highlight (Living Flame)", "icon:361469", nf.icon.texture)
+  state.plates = 3; step()
+  expect("Devastation CD: 3 targets -> Deep Breath", "icon:357210", nf.icon.texture)
+  cast(433874); step()                                               -- the Maneuverability version
+  expect("Devastation CD: Deep Breath cast (steerable ID) -> on cooldown", "icon:361469", nf.icon.texture)
+  state.next = 357208; step()
+  expect("Devastation CD: highlight says Fire Breath, Tip ready -> Tip the Scales", "icon:370553", nf.icon.texture)
+  cast(370553); cast(357208); step()
+  expect("Devastation CD: Tip used -> Fire Breath", "icon:357208", nf.icon.texture)
+  now = now + 61; state.next = 361469; step()
+  expect("Devastation CD: Deep Breath 61s later, no Onyx Legacy -> not yet", "icon:361469", nf.icon.texture)
+  talented(386348, true)
+  expect("Devastation CD: ...with Onyx Legacy (60s) -> Deep Breath", "icon:357210", nf.icon.texture)
+  state.plates = 1; step()
+  expect("Devastation CD: 1 target, no Deep Breath talents -> no Deep Breath", "icon:361469", nf.icon.texture)
+  talented(441176, true)
+  expect("Devastation CD: 1 target with Melt Armor -> Deep Breath anyway", "icon:357210", nf.icon.texture)
+  talented(441176, false); talented(386348, false)
+  now = now + 60; step()
+  expect("Devastation CD: Dragonrage 121s later -> Dragonrage again", "icon:375087", nf.icon.texture)
+  expect("Devastation CD: rule order", "dragonrage,devdeepbreath,devtip,essencecap,pyre3", (function()
+    local t = {} for _, r in ipairs(ns.rules[1467]) do t[#t + 1] = r.key end return table.concat(t, ",") end)())
+  for _, k in ipairs({ "dragonrage", "devdeepbreath", "devtip" }) do ns.setRuleEnabled(1467, k, false) end
+  -- Enemy count for ranged specs: enemies you're fighting (threat), not everything within 25 yd
+  -- (owner's log: a nearby dummy made single target read 2, Fire Breath rank 2 for Scalecommander)
+  talented(436335, true)                                              -- Scalecommander: Fire Breath rank = targets
+  state.next = 357208; state.plates = 2
+  local threat = { nameplate1 = 1 }
+  UnitThreatSituation = function(_, unit) return threat[unit] end
+  step()
+  expect("Enemies (ranged): 2 nearby, threat on 1 -> rank 1", "1", nf.rank.text)
+  threat = { nameplate1 = 3, nameplate2 = 0 }; step()
+  expect("Enemies (ranged): threat on both -> rank 2", "2", nf.rank.text)
+  threat = {}; step()
+  expect("Enemies (ranged): nobody has threat yet -> range count (2)", "2", nf.rank.text)
+  threat = { nameplate1 = "SECRET", nameplate2 = "SECRET" }; issecretvalue = function(v) return v == "SECRET" end; step()
+  expect("Enemies (ranged): threat hidden -> range count (2)", "2", nf.rank.text)
+  issecretvalue = nil; UnitThreatSituation = nil; talented(436335, false)
   expect("Devastation: listed in the options tree", true, (function()
     for _, sp in ipairs(ns.specInfo) do if sp.id == 1467 then return true end end return false end)())
   combat(false); state.rpmax = nil; state.rp = 10; state.plates = 0; state.next = nil
