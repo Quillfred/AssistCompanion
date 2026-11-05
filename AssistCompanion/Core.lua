@@ -239,12 +239,13 @@ local function countEnemies()
   local plates = try(C_NamePlate.GetNamePlates)
   if type(plates) ~= "table" then return nil end
   local spell = countSpell()
-  -- Ranged specs: an enemy within 25 yd isn't necessarily one you're fighting (owner's Devastation
-  -- log: a second dummy nearby counted, so single target read 2 and Fire Breath said rank 2). Count
-  -- the enemies you're on the threat table of instead, when the game says (UnitThreatSituation);
-  -- otherwise (hidden, or nobody has threat yet, e.g. before the first hit) the range count.
-  local ranged = ns.countRangeSpell and specID and ns.countRangeSpell[specID] and UnitThreatSituation
-  local n, unknown, fighting, threatKnown = 0, false, 0, false
+  -- Ranged specs (ns.countRangeSpell): an enemy within 25 yd isn't necessarily one you're fighting
+  -- (owner's Devastation logs: a nearby dummy made single target read 2; 8 dummies in range before the
+  -- pull made Eternity Surge rank 4). Count your target, enemies you have threat on
+  -- (UnitThreatSituation, when readable) and enemies in combat within range. Melee specs keep
+  -- "in combat or in melee range" (dummies never report combat).
+  local ranged = ns.countRangeSpell and specID and ns.countRangeSpell[specID]
+  local n, unknown, fighting = 0, false, 0
   for _, plate in ipairs(plates) do
     local unit = plate.namePlateUnitToken or (plate.UnitFrame and plate.UnitFrame.unit)
     if unit then
@@ -255,17 +256,24 @@ local function countEnemies()
       elseif attack and not dead then
         local combat = try(UnitAffectingCombat, unit)
         local near = inRangeOf(spell, unit)
-        if combat or near then
+        if ranged then
+          -- Ranged: only enemies you're fighting, never ones that are merely nearby (owner's log:
+          -- 8 dummies in range before the pull, Eternity Surge said rank 4): your target, those
+          -- you have threat on, and those in combat within range.
+          local threat = UnitThreatSituation and try(UnitThreatSituation, "player", unit)
+          local isTarget = UnitIsUnit and try(UnitIsUnit, unit, "target")
+          if isTarget or threat ~= nil or (combat and near) then fighting = fighting + 1 end
+          if combat == nil and near == nil then unknown = true end
+        elseif combat or near then
           n = n + 1
-          if ranged then
-            local threat = try(UnitThreatSituation, "player", unit)
-            if threat ~= nil then threatKnown, fighting = true, fighting + 1 end
-          end
         elseif combat == nil and near == nil then unknown = true end
       end
     end
   end
-  if threatKnown and fighting > 0 then return fighting end
+  if ranged then
+    if fighting == 0 and unknown then return nil end
+    return fighting
+  end
   if n == 0 and unknown then return nil end
   return n
 end
@@ -849,6 +857,9 @@ end
 -- opener back to step 1, and forget cast times so cooldown-based rules (Breath) treat
 -- abilities as ready.
 local OPENER_IDLE_RESET = 10 -- seconds out of combat after an opener cast before it resets
+-- A combat drop shorter than this is the same fight (Deep Breath on dummies, a moment between packs).
+local COMBAT_DROP_GAP = 6
+local pendingReset -- GetTime() of the combat end waiting to become a reset
 local function resetForNextPull()
   wipe(lastCast)
   buildOpener()
@@ -857,6 +868,10 @@ end
 -- Draws the opener bar. Returns the current opener step while the opener is active
 -- (so the next-cast icon can follow it), or nil.
 local function renderOpener()
+  if pendingReset and not inCombat and GetTime() - pendingReset >= COMBAT_DROP_GAP then
+    pendingReset = nil
+    resetForNextPull()
+  end
   local steps = opener.steps
   -- Opener spells pressed out of combat (testing on a dummy, a pull that never started):
   -- start over once you've been idle out of combat for a while.
@@ -1325,6 +1340,14 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID, arg4)
       if ns.onCastCancelled then pcall(ns.onCastCancelled, specID, id, GetTime()) end
     end
   elseif event == "PLAYER_REGEN_DISABLED" then
+    if pendingReset and GetTime() - pendingReset < COMBAT_DROP_GAP then
+      -- Back in combat within a few seconds (owner's log: Deep Breath flew off the dummies and combat
+      -- dropped for a moment): the same fight; keep the opener, the cast history and the timer.
+      inCombat, pendingReset = true, nil
+      dlog("---- combat resumed ----")
+      return
+    end
+    pendingReset = nil
     inCombat, combatStart = true, GetTime()
     dlog("---- combat start ----")
     local talents = ns.debugTalents and specID and ns.debugTalents[specID]
@@ -1337,9 +1360,10 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID, arg4)
     inCombat = false
     cachePowerMax()
     if not hotkeyScanned then clearBindingCache() end -- rescan buttons now that combat is over
-    resetForNextPull()
+    pendingReset = GetTime() -- reset for the next pull once out of combat for COMBAT_DROP_GAP (tick)
   elseif event == "PLAYER_DEAD" or event == "ENCOUNTER_END" then
     dlog("%s", event)
+    pendingReset = nil
     resetForNextPull() -- wipe or kill: next pull starts from a full opener
   elseif event == "UNIT_PET" then
     if not inCombat and opener.index == 1 then buildOpener() end

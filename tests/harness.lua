@@ -258,7 +258,12 @@ expect("Frost: ERW with no target -> no alert", "nothing", (seen()))
 state.target = nil
 
 -- OPENER ----------------------------------------------------------------
-local function combat(on) events.scripts.OnEvent(events, on and "PLAYER_REGEN_DISABLED" or "PLAYER_REGEN_ENABLED") end
+-- combat(false) is a real end of fight: out of combat long enough (6s) for the next-pull reset.
+-- combat(false, true) is a short drop (e.g. Deep Breath flying off dummies).
+local function combat(on, shortDrop)
+  events.scripts.OnEvent(events, on and "PLAYER_REGEN_DISABLED" or "PLAYER_REGEN_ENABLED")
+  if not on and not shortDrop then now = now + 6.1; driver.scripts.OnUpdate(driver, 0.2) end
+end
 local function openerIcons() local t = {} for i = 1, 6 do local s = ob.slots[i]; if s.shown then t[#t+1] = s.texture end end return table.concat(t, ",") end
 state.spec = 251; state.inRange = true; state.target = nil
 state.known = { [47568]=true, [51271]=true, [1249658]=true, [49020]=true, [279302]=true } -- no Reaper's Mark
@@ -437,6 +442,12 @@ AssistCompanionDB.openerIcon = false
 combat(true); now = now + 5; cast(51271); state.next = 49020; step()
 expect("Reset: Breath treated as off cooldown after combat drop", "icon:1249658", nf.icon.texture)
 combat(false); AssistCompanionDB.openerIcon = true
+-- a short combat drop (Deep Breath flying off dummies) is the same fight: nothing resets
+combat(true); cast(47568); cast(51271); step()
+expect("Short drop: mid-opener", "Opener\n3/8", ob.label.text)
+combat(false, true); now = now + 3; step(); combat(true); step()
+expect("Short drop: back in combat within 6s -> opener kept", "Opener\n3/8", ob.label.text)
+combat(false)
 -- death resets mid-pull
 combat(true); cast(47568); cast(51271); step()
 events.scripts.OnEvent(events, "PLAYER_DEAD"); step()
@@ -1732,15 +1743,21 @@ do
   state.next = 357208; state.plates = 2
   local threat = { nameplate1 = 1 }
   UnitThreatSituation = function(_, unit) return threat[unit] end
+  local savedCombat = UnitAffectingCombat
+  UnitAffectingCombat = function(unit) return unit == "nameplate1" end -- the other dummy isn't fighting
   step()
   expect("Enemies (ranged): 2 nearby, threat on 1 -> rank 1", "1", nf.rank.text)
   threat = { nameplate1 = 3, nameplate2 = 0 }; step()
   expect("Enemies (ranged): threat on both -> rank 2", "2", nf.rank.text)
-  threat = {}; step()
-  expect("Enemies (ranged): nobody has threat yet -> range count (2)", "2", nf.rank.text)
+  threat = {}; UnitAffectingCombat = function() return false end
+  UnitIsUnit = function(a, b) return a == "nameplate1" and b == "target" end
+  state.plates = 8; step()
+  expect("Enemies (ranged): before the pull, 8 nearby, none fighting -> just the target (rank 1)", "1", nf.rank.text)
+  UnitAffectingCombat = function(unit) return unit == "nameplate1" or unit == "nameplate2" or unit == "nameplate3" end
   threat = { nameplate1 = "SECRET", nameplate2 = "SECRET" }; issecretvalue = function(v) return v == "SECRET" end; step()
-  expect("Enemies (ranged): threat hidden -> range count (2)", "2", nf.rank.text)
-  issecretvalue = nil; UnitThreatSituation = nil; talented(436335, false)
+  expect("Enemies (ranged): threat hidden -> target + in combat within range (3)", "3", nf.rank.text)
+  issecretvalue = nil; UnitThreatSituation = nil; UnitIsUnit = nil; UnitAffectingCombat = savedCombat
+  state.plates = 2; talented(436335, false)
   -- Opener (SimC's optimal list): Scalecommander vs Flameshaper order
   combat(false); now = now + 500
   state.known = { [361469]=true, [375087]=true, [370553]=true, [359073]=true, [357208]=true, [356995]=true,
