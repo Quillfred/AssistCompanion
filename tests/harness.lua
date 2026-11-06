@@ -543,6 +543,51 @@ state.usable[55090] = false; state.noPower[55090] = true; step()
 expect("Shading: not enough runes -> blue", "0.5,0.5,1", table.concat(nf.icon.color, ","))
 state.noPower[55090] = false; step()
 expect("Shading: unusable for other reason -> gray", "0.4,0.4,0.4", table.concat(nf.icon.color, ","))
+-- The game hides its usable check in combat (owner: Heart Strike with no runes stayed full color).
+-- Runes come from GetRuneCooldown (UnitPower reads 6 all the time); hidden resources tint via a curve.
+do
+  local savedUsable, savedSecret = C_Spell.IsSpellUsable, issecretvalue
+  issecretvalue = function(v) return v == "SECRET" end
+  C_Spell.IsSpellUsable = function() return "SECRET", "SECRET" end
+  local ready = { true, true, false, false, false, false }
+  GetRuneCooldown = function(i) return 0, 10, ready[i] end
+  local costs = { [55090] = { { type = 5, cost = 1 } }, [47541] = { { type = 6, cost = 30 } } }
+  C_Spell.GetSpellPowerCost = function(id) return costs[id] end
+  state.usable[55090] = nil; state.noPower[55090] = nil
+  step()
+  expect("Short: usable check hidden, 2 runes ready, costs 1 -> normal", 1, nf.icon.color[1])
+  ready = { false, false, false, false, false, false }; step()
+  expect("Short: no runes ready -> blue", "0.5,0.5,1", table.concat(nf.icon.color, ","))
+  ready = { true, false, false, false, false, false }
+  -- runic power hidden: the blue tint's alpha comes from the game's curve (below cost/max -> 0.55)
+  state.next = 47541; state.rp = "SECRET"; state.rpmax = 100
+  local pct = 0.2
+  local savedCurve = C_CurveUtil
+  C_CurveUtil = { CreateCurve = function()
+    local c = { pts = {} }
+    function c:SetType() end
+    function c:AddPoint(x, y) self.pts[#self.pts + 1] = { x, y } end
+    function c:Evaluate(x)
+      table.sort(self.pts, function(a, b) return a[1] < b[1] end)
+      local p = self.pts
+      if x <= p[1][1] then return p[1][2] end
+      for i = 2, #p do if x <= p[i][1] then local a, b = p[i - 1], p[i]
+        return a[2] + (b[2] - a[2]) * (x - a[1]) / (b[1] - a[1]) end end
+      return p[#p][2]
+    end
+    return c
+  end }
+  UnitPowerPercent = function(unit, ptype, predicted, curve) return curve:Evaluate(pct) end
+  step()
+  expect("Short: hidden runic power 20 < 30 -> tint shown", 0.55, nf.short.alpha)
+  expect("Short: ...icon itself stays normal", 1, nf.icon.color[1])
+  pct = 0.5; step()
+  expect("Short: 50 >= 30 -> no tint", 0, nf.short.alpha)
+  C_Spell.IsSpellUsable, issecretvalue = savedUsable, savedSecret
+  GetRuneCooldown, C_Spell.GetSpellPowerCost, UnitPowerPercent, C_CurveUtil = nil, nil, nil, savedCurve
+  state.next = 55090; state.rp = 10; state.rpmax = nil; step()
+  expect("Short: usable check readable again -> tint cleared", 0, nf.short.alpha)
+end
 state.noPower[55090] = true; state.barRange = false; state.inRange = false; step()
 expect("Shading: out of range beats no-power (red)", "1,0.3,0.3", table.concat(nf.icon.color, ","))
 state.barRange = true; state.inRange = true; state.usable, state.noPower = {}, {}

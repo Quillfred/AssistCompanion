@@ -1,5 +1,14 @@
 # Assist Companion
 
+## 0.24.1
+
+* **"Not enough resource" shading works in combat again (all classes).** The game hides its usable check in combat, so the icon never turned blue (owner: Heart Strike with no runes stayed full color). Now the addon reads the spell's cost and checks it:
+  * **Runes:** counted directly, and the icon turns blue when you don't have enough.
+  * **Readable resources** (energy, focus, rage...): compared directly; the icon turns blue.
+  * **Hidden resources** (runic power, essence...): a blue tint over the icon that the game shows when you're below the cost, the same way the runic power icon works.
+* **Rune count fixed.** It read 6 all the time (owner's logs). Now it counts ready runes, as Blizzard's rune bar does. This also fixes Blood's "Death's Caress when low on runes" and the Death Strike hold's "nothing else to press".
+* Debug log: `short=` (short / ok / tint / n).
+
 ## 0.24.0
 
 Frost audit (talent database + current SimC):

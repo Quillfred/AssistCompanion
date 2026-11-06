@@ -246,6 +246,8 @@ Out of range before a pull, Pillar fails its range check, so the highlight sugge
 
 ## Addon API notes (12.1.5)
 
+* **`UnitPower("player", Enum.PowerType.Runes)` reads 6 all the time** (owner's Blood logs: `runes=6` while out of runes). 0.24.1 counts ready runes with `GetRuneCooldown(1..6)` (third return). **`C_Spell.IsSpellUsable` is hidden in combat** (Heart Strike with no runes kept full color): 0.24.1 falls back to `C_Spell.GetSpellPowerCost` (runes and readable power compared in Lua; hidden power through a `UnitPowerPercent` curve driving a tint's alpha). To confirm in a log: `short=` and `runes=` changing.
+
 From Blizzard's generated API documentation:
 
 * Readable in combat: `C_Spell.IsSpellUsable` (usable / not enough resources), `C_AssistedCombat.GetNextCastSpell`, `UnitPower("player", …)`, `C_Spell.GetOverrideSpell`, `C_Spell.IsSpellInRange`, `C_ActionBar.FindSpellActionButtons`, `C_ActionBar.IsActionInRange`, your own `UNIT_SPELLCAST_SUCCEEDED`.

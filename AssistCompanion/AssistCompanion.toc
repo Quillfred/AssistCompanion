@@ -2,7 +2,7 @@
 ## Title: Assist Companion
 ## Notes: Shows the Assisted Highlight suggestion as one icon with a keybind, corrected where Blizzard's rules are wrong, plus an opener bar. Blood, Frost and Unholy Death Knight, Devastation and Augmentation Evoker.
 ## Author: Quillfred
-## Version: 0.24.0
+## Version: 0.24.1
 ## SavedVariables: AssistCompanionDB
 ## Category: Combat
 ## IconTexture: Interface\Icons\INV_Misc_Gear_01
