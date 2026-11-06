@@ -179,7 +179,7 @@ expect("Display: strata is HIGH", "HIGH", display.strata)
 expect("Display: frame level is high", 9000, display.level)
 
 -- UNHOLY -----------------------------------------------------------------
-state.spec = 252; state.known = { [207317] = true }
+state.spec = 252; state.known = { [207317] = true, [433901] = true }
 events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
 -- Blightfall loop: DT button is Blightfall and the highlight says Outbreak
 state.overrides = { [1233448] = 1271967 }; state.next = 77575; state.rp = 30; step()
@@ -325,7 +325,7 @@ function GetBindingKey(cmd)
   local map = { ACTIONBUTTON3 = "F", MULTIACTIONBAR1BUTTON2 = "SHIFT-2" }
   return map[cmd]
 end
-state.spec = 252; state.known = { [207317] = true }; state.pet = true
+state.spec = 252; state.known = { [207317] = true, [433901] = true }; state.pet = true
 events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
 state.bars = { [55090] = 3, [47541] = 62, [77575] = 5 }; state.target = nil; state.overrides = {}
 state.next = 55090; state.rp = 30; state.plates = 1; state.barRange = true; step()
@@ -392,7 +392,7 @@ function EnumerateFrames(prev)
   for i, f in ipairs(fakeButtons) do if f == prev then return fakeButtons[i + 1] end end
 end
 function InCombatLockdown() return false end
-state.spec = 252; state.known = { [207317] = true }; state.pet = true; state.overrides = {}
+state.spec = 252; state.known = { [207317] = true, [433901] = true }; state.pet = true; state.overrides = {}
 state.bars = { [85948] = 121 }       -- Festering Strike only on a custom bar slot
 events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
 events.scripts.OnEvent(events, "UPDATE_BINDINGS")
@@ -534,7 +534,7 @@ SlashCmdList.ASSISTCOMPANION("gcd")
 state.usable, state.noPower = {}, {}
 C_Spell.IsSpellUsable = function(id) return state.usable[id] ~= false, state.noPower[id] or false end
 AssistCompanionDB.openerIcon = false
-state.spec = 252; state.known = { [207317] = true }; state.pet = true; state.overrides = {}
+state.spec = 252; state.known = { [207317] = true, [433901] = true }; state.pet = true; state.overrides = {}
 events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
 state.bars = {}; state.target = nil; state.next = 55090; state.rp = 10; state.plates = 1; state.barRange = true; state.inRange = true
 now = now + 800; step()
@@ -1968,7 +1968,7 @@ do
     return curve:Evaluate(state.rpPct * state.rpScale)
   end
   AssistCompanionDB.locked = true
-  state.spec = 252; state.known = { [207317] = true, [47541] = true }; state.overrides = {}
+  state.spec = 252; state.known = { [207317] = true, [47541] = true, [433901] = true }; state.overrides = {}
   events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
   state.rp = "SECRET"; state.next = 55090; state.plates = 1
   combat(true); step()
@@ -1996,7 +1996,15 @@ do
   state.rpPct = 0.9; state.plates = 5; step()
   expect("RP icon: 5 targets -> Epidemic", "icon:207317", pf.icon.texture)
   state.next = 77575; step()
-  expect("RP icon: highlight on a cooldown (Outbreak) -> still shown", true, pf.shown and pf.alpha == 1)
+  expect("RP icon: highlight on a cooldown (Outbreak) -> not covered (0.25.0)", false, pf.shown)
+  state.next = 1247378; step()
+  expect("RP icon: ...nor Putrefy", false, pf.shown)
+  state.overrides = { [55090] = 433895 }; state.next = 433895; step()
+  expect("RP icon: Vampiric Strike (Scourge Strike's button) -> covered", true, pf.shown and pf.alpha == 1)
+  state.overrides = {}; state.next = 55090
+  state.known[433901] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+  expect("RP icon: Rider (no Vampiric Strike talent) -> off", false, pf.shown)
+  state.known[433901] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
   state.next = 47541; step()
   expect("RP icon: highlight already on Death Coil -> hidden", false, pf.shown)
   state.next = 207317; step()

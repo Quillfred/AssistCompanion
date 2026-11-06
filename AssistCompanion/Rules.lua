@@ -180,6 +180,19 @@ local function isRuneSpender(ctx, id)
   return onScourgeButton ~= nil and id == onScourgeButton
 end
 
+-- Unholy runic power rule (0.25.0, from the Unholy audit sims): San'layn only, and only in place of the
+-- basic rune spenders: Scourge Strike / Festering Strike and what their buttons cast (Vampiric Strike,
+-- Festering Scythe). Rider lost 0.3-1.3% with it at any threshold; San'layn gains 0.1-2.8%, more when it
+-- leaves Putrefy, Soul Reaper and Outbreak alone (docs/FINDINGS.md "Unholy audit").
+local VAMPIRIC_STRIKE_TALENT = 433901 -- San'layn
+local function unholyRPRuleApplies(ctx, id)
+  if not ctx.knows(VAMPIRIC_STRIKE_TALENT) then return false end
+  if not id then return false end
+  if id == S.SCOURGE_STRIKE or id == S.FESTERING_STRIKE then return true end
+  local a, b = ctx.override(S.SCOURGE_STRIKE), ctx.override(S.FESTERING_STRIKE)
+  return (a ~= nil and id == a) or (b ~= nil and id == b)
+end
+
 ns.rules = {}
 
 -- The spell your button actually casts for `id` (talents replace some: Epidemic -> Graveyard,
@@ -216,12 +229,12 @@ ns.rules[252] = {
     key = "rpcap",
     name = "Runic power cap",
     spell = S.DEATH_COIL,
-    desc = "Shows Death Coil (1-3 targets) or Epidemic (4+) when runic power is about to cap. While the game hides runic power, the next-cast icon turns into Death Coil / Epidemic with a blue border whenever you're at the threshold in combat, unless the highlight already says Death Coil or Epidemic (the game decides when). Counting targets needs enemy nameplates on.",
+    desc = "San'layn: shows Death Coil (1-3 targets) or Epidemic (4+) instead of Scourge Strike / Festering Strike / Vampiric Strike when runic power is about to cap. While the game hides runic power, the icon turns into Death Coil / Epidemic with a blue border at the threshold (the game decides when). Off for Rider of the Apocalypse: it cost damage in every sim. Counting targets needs enemy nameplates on.",
     -- The highlight only spends runic power on procs, or when you're out of runes.
     check = function(ctx)
       local p = ctx.power
       if not p or p < ctx.db.unholyRP then return end
-      if not isRuneSpender(ctx, ctx.next) then return end
+      if not unholyRPRuleApplies(ctx, ctx.next) then return end
       local n = ctx.enemies
       if n and n >= 4 and ctx.knows(S.EPIDEMIC) then
         return { spell = onButton(ctx, S.EPIDEMIC), text = "Spend: Epidemic", sub = ("Runic power %d"):format(p) }
@@ -1511,14 +1524,10 @@ ns.powerIcon = {
       end
       return onButton(ctx, S.DEATH_COIL), S.DEATH_COIL
     end,
-    -- Any time you're at the threshold, unless the highlight already asks to spend (owner: the
-    -- rune-spender-only version flashed for a second at a time while the highlight sat on cooldowns).
-    when = function(ctx)
-      local n = ctx.next
-      if not n then return true end
-      return n ~= S.DEATH_COIL and n ~= S.EPIDEMIC
-        and n ~= ctx.override(S.DEATH_COIL) and n ~= ctx.override(S.EPIDEMIC)
-    end,
+    -- San'layn only, in place of Scourge Strike / Festering Strike / Vampiric Strike / Festering Scythe
+    -- (0.25.0; before, any time but Death Coil / Epidemic, which also covered Putrefy, Soul Reaper and
+    -- Outbreak and cost Rider damage in the sims).
+    when = function(ctx) return unholyRPRuleApplies(ctx, ctx.next) end,
     at = function(ctx) return ctx.db.unholyRP end,
   },
   [250] = {

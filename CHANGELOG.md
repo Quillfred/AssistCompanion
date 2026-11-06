@@ -1,5 +1,15 @@
 # Assist Companion
 
+## 0.25.0
+
+Unholy audit (talent database, current SimC, owner's Rider and San'layn logs). Death Knight is finished.
+
+* **The runic power rule (Death Coil / Epidemic at 80+) is now San'layn only, and only in place of your rune spenders** (Scourge Strike, Festering Strike and what their buttons cast: Vampiric Strike, Festering Scythe). It no longer covers Putrefy, Soul Reaper or Outbreak.
+  * Rider of the Apocalypse: the rule cost 0.3–1.3% damage in every sim, at 80, 90 or 100 runic power, so it's off.
+  * San'layn: +0.1 to +2.8% this way, against 0 to +1.7% when it covered everything.
+* Opener unchanged: SimC's current opener matches it for both hero trees. Talents: Unholy's rules don't time any cooldowns, so none of them affect it.
+* The Blightfall fix still works (owner's San'layn log: shown and pressed twice).
+
 ## 0.24.1
 
 * **"Not enough resource" shading works in combat again (all classes).** The game hides its usable check in combat, so the icon never turned blue (owner: Heart Strike with no runes stayed full color). Now the addon reads the spell's cost and checks it:

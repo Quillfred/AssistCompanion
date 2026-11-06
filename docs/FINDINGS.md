@@ -37,6 +37,23 @@ All numbers come from SimulationCraft (`midnight` branch, commit `36e21fe`, game
 
 Health is secret in combat, but `UnitHealthPercent(unit, usePredicted, curve)` evaluates a curve on it, and `Texture:SetAlpha` accepts secret values from addon code, so the low-health icon's alpha is set by the game. Max runic power for Blood is 125 with Ossuary (219786 grants +10), 115 without; `UnitPowerMax` can return a hidden value even out of combat. The highlight's data stores Heart Strike as Rune Strike (316239), which Heart Strike replaces. Blood Boil has 2 charges and a fixed 7.5s recharge (not hasted), so the addon counts charges from your casts. The highlight's Death Strike rules are "≤50% health" or "≥80 runic power"; it casts Blood Boil only to apply Blood Plague, and refreshes Bone Shield on stack count only.
 
+## Unholy audit (0.25.0, Nov 6 2026)
+
+`tools/unholy_rules_sim.py`: SimC midnight @ 36e21fe, MID2 profiles (Rider default, San'layn), Patchwerk 300s, 1500 iterations. DPS vs optimal at 1 / 3 / 5 targets:
+
+| | Rider | San'layn |
+|---|---|---|
+| hl_game | −12.9 / −9.5 / −12.0% | −40.7 / −39.1 / −40.4% (SimC artifact, below) |
+| + Blightfall fix | −12.9 / −9.1 / −12.1% | −36.8 / −34.8 / −35.9% |
+| + runic power rule (any highlight, ≤0.24) | −13.9 / −10.8 / −12.3% | −36.5 / −34.8 / −34.2% |
+| + runic power rule (only over Scourge / Festering Strike), vs no rule | −0.8 / −1.3 / 0% | **+0.7 / +0.1 / +2.8%** |
+
+* **The runic power rule doesn't help Rider at any threshold** (80/90/100: −0.3 to −1.3%), though it cuts runic power waste from ~12% to ~8%: the Death Coils replace rune spenders worth more. For San'layn it helps, most in AoE, and more when it leaves Putrefy, Soul Reaper and Outbreak alone. 0.25.0: San'layn only (Vampiric Strike talent 433901), and only in place of Scourge Strike / Festering Strike / their button spells.
+* **Essence of the Blood Queen** uptime (San'layn, 1 target): highlight 88.8%, with the addon 93.4%, optimal 96.4%. The rule's extra Death Coils proc more Vampiric Strikes. No dedicated rule (buffs are hidden in combat; the last 3 points aren't worth timing it from casts).
+* **SimC's San'layn highlight never casts Putrefy or Festering Strike** (0 vs 24 / 16 optimal) even with the Blightfall fix. **In game it does** (owner's San'layn log: Putrefy at +29, +42, +54 s; Festering Strike and Festering Scythe too), so the −35 to −40% is a SimC artifact, not the real highlight. The rankings and triage use the Rider build (−10.7%), which is unaffected.
+* Owner's logs (0.24.1): Rider: no Blightfall (Dark Transformation stays itself), opener 9/9, the old rule's Death Coil prompts landed over Putrefy, Outbreak and Soul Reaper. San'layn: Blightfall prompt shown and pressed twice. After it the highlight asked for Outbreak once more (pressed at +11.7, +53.0): whether that Outbreak is worth it is still open.
+* Opener (SimC, 3 seeds per hero tree): Raise Dead, Outbreak, Festering Strike ×2, Army of the Dead, Dark Transformation, Putrefy, Death Coil, Putrefy, Death Coil: unchanged. Talents: no Unholy rule times a cooldown, so cooldown talents (Cycle of Death, Harbinger of Doom, Reaping...) don't matter.
+
 ## Unholy: Outbreak / Blightfall loop
 
 The highlight's second rule for Unholy (game data step 15428) is "cast Outbreak (77575) while you have aura 1271975 (Blightfall)". That aura's only effect is to turn Dark Transformation into Blightfall (1271967) until you press it. Outbreak doesn't remove the aura, so the rule stays true and the highlight suggests Outbreak after every press.
