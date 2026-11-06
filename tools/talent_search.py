@@ -12,6 +12,8 @@ class, sorted by node id: selected, purchased, partial rank (6 bits), choice ind
 Usage:
   SIMC=<simc checkout> python3 tools/talent_search.py <spec> <rotation> <targets> <start build>...
   rotation: optimal (SimC's APL) or highlight (use_blizzard_action_list=1)
+  Augmentation is scored on raid DPS minus the raid with an idle Augmentation (SimC adds 8 simplified
+  allies to a lone Augmentation), with deterministic=1 so builds share random numbers.
 Prints the best build and its DPS; results cached in $SIMC/../talentsearch/.
 """
 import hashlib, json, os, subprocess, sys
@@ -128,12 +130,24 @@ def sim(spec, rotation, targets, talents, iters):
                f"desired_targets={targets}", "fight_style=Patchwerk", "max_time=300", f"json2={js}"]
         if rotation == "highlight":
             cmd.append("use_blizzard_action_list=1")
+        if rotation == "idle":
+            cmd.append("actions=snapshot_stats")
+        if spec == "augmentation":
+            cmd.append("deterministic=1")  # same random numbers for every build: the raid's noise cancels out
         r = subprocess.run(cmd, cwd=SIMC, capture_output=True, text=True)
         if r.returncode != 0 or not os.path.exists(js):
             return None
-    p = json.load(open(js))["sim"]["players"][0]
+    d = json.load(open(js))["sim"]
+    p = d["players"][0]
     if p["talents"] != talents and decode(p["talents"], NODES)[1] != decode(talents, NODES)[1]:
         return None  # SimC rejected / rewrote the build
+    if spec == "augmentation":
+        # Augmentation's worth = its own damage + what it adds to the allies SimC gives it: raid DPS minus
+        # the same raid with an idle Augmentation.
+        raid = d["statistics"]["raid_dps"]["mean"]
+        if rotation == "idle":
+            return raid
+        return raid - sim(spec, "idle", targets, talents, iters)
     return p["collected_data"]["dps"]["mean"]
 
 
