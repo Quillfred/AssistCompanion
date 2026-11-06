@@ -557,18 +557,18 @@ state.cd[51271] = { now - 10, 45 }; state.charges[47568] = { 1, 2, now - 5, 90 }
 step()
 expect("CD skip: ERW with a charge left stays first", "icon:47568", nf.icon.texture)
 cast(47568); step()
-expect("CD skip: Pillar on cooldown is skipped", "icon:439843", nf.icon.texture)
-expect("CD skip: opener moves on past Pillar", "Opener\n3/9", ob.label.text)
-expect("Opener timer: Pillar 35s left -> countdown above the icon", "00:35 until full opener is available", nf.wait.text)
-now = now + 30; step()
-expect("Opener timer: counts down", "00:05 until full opener is available", nf.wait.text)
-state.cd[51271] = { now - 100, 45 }; now = now + 6; step()
-expect("Opener timer: everything ready -> gone", "", nf.wait.text)
-state.cd[51271] = { now, 125 }; step()
-expect("Opener timer: minutes", "02:05 until full opener is available", nf.wait.text)
+expect("CD gray: out of combat, Pillar on cooldown stays on the bar", "Opener\n2/9", ob.label.text)
+expect("CD gray: ...grayed out", true, ob.slots[1].desat)
+expect("CD gray: ...with its seconds left", "35", ob.cds[1].text)
+expect("CD gray: ready steps aren't gray", false, ob.slots[2].desat)
+expect("CD gray: ...and have no number", "", ob.cds[2].text)
+now = now + 5; step()
+expect("CD gray: counts down", "30", ob.cds[1].text)
 combat(true); step()
-expect("Opener timer: hidden in combat", "", nf.wait.text)
-combat(false); state.cd[51271] = { now - 100, 45 }; now = now + 1; step()
+expect("CD skip: in combat, Pillar still on cooldown is skipped", "icon:439843", nf.icon.texture)
+expect("CD skip: opener moves on past Pillar", "Opener\n3/9", ob.label.text)
+combat(false); now = now + 40; step()
+expect("CD gray: back to full color once ready", false, ob.slots[1].desat)
 -- GCD-length cooldown isn't treated as "on cooldown"
 events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); state.cd = { [51271] = { now - 0.2, 1.5 } }; state.charges = {}
 now = now + 20; step()
@@ -593,8 +593,8 @@ for _, l in ipairs(AssistCompanionDB.debugLog) do
   if l:find("opener: reset", 1, true) then resets = resets + 1 end
   if l:find("opener: skipped step 2/", 1, true) then skips = skips + 1 end
 end
-expect("CD skip: rebuilt opener isn't reset again every frame", true, resets <= 1 and skips == 1)
-expect("CD skip: rebuilt opener stays past the cooldown step", "Opener\n3/9", ob.label.text)
+expect("CD skip: rebuilt opener isn't reset again every frame (and out of combat nothing is skipped)", true, resets <= 1 and skips == 0)
+expect("CD gray: rebuilt opener keeps its cooldown steps, grayed", true, ob.label.text == "Opener\n1/9" and ob.slots[1].desat == true)
 AssistCompanionDB.debug = false; AssistCompanionDB.debugLog = nil
 -- Breath icon respects Breath's real cooldown after a combat drop on a dummy
 AssistCompanionDB.openerIcon = false
