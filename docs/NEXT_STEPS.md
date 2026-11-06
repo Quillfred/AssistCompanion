@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.23.2** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.24.0** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -160,10 +160,10 @@ prefers: 48px icon, text alerts off, HIGH strata (now an option, `db.strata`, 0.
 ## Class-by-class completion (owner's plan)
 
 Evoker: done (0.21.6; Devastation and Augmentation tested in game, Devastation rules simmed). Death Knight audit in
-progress: **Blood done in 0.21.7** (talent timings, opener, sim of all rules; `docs/FINDINGS.md` "Blood audit");
+progress: **Blood done** (0.21.7 audit: talent timings, opener, sim of all rules; 0.22–0.23: opener order fix, rank badge above the GCD swipe, Death Strike hold option; all confirmed in the owner's logs; `docs/FINDINGS.md` "Blood audit");
 to confirm in a Blood debug log: Dancing Rune Weapon / Reaper's Mark / Consumption suggested by the highlight,
 `bs=` resetting after Dancing Rune Weapon (Insatiable Blade), `vb=` growing with Death Strikes (Red Thirst).
-Next: Frost, then Unholy, same steps (talent database, SimC opener, rules sim). Then the next class; healers
+**Frost done in 0.24.0** (Rider opener, Chosen of Frostbrood Breath window, rules sim; to confirm in game: the Rider opener). Next: Unholy, same steps (talent database, SimC opener, rules sim). Then the next class; healers
 only Mistweaver and Discipline, last.
 
 ## How Blood was done (template for a deep dive)

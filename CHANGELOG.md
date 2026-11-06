@@ -1,5 +1,13 @@
 # Assist Companion
 
+## 0.24.0
+
+Frost audit (talent database + current SimC):
+
+* **Frost opener for Rider of the Apocalypse** (SimC's current optimal): Empower Rune Weapon, Obliterate, Pillar of Frost, Breath of Sindragosa, Empower Rune Weapon, Obliterate, Frost Strike, Obliterate, Empower Rune Weapon, Obliterate, Frostwyrm's Fury. It uses all three Empower Rune Weapon charges. Riders used to get the Deathbringer order. Deathbringer is unchanged: Empower Rune Weapon, Pillar, Reaper's Mark, Breath, Obliterate, Frostwyrm's Fury, Obliterate ×3.
+* **Breath of Sindragosa window with Chosen of Frostbrood:** Frostwyrm's Fury during Pillar of Frost extends it by 2 seconds, and the Breath prompt now lasts that long too. The Long Winter's extension comes from auto-attack crits, which addons can't see, so it isn't counted (the prompt never runs past the real Pillar).
+* Simmed (`tools/frost_rules_sim.py`): the highlight in game is 8–10% behind optimal (no Breath of Sindragosa). With the addon's rules it's 1–2% behind, for both hero trees.
+
 ## 0.23.2
 
 * **The opener label ("Opener 1/8") is now above the bar's first icon**, on one line. Beside the bar it covered the next-cast icon when the bar sat next to it.

@@ -36,6 +36,9 @@ local S = {
   OBLITERATE          = 49020,
   FROSTSCYTHE         = 207230,
   EMPOWER_RUNE_WEAPON = 47568,
+  FROST_STRIKE        = 49143,
+  FROSTWYRMS_FURY     = 279302,
+  CHOSEN_OF_FROSTBROOD_2 = 1265633, -- Frostwyrm's Fury extends an active Pillar of Frost by 2s
   -- Frost and Blood
   RAISE_DEAD          = 46585, -- the 60s ghoul (Unholy's permanent pet is 46584)
   -- Blood
@@ -152,6 +155,18 @@ local function pyreAtThree(ctx)
 end
 
 local PILLAR_DURATION = 12   -- seconds (game data: Pillar of Frost id 51271)
+local FWF_PILLAR_EXTEND = 2  -- Chosen of Frostbrood rank 2 (1265633: 2000 ms)
+-- Pillar of Frost's length: 12s, +2s for a Frostwyrm's Fury cast during it with Chosen of Frostbrood.
+-- (The Long Winter adds up to 4s from auto-attack crits, which addons can't see: not counted, so the
+-- Breath window never runs past the real Pillar.)
+local function pillarDuration(ctx, pillar)
+  local d = PILLAR_DURATION
+  local fwf = ctx.lastCast[S.FROSTWYRMS_FURY]
+  if fwf and fwf >= pillar and fwf <= pillar + d and ctx.knows(S.CHOSEN_OF_FROSTBROOD_2) then
+    d = d + FWF_PILLAR_EXTEND
+  end
+  return d
+end
 
 -- Unholy rune spenders the highlight prefers over spending runic power.
 -- Whatever currently sits on the Scourge Strike button (Clawing Shadows, Vampiric Strike, ...)
@@ -973,16 +988,28 @@ ns.replacedBy = {
 -- waitForMelee = on the next-cast icon, gray this step out until your target is in melee range.
 ---------------------------------------------------------------------------
 ns.openers = {}
-ns.openers[251] = {                     -- Frost
+ns.openers[251] = {                     -- Frost (SimC optimal, MID2 profiles, Nov 2026)
   { id = S.EMPOWER_RUNE_WEAPON, waitForMelee = true }, -- don't press while running in
-  { id = S.PILLAR_OF_FROST, waitForMelee = true },
-  { id = 439843 },                      -- Reaper's Mark (Deathbringer)
-  { id = S.BREATH },
-  { id = S.OBLITERATE },
-  { id = 279302 },                      -- Frostwyrm's Fury
-  { id = S.OBLITERATE },
-  { id = S.OBLITERATE },
-  { id = S.OBLITERATE },
+  -- Deathbringer: Pillar, Reaper's Mark, Breath, Obliterate, Frostwyrm's Fury, Obliterate x3
+  { id = S.PILLAR_OF_FROST, waitForMelee = true, needs = S.REAPERS_MARK },
+  { id = S.REAPERS_MARK },
+  { id = S.BREATH, needs = S.REAPERS_MARK },
+  { id = S.OBLITERATE, needs = S.REAPERS_MARK },
+  { id = S.FROSTWYRMS_FURY, needs = S.REAPERS_MARK },
+  { id = S.OBLITERATE, needs = S.REAPERS_MARK },
+  { id = S.OBLITERATE, needs = S.REAPERS_MARK },
+  { id = S.OBLITERATE, needs = S.REAPERS_MARK },
+  -- Rider of the Apocalypse: Obliterate, Pillar, Breath, then Empower Rune Weapon's other charges
+  { id = S.OBLITERATE, without = S.REAPERS_MARK },
+  { id = S.PILLAR_OF_FROST, without = S.REAPERS_MARK },
+  { id = S.BREATH, without = S.REAPERS_MARK },
+  { id = S.EMPOWER_RUNE_WEAPON, without = S.REAPERS_MARK },
+  { id = S.OBLITERATE, without = S.REAPERS_MARK },
+  { id = S.FROST_STRIKE, without = S.REAPERS_MARK },
+  { id = S.OBLITERATE, without = S.REAPERS_MARK },
+  { id = S.EMPOWER_RUNE_WEAPON, without = S.REAPERS_MARK },
+  { id = S.OBLITERATE, without = S.REAPERS_MARK },
+  { id = S.FROSTWYRMS_FURY, without = S.REAPERS_MARK },
 }
 ns.openers[252] = {                     -- Unholy
   { id = 46584, skipIfPet = true },     -- Raise Dead (before the pull)
@@ -1077,7 +1104,7 @@ ns.readyCooldowns = {
       -- Right after Pillar of Frost, once per Pillar.
       when = function(ctx)
         local pillar = ctx.lastCast[S.PILLAR_OF_FROST]
-        if not pillar or ctx.now - pillar > PILLAR_DURATION then return false end
+        if not pillar or ctx.now - pillar > pillarDuration(ctx, pillar) then return false end
         local breath = ctx.lastCast[S.BREATH]
         return not (breath and breath >= pillar)
       end,

@@ -224,6 +224,13 @@ now = now + 80; cast(51271); step()
 expect("Frost: Pillar after Breath cooldown -> Breath icon again", "icon:1249658", (seen()))
 now = now + 13; step()
 expect("Frost: Pillar window over -> icon gone", "nothing", (seen()))
+-- Chosen of Frostbrood (rank 2): Frostwyrm's Fury during Pillar extends it 2s
+state.known[1265633] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
+now = now + 200; cast(51271); now = now + 3; cast(279302); now = now + 10.5; step()
+expect("Frost: Chosen of Frostbrood -> Breath still shown 13.5s into Pillar (14s with Frostwyrm's Fury)", "icon:1249658", (seen()))
+now = now + 1; step()
+expect("Frost: ...gone after 14s", "nothing", (seen()))
+state.known[1265633] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
 state.plates = 3; state.next = 49020; step()
 expect("Frost: 3 targets + Obliterate -> Frostscythe", "icon:207230", (seen()))
 state.plates = 5; step()
@@ -266,23 +273,28 @@ local function combat(on, shortDrop)
 end
 local function openerIcons() local t = {} for i = 1, 6 do local s = ob.slots[i]; if s.shown then t[#t+1] = s.texture end end return table.concat(t, ",") end
 state.spec = 251; state.inRange = true; state.target = nil
-state.known = { [47568]=true, [51271]=true, [1249658]=true, [49020]=true, [279302]=true } -- no Reaper's Mark
+state.known = { [47568]=true, [51271]=true, [1249658]=true, [49020]=true, [279302]=true, [49143]=true } -- no Reaper's Mark
 events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED"); now = now + 300; step()
 expect("Opener: Frost shows before pull with hostile target", true, ob.shown)
-expect("Opener: Frost skips Reaper's Mark when not talented", "icon:47568,icon:51271,icon:1249658,icon:49020,icon:279302,icon:49020", openerIcons())
-expect("Opener: label", "Opener 1/8", ob.label.text)
+expect("Opener: Frost Rider (no Reaper's Mark): ERW, Obliterate, Pillar, Breath, ERW, Obliterate",
+  "icon:47568,icon:49020,icon:51271,icon:1249658,icon:47568,icon:49020", openerIcons())
+expect("Opener: Rider is 11 steps", "Opener 1/11", ob.label.text)
+state.known[439843] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+expect("Opener: Frost Deathbringer: ERW, Pillar, Reaper's Mark, Breath, Obliterate, Frostwyrm's Fury",
+  "icon:47568,icon:51271,icon:439843,icon:1249658,icon:49020,icon:279302", openerIcons())
+expect("Opener: label", "Opener 1/9", ob.label.text)
 expect("Opener: first icon is large", 44, ob.slots[1].size[1])
 combat(true); cast(47568); step()
-expect("Opener: advances after first cast", "Opener 2/8", ob.label.text)
-cast(1249658); step() -- pressed Breath before Pillar: Breath ticked off, Pillar still pending
-expect("Opener: out-of-order cast keeps the skipped step pending", "Opener 2/8", ob.label.text)
-expect("Opener: ...Pillar first, Breath gone", "icon:51271,icon:49020,icon:279302,icon:49020,icon:49020,icon:49020", openerIcons())
-cast(49020); step()   -- a second cast past Pillar: dropped
-expect("Opener: a step passed by two later casts is dropped", "Opener 5/8", ob.label.text)
+expect("Opener: advances after first cast", "Opener 2/9", ob.label.text)
+cast(1249658); step() -- pressed Breath before Pillar and Reaper's Mark: Breath ticked off, those still pending
+expect("Opener: out-of-order cast keeps the skipped steps pending", "Opener 2/9", ob.label.text)
+expect("Opener: ...Pillar first, Breath gone", "icon:51271,icon:439843,icon:49020,icon:279302,icon:49020,icon:49020", openerIcons())
+cast(49020); step()   -- a second cast past Pillar and Reaper's Mark: dropped
+expect("Opener: a step passed by two later casts is dropped", "Opener 6/9", ob.label.text)
 cast(279302); cast(49020); cast(49020); cast(49020); step()
 expect("Opener: finished -> hidden", false, ob.shown)
 combat(false); step()
-expect("Opener: resets after combat", "Opener 1/8", ob.label.text)
+expect("Opener: resets after combat", "Opener 1/9", ob.label.text)
 state.target = false; step()
 expect("Opener: hidden with no target out of combat", false, ob.shown)
 state.target = nil; combat(true); now = now + 30; step()
@@ -431,15 +443,15 @@ AssistCompanionDB.openerIcon = false
 -- RESET FOR THE NEXT PULL (cooldowns assumed reset, as after a wipe) --------
 AssistCompanionDB.openerIcon = true
 state.spec = 251; state.target = nil; state.overrides = {}; state.inRange = true
-state.known = { [47568]=true, [51271]=true, [1249658]=true, [49020]=true, [279302]=true }
+state.known = { [47568]=true, [51271]=true, [1249658]=true, [49020]=true, [279302]=true, [439843]=true }
 events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
 events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED")
 now = now + 600; state.next = 49143; step()
 -- pull: Pillar + Breath used, then combat drops (wipe)
 combat(true); cast(47568); cast(51271); cast(1249658); step()
-expect("Reset: mid-opener before wipe", "Opener 4/8", ob.label.text)
+expect("Reset: mid-opener before wipe (Reaper's Mark still pending)", "Opener 3/9", ob.label.text)
 combat(false); step()
-expect("Reset: combat drop -> opener back to step 1", "Opener 1/8", ob.label.text)
+expect("Reset: combat drop -> opener back to step 1", "Opener 1/9", ob.label.text)
 -- next pull right away: Breath must count as ready even though it was cast <120s ago
 AssistCompanionDB.openerIcon = false
 combat(true); now = now + 5; cast(51271); state.next = 49020; step()
@@ -447,26 +459,26 @@ expect("Reset: Breath treated as off cooldown after combat drop", "icon:1249658"
 combat(false); AssistCompanionDB.openerIcon = true
 -- a short combat drop (Deep Breath flying off dummies) is the same fight: nothing resets
 combat(true); cast(47568); cast(51271); step()
-expect("Short drop: mid-opener", "Opener 3/8", ob.label.text)
+expect("Short drop: mid-opener", "Opener 3/9", ob.label.text)
 combat(false, true); now = now + 3; step(); combat(true); step()
-expect("Short drop: back in combat within 6s -> opener kept", "Opener 3/8", ob.label.text)
+expect("Short drop: back in combat within 6s -> opener kept", "Opener 3/9", ob.label.text)
 combat(false)
 -- death resets mid-pull
 combat(true); cast(47568); cast(51271); step()
 events.scripts.OnEvent(events, "PLAYER_DEAD"); step()
-expect("Reset: death -> opener back to step 1", "Opener 1/8", ob.label.text)
+expect("Reset: death -> opener back to step 1", "Opener 1/9", ob.label.text)
 combat(false)
 -- encounter end resets
 combat(true); cast(47568); step()
 events.scripts.OnEvent(events, "ENCOUNTER_END"); combat(false); step()
-expect("Reset: encounter end -> step 1", "Opener 1/8", ob.label.text)
+expect("Reset: encounter end -> step 1", "Opener 1/9", ob.label.text)
 -- out-of-combat press: stays advanced briefly, resets after 10s idle
 cast(47568); step()
-expect("Reset: out-of-combat press advances", "Opener 2/8", ob.label.text)
+expect("Reset: out-of-combat press advances", "Opener 2/9", ob.label.text)
 now = now + 5; step()
-expect("Reset: still advanced after 5s", "Opener 2/8", ob.label.text)
+expect("Reset: still advanced after 5s", "Opener 2/9", ob.label.text)
 now = now + 6; step()
-expect("Reset: reset after 10s idle out of combat", "Opener 1/8", ob.label.text)
+expect("Reset: reset after 10s idle out of combat", "Opener 1/9", ob.label.text)
 AssistCompanionDB.openerIcon = false
 
 -- OPENER SURVIVES MID-COMBAT SPELLBOOK UPDATES ----------------------------
@@ -822,7 +834,7 @@ combat(true); for _ = 1, 12 do step() end
 cast(47568); step()
 expect("Debug log: combat start", true, logHas("---- combat start ----"))
 expect("Debug log: casts with name and id", true, logHas("cast: spell47568 (47568)"))
-expect("Debug log: opener step done", true, logHas("opener: step 1/8 done (spell47568)"))
+expect("Debug log: opener step done", true, logHas("opener: step 1/10 done (spell47568)"))
 expect("Debug log: icon change with reason", true, logHas("(opener, highlight said spell49020)"))
 expect("Debug log: status line once a second", true, logHas("status: highlight=spell49020 49020"))
 expect("Debug log: lines show time into combat", true, log[#log]:find("+%d+%.%ds") ~= nil)

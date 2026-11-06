@@ -29,6 +29,7 @@ All numbers come from SimulationCraft (`midnight` branch, commit `36e21fe`, game
 * **Opener** (SimC optimal, both MID2 profiles, identical across 3 seeds with a 300s fight; with 60s SimC holds Dancing Rune Weapon): Death's Caress, Vampiric Blood, Raise Dead, Dancing Rune Weapon, then Heart Strike ×4 (San'layn) or Death and Decay, Reaper's Mark, Marrowrend, Death Strike (Deathbringer).
 * **Death Strike at 80+ runic power (the highlight's rule) is fine.** Owner asked to hold it to within 20 of max or ≤50% health. Simmed on top of all the addon's rules (dropping the highlight's `death_strike,if=runic_power>=80`): San'layn −0.4 / −0.4 / +0.2%, Deathbringer −0.3 / −0.1 / +0.6% damage at 1/3/5 targets, damage taken equal or slightly higher. SimC's Deathbringer list itself spends Death Strike ahead of Blood Boil and Heart Strike. Not built. (It would be possible despite hidden runic power and health: two layers over the icon, alpha from `UnitPowerPercent` and `UnitHealthPercent` curves.)
 * **Death Coil instead of the highlight's Death Strike** (owner asked what else could spend the runic power; health >50%): San'layn −18.4 / −17.2 / −14.8%, Deathbringer −20.5 / −18.9 / −17.6% damage, damage taken 1.7–5×. Death Strike's damage, Blood Shield, Coagulopathy and Red Thirst all depend on it. Rejected. The owner's real goal is banking runic power for several Death Strikes after a spike, which a Patchwerk sim can't value, so 0.23.0 adds the hold as an option (`ns.holdSpender`, two curve-driven layers).
+* **Hold confirmed in game (owner's 0.23.1 log, Deathbringer, single dummy):** `hold=on:Blood Boil` / `on:Heart Strike` exactly while the highlight asked for Death Strike (switching with `bloodboil=` charges), `waiting` otherwise. The owner saw the gold-bordered Heart Strike / Blood Boil, and the blue cap Death Strike once (runic power layer). No red (no damage taken). The layer's visibility is the game's secret, so the log can't show it, only the owner can.
 * **Owner's 0.22.0 Blood log (Deathbringer, single dummy):** the highlight *does* suggest Dancing Rune Weapon (before the pull and at +90 s), Reaper's Mark (every ~30 s) and Consumption, unlike Devastation's cooldowns. `bs=` restarted at Reaper's Mark (Grim Reaper) and Marrowrend. `vb=` grew by 8 per Death Strike (Red Thirst with Ossuary), and the Vampiric Blood prompt came at 37–40 s instead of 90 s. Consumption showed "rank 1", but the number drew under the GCD swipe (fixed in 0.22.1). The owner held it ~1.7 s.
 * To confirm in game: whether the highlight suggests Dancing Rune Weapon, Reaper's Mark and Consumption (all in its list, like Devastation's cooldowns that it never showed).
 
@@ -61,6 +62,20 @@ The highlight only suggests Epidemic or Death Coil with Sudden Doom or Forbidden
 | Death Coil casts | 0 | 12.5 |
 
 At exactly 4 targets neither proc rule applies (Death Coil is `<= 3` targets, Epidemic `> 4`).
+
+## Frost audit (0.24.0, Nov 6 2026)
+
+`tools/frost_rules_sim.py`: SimC midnight @ 36e21fe, MID2 profiles (Deathbringer, Rider), Patchwerk 300s, 1500 iterations. DPS vs optimal at 1 / 3 / 5 targets:
+
+| | Deathbringer | Rider |
+|---|---|---|
+| hl_simc (rankings) | −1.6 / −2.3 / −1.3% | −1.5 / −1.3 / −1.0% |
+| hl_game (no Breath, no Raise Dead) | −8.3 / −9.0 / −7.5% | −8.6 / −9.5 / −8.5% |
+| **hl_addon** | **−1.9 / −1.0 / −1.3%** | **−1.4 / −1.4 / −1.0%** |
+
+* Breath of Sindragosa during Pillar is nearly all of it (the highlight's own Breath line is "for Blizzard automation", not in game). Raise Dead adds about 0.2%. Frostscythe at exactly 3 targets: +1.3% (Deathbringer), −0.3% alone and 0 combined (Rider); kept.
+* Talents: Pillar of Frost lasts longer with The Long Winter (456240: +1s per auto-attack crit, up to 4s; not visible to addons, not counted) and Chosen of Frostbrood rank 2 (1265633: Frostwyrm's Fury +2s; counted for the Breath window). Death's Messenger (Raise Dead −30s) was done in 0.21.7. Frostbound Will (Rime cuts Empower Rune Weapon's cooldown) doesn't matter: the addon doesn't time Empower Rune Weapon.
+* Opener (SimC optimal, 2–3 seeds each): Deathbringer: Empower Rune Weapon, Pillar, Reaper's Mark, Breath, Obliterate, Frostwyrm's Fury, Obliterate... (unchanged). Rider: Empower Rune Weapon, Obliterate, Pillar, Breath, Empower Rune Weapon, Obliterate, Frost Strike, Obliterate, Empower Rune Weapon, Obliterate, Frostwyrm's Fury (all three charges).
 
 ## Frost: Breath of Sindragosa never suggested
 
