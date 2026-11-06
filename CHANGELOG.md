@@ -1,5 +1,12 @@
 # Assist Companion
 
+## 0.23.0
+
+* **Blood: "Hold runic power for Death Strike" option** (off by default; Options > Blood). When the highlight asks for Death Strike, the icon shows Blood Boil (with a charge) or Heart Strike instead, with a gold border, unless you're within 20 runic power of max or at 50% health or lower. Then it's Death Strike again, with a red border at low health. That keeps runic power banked for several Death Strikes after a big hit. Runic power and health are hidden from addons, so the game decides: two layers over the icon, their visibility set from your runic power and health. Simmed on steady damage: −0.4% to +0.6% damage, about equal damage taken; the benefit is for damage spikes, which the sim doesn't model.
+* The runic power and hold layers have their own global cooldown swipe and cover the icon's keybind with their own.
+* Death Coil (Blood's other runic power spender) instead of the highlight's Death Strike was simmed and rejected: 15–20% less damage and 1.7–5× the damage taken.
+* Debug log: Blood status lines show `hold=` (off / waiting / on:<spell> / nothing else).
+
 ## 0.22.1
 
 From the owner's Blood log (0.22.0):
