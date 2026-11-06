@@ -664,6 +664,11 @@ nf.gcd:SetDrawEdge(false)
 nf.gcd:SetDrawBling(false)
 nf.gcd:SetHideCountdownNumbers(true)
 nf.gcd:SetFrameLevel(nf:GetFrameLevel() + 1)
+-- Text over the icon (keybind, empower rank, "x2") sits above the GCD swipe and the runic power layer,
+-- so the swipe doesn't darken it (owner: Consumption's rank "1" went unseen).
+nf.textLayer = CreateFrame("Frame", nil, nf)
+nf.textLayer:SetAllPoints(nf)
+nf.textLayer:SetFrameLevel(nf:GetFrameLevel() + 5)
 
 local function updateGCD()
   if not db or not db.gcdSwipe then nf.gcd:Hide() return end
@@ -682,16 +687,16 @@ local function updateGCD()
   end
 end
 
-nf.key = nf:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+nf.key = nf.textLayer:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
 nf.key:SetPoint("TOPRIGHT", nf.icon, "TOPRIGHT", -2, -2)
 nf.key:SetJustifyH("RIGHT")
 -- Empower rank to hold the spell to (bottom left), when the spec says (ns.empowerRank).
-nf.rank = nf:CreateFontString(nil, "OVERLAY", "NumberFontNormalLarge")
-nf.rank:SetPoint("BOTTOMLEFT", nf.icon, "BOTTOMLEFT", 3, 2)
+nf.rank = nf.textLayer:CreateFontString(nil, "OVERLAY", "NumberFontNormalLarge")
+nf.rank:SetPoint("BOTTOMLEFT", nf.icon, "BOTTOMLEFT", 2, 1)
 nf.rank:SetJustifyH("LEFT")
 nf.rank:SetTextColor(1, 0.82, 0)
 -- A rule's press count (e.g. "x2" for the Tip the Scales macro): big, bottom right, so it isn't missed.
-nf.suffix = nf:CreateFontString(nil, "OVERLAY", "NumberFontNormalHuge")
+nf.suffix = nf.textLayer:CreateFontString(nil, "OVERLAY", "NumberFontNormalHuge")
 nf.suffix:SetPoint("BOTTOMRIGHT", nf.icon, "BOTTOMRIGHT", -1, 1)
 nf.suffix:SetJustifyH("RIGHT")
 nf.suffix:SetTextColor(1, 0.82, 0)
@@ -710,6 +715,8 @@ local function layoutNext()
   -- "x2" at about 45% of the icon (22 px on the default 48), outlined so it reads on any icon
   local font = NumberFontNormal and NumberFontNormal.GetFont and NumberFontNormal:GetFont()
   if font and nf.suffix.SetFont then pcall(nf.suffix.SetFont, nf.suffix, font, math.max(14, math.floor(s * 0.45)), "THICKOUTLINE") end
+  -- empower rank: same size and outline, so it reads on any icon
+  if font and nf.rank.SetFont then pcall(nf.rank.SetFont, nf.rank, font, math.max(14, math.floor(s * 0.45)), "THICKOUTLINE") end
   placeFrame(nf, "nextPoint")
 end
 
@@ -871,6 +878,7 @@ local function buildOpener()
   end
   wipe(opener.steps)
   opener.index, opener.lastAdvance = 1, nil -- steps skipped for cooldowns aren't casts: no idle reset for them
+  opener.done, opener.passed = {}, {} -- steps cast or dropped; how many later casts went past a pending step
   local list = specID and ns.openers and ns.openers[specID]
   if not list then return end
   local hasPet = try(UnitExists, "pet")
@@ -893,19 +901,42 @@ end
 
 ns.rebuildOpener = function() if not InCombatLockdown or not InCombatLockdown() then buildOpener() end end
 
--- Called on each of your successful casts. Accepts the next step, or one of the two
--- after it (so a skipped or reordered cast doesn't strand the opener).
+-- First step at or after k that isn't done.
+local function nextOpen(k)
+  while k <= #opener.steps and opener.done[k] do k = k + 1 end
+  return k
+end
+
+-- Called on each of your successful casts. Accepts the next pending step or one of the two pending
+-- after it. Steps cast out of order are ticked off and the ones before stay pending (owner: Raise Dead
+-- pressed before Death's Caress dropped Death's Caress and Vampiric Blood); a pending step is dropped
+-- once two later steps have been cast past it, so one you skip on purpose doesn't hold the opener up.
 local function advanceOpener(id)
   local steps = opener.steps
-  for k = opener.index, math.min(opener.index + 2, #steps) do
-    local want = steps[k].id
-    if id == want or id == override(want) or (steps[k].alt and id == steps[k].alt) then
-      dlog("opener: step %d/%d done (%s)%s", k, #steps, spellName(want),
-        k > opener.index and (" - skipped ahead from step " .. opener.index) or "")
-      opener.index = k + 1
-      opener.lastAdvance = GetTime()
-      return
+  local k, seen = opener.index, 0
+  while k <= #steps and seen < 3 do
+    if not opener.done[k] then
+      seen = seen + 1
+      local want = steps[k].id
+      if id == want or id == override(want) or (steps[k].alt and id == steps[k].alt) then
+        for j = opener.index, k - 1 do
+          if not opener.done[j] then
+            opener.passed[j] = (opener.passed[j] or 0) + 1
+            if opener.passed[j] >= 2 then
+              opener.done[j] = true
+              dlog("opener: step %d/%d dropped (%s, two later steps cast)", j, #steps, spellName(steps[j].id))
+            end
+          end
+        end
+        opener.done[k] = true
+        dlog("opener: step %d/%d done (%s)%s", k, #steps, spellName(want),
+          k > opener.index and (" - out of order, step " .. opener.index .. " still pending") or "")
+        opener.index = nextOpen(opener.index)
+        opener.lastAdvance = GetTime()
+        return
+      end
     end
+    k = k + 1
   end
 end
 
@@ -958,14 +989,20 @@ local function renderOpener()
   while opener.index <= #steps and onCooldown(steps[opener.index].id) do
     dlog("opener: skipped step %d/%d (%s on cooldown, ready in %.0fs)", opener.index, #steps,
       spellName(steps[opener.index].id), (readyAt[steps[opener.index].id] or 0) - GetTime())
-    opener.index = opener.index + 1
+    opener.done[opener.index] = true
+    opener.index = nextOpen(opener.index)
   end
   local visible = db.opener and #steps > 0 and opener.index <= #steps
     and ((not inCombat and hostileTarget()) or (inCombat and GetTime() - combatStart <= OPENER_COMBAT_WINDOW))
   if not visible then ob:SetShown(not db.locked) return nil end
   local x = 6
+  local pending, k = {}, opener.index
+  while k <= #steps and #pending < OPENER_SLOTS do
+    if not opener.done[k] then pending[#pending + 1] = steps[k] end
+    k = k + 1
+  end
   for i = 1, OPENER_SLOTS do
-    local t, step = ob.slots[i], steps[opener.index + i - 1]
+    local t, step = ob.slots[i], pending[i]
     t:ClearAllPoints()
     if step then
       local size = (i == 1) and 44 or 30
@@ -1062,6 +1099,7 @@ local pf = CreateFrame("Frame", "AssistCompanionPower", nf)
 pf:SetAllPoints(nf)
 pf:SetFrameLevel(nf:GetFrameLevel() + 1)
 nf.gcd:SetFrameLevel(nf:GetFrameLevel() + 2)
+nf.textLayer:SetFrameLevel(nf:GetFrameLevel() + 5)
 pf.icon = pf:CreateTexture(nil, "ARTWORK")
 pf.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 pf.icon:SetAllPoints(nf.icon)

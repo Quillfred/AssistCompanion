@@ -274,9 +274,12 @@ expect("Opener: label", "Opener\n1/8", ob.label.text)
 expect("Opener: first icon is large", 44, ob.slots[1].size[1])
 combat(true); cast(47568); step()
 expect("Opener: advances after first cast", "Opener\n2/8", ob.label.text)
-cast(1249658); step() -- pressed Breath before Pillar: skip ahead within 2 steps
-expect("Opener: out-of-order cast skips ahead", "Opener\n4/8", ob.label.text)
-cast(49020); cast(279302); cast(49020); cast(49020); cast(49020); step()
+cast(1249658); step() -- pressed Breath before Pillar: Breath ticked off, Pillar still pending
+expect("Opener: out-of-order cast keeps the skipped step pending", "Opener\n2/8", ob.label.text)
+expect("Opener: ...Pillar first, Breath gone", "icon:51271,icon:49020,icon:279302,icon:49020,icon:49020,icon:49020", openerIcons())
+cast(49020); step()   -- a second cast past Pillar: dropped
+expect("Opener: a step passed by two later casts is dropped", "Opener\n5/8", ob.label.text)
+cast(279302); cast(49020); cast(49020); cast(49020); step()
 expect("Opener: finished -> hidden", false, ob.shown)
 combat(false); step()
 expect("Opener: resets after combat", "Opener\n1/8", ob.label.text)
@@ -744,6 +747,14 @@ state.known[439843] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED
 expect("Blood opener (Deathbringer): Death and Decay after Dancing Rune Weapon", "icon:43265", ob.slots[3].texture)
 expect("Blood opener (Deathbringer): then Reaper's Mark", "icon:439843", ob.slots[4].texture)
 ns.setRuleEnabled(250, "vampiricblood", true)
+-- Owner's 0.22.0 log: Raise Dead pressed before Death's Caress dropped Death's Caress and Vampiric Blood
+state.pet = false; events.scripts.OnEvent(events, "UNIT_PET", "player"); step()
+cast(46585); step()
+expect("Blood opener: Raise Dead first -> Death's Caress still next", "icon:195292", ob.slots[1].texture)
+expect("Blood opener: ...then Vampiric Blood", "icon:55233", ob.slots[2].texture)
+cast(195292); step()
+expect("Blood opener: Death's Caress -> Vampiric Blood next (not skipped)", "icon:55233", ob.slots[1].texture)
+state.pet = true; events.scripts.OnEvent(events, "UNIT_PET", "player")
 state.known[49028] = nil; state.known[55233] = nil; state.known[439843] = nil
 events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
 -- Low-health Death Strike icon (alpha driven by the game's curve)
