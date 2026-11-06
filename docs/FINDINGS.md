@@ -63,6 +63,20 @@ The highlight only suggests Epidemic or Death Coil with Sudden Doom or Forbidden
 
 At exactly 4 targets neither proc rule applies (Death Coil is `<= 3` targets, Epidemic `> 4`).
 
+## Frost audit (0.24.0, Nov 6 2026)
+
+`tools/frost_rules_sim.py`: SimC midnight @ 36e21fe, MID2 profiles (Deathbringer, Rider), Patchwerk 300s, 1500 iterations. DPS vs optimal at 1 / 3 / 5 targets:
+
+| | Deathbringer | Rider |
+|---|---|---|
+| hl_simc (rankings) | −1.6 / −2.3 / −1.3% | −1.5 / −1.3 / −1.0% |
+| hl_game (no Breath, no Raise Dead) | −8.3 / −9.0 / −7.5% | −8.6 / −9.5 / −8.5% |
+| **hl_addon** | **−1.9 / −1.0 / −1.3%** | **−1.4 / −1.4 / −1.0%** |
+
+* Breath of Sindragosa during Pillar is nearly all of it (the highlight's own Breath line is "for Blizzard automation", not in game). Raise Dead adds about 0.2%. Frostscythe at exactly 3 targets: +1.3% (Deathbringer), −0.3% alone and 0 combined (Rider); kept.
+* Talents: Pillar of Frost lasts longer with The Long Winter (456240: +1s per auto-attack crit, up to 4s; not visible to addons, not counted) and Chosen of Frostbrood rank 2 (1265633: Frostwyrm's Fury +2s; counted for the Breath window). Death's Messenger (Raise Dead −30s) was done in 0.21.7. Frostbound Will (Rime cuts Empower Rune Weapon's cooldown) doesn't matter: the addon doesn't time Empower Rune Weapon.
+* Opener (SimC optimal, 2–3 seeds each): Deathbringer: Empower Rune Weapon, Pillar, Reaper's Mark, Breath, Obliterate, Frostwyrm's Fury, Obliterate... (unchanged). Rider: Empower Rune Weapon, Obliterate, Pillar, Breath, Empower Rune Weapon, Obliterate, Frost Strike, Obliterate, Empower Rune Weapon, Obliterate, Frostwyrm's Fury (all three charges).
+
 ## Frost: Breath of Sindragosa never suggested
 
 In the game data, Breath is marked as automation only, so it never shows in the highlight. SimC presses it anyway in its highlight sims.
