@@ -1642,12 +1642,35 @@ do
   -- Pyre at exactly 3 targets (Flameshaper with Volatility / Feed the Flames)
   state.rp = 3; state.plates = 3; state.next = 356995; step()
   expect("Devastation: 3 targets, no Flameshaper talents -> Disintegrate stays", "icon:356995", nf.icon.texture)
-  state.known[1264269] = true; talented(369089, true)
-  expect("Devastation: 3 targets + Legacy of the Lifebinder + Volatility -> Pyre", "icon:357211", nf.icon.texture)
+  -- talent ranks read from the loadout (C_Traits)
+  local ranks = {}
+  local nodeSpell = {}
+  C_ClassTalents = { GetActiveConfigID = function() return 1 end }
+  C_Traits = {
+    GetConfigInfo = function() return { treeIDs = { 7 } } end,
+    GetTreeNodes = function() local t = {} nodeSpell = {} for id in pairs(ranks) do t[#t + 1] = #t + 1; nodeSpell[#t] = id end return t end,
+    GetNodeInfo = function(_, node) return { activeEntry = { entryID = node }, activeRank = ranks[nodeSpell[node]] } end,
+    GetEntryInfo = function(_, e) return { definitionID = e } end,
+    GetDefinitionInfo = function(d) return { spellID = nodeSpell[d] } end,
+  }
+  state.known[1264269] = true; ranks[369089] = 1; talented(369089, true)
+  expect("Devastation: 3 targets + Lifebinder + Volatility rank 1 -> Disintegrate stays (SimC: rank 2)", "icon:356995", nf.icon.texture)
+  ranks[369089] = 2; talented(369089, true)
+  expect("Devastation: 3 targets + Legacy of the Lifebinder + Volatility rank 2 -> Pyre", "icon:357211", nf.icon.texture)
   state.plates = 2; step()
   expect("Devastation: 2 targets -> Disintegrate stays", "icon:356995", nf.icon.texture)
   state.rp = 5; state.plates = 3; state.next = 361469; step()
   expect("Devastation: essence cap on 3 targets with those talents -> Pyre", "icon:357211", nf.icon.texture)
+  state.overrides = { [362969] = 1265872 }; state.next = 362969; step()
+  expect("Devastation: Flameshaper, 3 targets, full essence + Azure Sweep -> keep Azure Sweep", "icon:1265872", nf.icon.texture)
+  state.plates = 1; step()
+  expect("Devastation: ...on 1 target -> spend (Disintegrate)", "icon:356995", nf.icon.texture)
+  state.overrides = {}; state.plates = 3; state.next = 356995; state.rp = 3
+  C_ClassTalents = nil; talented(369089, true)
+  expect("Devastation: talent ranks unreadable -> Volatility doesn't count", "icon:356995", nf.icon.texture)
+  talented(369846, true)
+  expect("Devastation: ...Feed the Flames does", "icon:357211", nf.icon.texture)
+  talented(369846, false); C_Traits = nil
   state.known[1264269] = nil; talented(369089, false)
   -- Azure Sweep: the icon shows what the button casts
   state.rp = 2; state.plates = 1; state.overrides = { [362969] = 1265872 }; state.next = 362969; step()

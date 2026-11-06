@@ -130,6 +130,16 @@ local function devRageLeft(ctx)
 end
 ns.devRageLeft = devRageLeft
 
+-- Flameshaper Pyre at 3+ targets (SimC's use_pyre_fs: Legacy of the Lifebinder and Volatility at rank 2
+-- or Feed the Flames). Volatility's rank comes from the talent tree; if that can't be read, only Feed
+-- the Flames counts (sims: Pyre at 3 with Volatility rank 1 isn't SimC's plan).
+local function pyreAtThree(ctx)
+  if not ctx.knows(S.LEGACY_OF_THE_LIFEBINDER) then return false end
+  if ctx.knows(S.FEED_THE_FLAMES) then return true end
+  local r = ctx.talentRank and ctx.talentRank(S.VOLATILITY)
+  return r ~= nil and r >= 2
+end
+
 local PILLAR_DURATION = 12   -- seconds (game data: Pillar of Frost id 51271)
 
 -- Unholy rune spenders the highlight prefers over spending runic power.
@@ -866,7 +876,7 @@ ns.empowerRank = {
     -- Flameshaper (fb_fs): rank 1 on one target (or when Pyre is the plan), 2 on two or in
     -- Dragonrage, else 3 (SimC: "R4 is just sort of bad for all cases")
     local usePyre = ctx.knows(S.LEGACY_OF_THE_LIFEBINDER)
-      and (n >= 5 or (n >= 3 and (ctx.knows(S.VOLATILITY) or ctx.knows(S.FEED_THE_FLAMES))))
+      and (n >= 5 or (n >= 3 and pyreAtThree(ctx)))
     if n == 1 or usePyre then return 1 end
     if n == 2 or devRageLeft(ctx) > 0 then return 2 end
     return 3
@@ -1199,12 +1209,6 @@ local function isGenerator(ctx, id)
   return DEV_GENERATORS[id] or id == ctx.override(S.LIVING_FLAME) or id == ctx.override(S.AZURE_STRIKE)
 end
 
--- Flameshaper Pyre at 3+ targets (SimC's use_pyre_fs: Legacy of the Lifebinder and Volatility or
--- Feed the Flames; Volatility's rank isn't readable, so any rank counts).
-local function pyreAtThree(ctx)
-  return ctx.knows(S.LEGACY_OF_THE_LIFEBINDER) and (ctx.knows(S.VOLATILITY) or ctx.knows(S.FEED_THE_FLAMES))
-end
-
 -- Essence spender for this many targets: Pyre at 4+ (like the highlight) or 3 (Flameshaper above).
 local function devSpender(ctx)
   local n = ctx.enemies
@@ -1286,11 +1290,15 @@ local devRules = {
     key = "essencecap",
     name = "Essence cap",
     spell = S.DISINTEGRATE,
-    desc = "Shows Disintegrate (Pyre on 4+ targets, or 3 with Flameshaper's Volatility / Feed the Flames) when your essence is full and the highlight asks for Living Flame or Azure Strike. The highlight keeps building essence at max (24% wasted vs 8-12%).",
+    desc = "Shows Disintegrate (Pyre on 4+ targets, or 3 with Flameshaper's Volatility rank 2 / Feed the Flames) when your essence is full and the highlight asks for Living Flame or Azure Strike. Flameshaper on 3+ targets keeps Azure Sweep. The highlight keeps building essence at max (24% wasted vs 8-12%).",
     check = function(ctx)
       local p, max = ctx.power, ctx.powerMax
       if not p or not max or p < max then return end
       if not isGenerator(ctx, ctx.next) then return end
+      -- Flameshaper on 3+ targets: Azure Sweep is worth more than spending (sims: -1.2% at 3 targets)
+      local sweep = ctx.next == S.AZURE_SWEEP
+        or (ctx.next == S.AZURE_STRIKE and ctx.override(S.AZURE_STRIKE) == S.AZURE_SWEEP)
+      if sweep and ctx.knows(S.LEGACY_OF_THE_LIFEBINDER) and (ctx.enemies or 0) >= 3 then return end
       local spell = devSpender(ctx)
       if ctx.usable(spell) == false then return end
       return { spell = spell, text = "Spend essence", sub = ("Essence %d/%d"):format(p, max) }
@@ -1300,7 +1308,7 @@ local devRules = {
     key = "pyre3",
     name = "Pyre at 3 targets",
     spell = S.PYRE,
-    desc = "Shows Pyre instead of Disintegrate at exactly 3 targets with Flameshaper (Legacy of the Lifebinder) and Volatility or Feed the Flames. The highlight only uses Pyre on 4+. Needs enemy nameplates on.",
+    desc = "Shows Pyre instead of Disintegrate at exactly 3 targets with Flameshaper (Legacy of the Lifebinder) and Volatility rank 2 or Feed the Flames. The highlight only uses Pyre on 4+. Needs enemy nameplates on.",
     check = function(ctx)
       if ctx.enemies ~= 3 or ctx.next ~= S.DISINTEGRATE then return end
       if not ctx.knows(S.PYRE) or not pyreAtThree(ctx) then return end
