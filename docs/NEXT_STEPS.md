@@ -160,7 +160,7 @@ prefers: 48px icon, text alerts off, HIGH strata (now an option, `db.strata`, 0.
 ## Class-by-class completion (owner's plan)
 
 Evoker: done (0.21.6; Devastation and Augmentation tested in game, Devastation rules simmed). Death Knight audit in
-progress: **Blood done in 0.21.7** (talent timings, opener, sim of all rules; `docs/FINDINGS.md` "Blood audit");
+progress: **Blood done** (0.21.7 audit: talent timings, opener, sim of all rules; 0.22–0.23: opener order fix, rank badge above the GCD swipe, Death Strike hold option; all confirmed in the owner's logs; `docs/FINDINGS.md` "Blood audit");
 to confirm in a Blood debug log: Dancing Rune Weapon / Reaper's Mark / Consumption suggested by the highlight,
 `bs=` resetting after Dancing Rune Weapon (Insatiable Blade), `vb=` growing with Death Strikes (Red Thirst).
 Next: Frost, then Unholy, same steps (talent database, SimC opener, rules sim). Then the next class; healers
