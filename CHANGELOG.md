@@ -1,5 +1,14 @@
 # Assist Companion
 
+## 0.21.4
+
+* **Evoker passed the dummy test** (0.21.3 log): enemy count 1 on the isolated dummy and before the pull, 3-4 on the group; the opener ran once; Deep Breath was shown within ~2s of when you could cast it (every ~50s with Onyx Legacy and Wingleader).
+* **Devastation talents the addon didn't account for:**
+  * **Concentrated Power** (Scalecommander): Mass Disintegrate strikes 4 targets, so Wingleader takes up to 4s off Deep Breath per Disintegrate (was capped at 3, Deep Breath shown late on 4+ targets).
+  * **Animosity:** each empower during Dragonrage extends it (5s, then 25% less each time); cancelled empowers don't count. Flameshaper's Fire Breath rank 2 lasts as long as Dragonrage really does.
+  * **Rising Fury** (third rank): Rising Fury stays 4s per stack after Dragonrage ends (a stack at the start and every 6s, max 5), and SimC keeps Flameshaper's Fire Breath at rank 2 while it lasts.
+* **Debug log:** Devastation status lines show `dr=`: seconds left of Dragonrage (plus Rising Fury after it).
+
 ## 0.21.3
 
 * **Ranged enemy count works on training dummies again.** Your log showed dummies report neither combat nor threat (`incombat=0 threat=0`, even the one being hit), so 0.21.2's count would have read 1 on a group of dummies. Now, for Devastation and Augmentation:
