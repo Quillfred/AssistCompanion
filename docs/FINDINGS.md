@@ -4,26 +4,34 @@ All numbers come from SimulationCraft (`midnight` branch, commit `36e21fe`, game
 
 ## Blood
 
-Optimal rotation (its best build per fight) vs the in-game highlight (its best build), then the highlight with the addon's three corrections added on top (`tools/blood_rules_sim.py`; the plain highlight list reproduces the `use_blizzard_action_list=1` numbers within 0.4%):
+### Blood audit (0.21.7, Nov 6 2026)
 
-| | 1 target | 3 targets | 5 targets |
-|---|---|---|---|
-| Highlight: DPS vs optimal | −13.1% | −19.3% | −18.5% |
-| Highlight: damage taken / s (optimal) | 12.9M (9.6M) | 10.6M (4.5M) | 7.8M (2.6M) |
-| **+ corrections: DPS vs optimal** | **−4.8%** | **−10.7%** | **−9.4%** |
-| **+ corrections: damage taken / s** | **11.7M** | **6.3M** | **4.2M** |
+`tools/blood_rules_sim.py` (rewritten): SimC midnight @ 36e21fe, MID2 profiles (San'layn, Deathbringer), Patchwerk 300s, 1500 iterations. The addon's rules are written as a SimC list on top of the highlight's own list. DPS vs optimal, damage taken per second in brackets:
 
-What drives the gap (highlight vs optimal casts):
+| Build, targets | hl_simc (rankings) | hl_game | **hl_addon** | hl_addon, Vampiric Blood rule off |
+|---|--:|--:|--:|--:|
+| San'layn 1 | −17.3% (12.9M) | −18.1% (13.3M) | **−8.5% (10.3M)** | −8.9% (10.7M) |
+| San'layn 3 | −22.5% (11.4M) | −23.3% (11.8M) | **−4.6% (5.3M)** | −5.0% (5.9M) |
+| San'layn 5 | −23.5% (9.6M) | −23.9% (10.1M) | **−4.0% (2.7M)** | −4.1% (2.9M) |
+| Deathbringer 1 | −10.4% (11.9M) | −12.3% (12.5M) | **−2.7% (11.0M)** | −3.0% (11.4M) |
+| Deathbringer 3 | −13.6% (9.1M) | −15.2% (9.8M) | **−2.7% (6.9M)** | −2.8% (7.5M) |
+| Deathbringer 5 | −14.0% (6.2M) | −15.4% (7.1M) | **−2.1% (4.5M)** | −2.3% (5.1M) |
 
-* **Blood Boil:** 7–13 vs 52–56. The highlight only casts it to apply Blood Plague with 2 charges. Blood Boil has 2 charges and a fixed 7.5s recharge (not hasted), so the addon counts charges from your casts.
-* **Bone Shield:** ~90% uptime vs 100%. The highlight refreshes on stack count (≤6) only, so the 30s duration can run out. Death's Caress: 0 casts vs 5–7. The addon times the 30s from your Marrowrend / Death's Caress casts.
-* **Runic power waste:** 7.5% (3 targets) and 12% (5 targets) vs 0%. The highlight's Death Strike rules are "≤50% health" or "≥80 runic power".
+(Optimal takes 9.5/5.2/2.8M, San'layn, and 10.6/6.5/4.3M, Deathbringer.)
 
-Max runic power for Blood is 125 with Ossuary (219786 grants +10; confirmed in game and in SimC's Blood profile), 115 without. `UnitPowerMax` can return a hidden value even out of combat, so the addon falls back to that, and never assumes less than the most runic power it has seen. The Death Strike rule therefore fires at 105 with Ossuary.
+* `hl_game` = the highlight without Vampiric Blood and Raise Dead (never suggested in game). `hl_addon` = all of 0.21.7's Blood rules.
+* **Blood Boil charges** is the big one alone (+3 to +19 points). Alone, the Bone Shield refresh *costs* San'layn damage on 3–5 targets (it replaces Heart Strike / Blood Boil), but with the other rules it adds +0.6 to +1.3% and cuts damage taken (`hl_addon_nobone`: 11.9 / 5.9 / 3.2M taken, San'layn), so it stays. Death Strike at cap and Consumption rank 1 are small (Consumption +1.6% for Deathbringer at 5 targets).
+* **Talents that change the rules' timing** (from `docs/talents/deathknight.md`, values from game data, behaviour from SimC `sc_death_knight.cpp`):
+  * Bone Shield gains charges, and restarts its 30s, from Marrowrend, Death's Caress, Dancing Rune Weapon with Insatiable Blade (377637: +5, and DRW −30s), Reaper's Mark with Grim Reaper (434905: +3 for Blood), and grips with Bone Collector (458572). All now count for the refresh rule.
+  * Red Thirst (205723): Vampiric Blood −2000 ms per 10 runic power spent. Runic power is hidden; spends are counted from Death Strikes (cost 45, game data 49998; 40 with Ossuary at 5+ Bone Shield).
+  * Death's Messenger (437122, Deathbringer): Raise Dead −30s.
+  * Not modelled: Plague Infusion (random Blood Boil cooldown cuts: the charge count can only run low, so the rule fires less, not wrongly); Improved Vampiric Blood (duration only); Pact of the Deathbringer (Death Pact).
+* **Opener** (SimC optimal, both MID2 profiles, identical across 3 seeds with a 300s fight; with 60s SimC holds Dancing Rune Weapon): Death's Caress, Vampiric Blood, Raise Dead, Dancing Rune Weapon, then Heart Strike ×4 (San'layn) or Death and Decay, Reaper's Mark, Marrowrend, Death Strike (Deathbringer).
+* To confirm in game: whether the highlight suggests Dancing Rune Weapon, Reaper's Mark and Consumption (all in its list, like Devastation's cooldowns that it never showed).
 
-The highlight's data stores Heart Strike as Rune Strike (316239), which Heart Strike replaces. SimC's highlight sims also press Vampiric Blood on cooldown, which the in-game highlight never suggests; no defensive is ever suggested.
+### Earlier findings (0.9–0.11)
 
-Health is secret in combat, but `UnitHealthPercent(unit, usePredicted, curve)` evaluates a curve on it, and `Texture:SetAlpha` accepts secret values from addon code, so the low-health icon's alpha is set by the game. The docs don't say whether the health input is 0–1 or 0–100, so the curve covers both.
+Health is secret in combat, but `UnitHealthPercent(unit, usePredicted, curve)` evaluates a curve on it, and `Texture:SetAlpha` accepts secret values from addon code, so the low-health icon's alpha is set by the game. Max runic power for Blood is 125 with Ossuary (219786 grants +10), 115 without; `UnitPowerMax` can return a hidden value even out of combat. The highlight's data stores Heart Strike as Rune Strike (316239), which Heart Strike replaces. Blood Boil has 2 charges and a fixed 7.5s recharge (not hasted), so the addon counts charges from your casts. The highlight's Death Strike rules are "≤50% health" or "≥80 runic power"; it casts Blood Boil only to apply Blood Plague, and refreshes Bone Shield on stack count only.
 
 ## Unholy: Outbreak / Blightfall loop
 
