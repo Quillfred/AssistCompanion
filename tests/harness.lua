@@ -709,6 +709,14 @@ state.next = 49998; now = now + 15; step()
 expect("Blood: long expired (highlight handles it) -> no override", "icon:49998", nf.icon.texture)
 cast(195292); now = now + 26; step()
 expect("Blood: Death's Caress also counts as the refresh", "icon:195292", nf.icon.texture)
+-- Bone Shield charges from talents restart its 30s too (SimC: bone_shield->trigger)
+state.runesLeft = 6; cast(195182); now = now + 20; cast(49028); now = now + 8; step()
+expect("Blood: Dancing Rune Weapon without Insatiable Blade -> still refresh (28s since Marrowrend)", "icon:195182", nf.icon.texture)
+state.known[377637] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+expect("Blood: with Insatiable Blade the Dancing Rune Weapon 8s ago counts -> no refresh", "icon:49998", nf.icon.texture)
+state.known[377637] = nil; state.known[434905] = true; cast(439843); now = now + 26; step()
+expect("Blood: Reaper's Mark with Grim Reaper counts as a refresh (26s later -> refresh)", "icon:195182", nf.icon.texture)
+state.known[434905] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
 function UnitPower() return state.rp end
 combat(false)
 -- Opener
@@ -716,7 +724,18 @@ state.pet = false; events.scripts.OnEvent(events, "UNIT_PET", "player"); state.t
 expect("Blood opener: starts with Death's Caress", "icon:195292", ob.slots[1].texture)
 expect("Blood opener: then Raise Dead when no ghoul", "icon:46585", ob.slots[2].texture)
 state.pet = true; events.scripts.OnEvent(events, "UNIT_PET", "player"); step()
-expect("Blood opener: ghoul out -> skips Raise Dead", "icon:195182", ob.slots[2].texture)
+expect("Blood opener: ghoul out -> skips Raise Dead (San'layn: Heart Strike next)", "icon:206930", ob.slots[2].texture)
+state.known[49028] = true; state.known[55233] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+expect("Blood opener: Vampiric Blood (rule on) second", "icon:55233", ob.slots[2].texture)
+expect("Blood opener: then Dancing Rune Weapon", "icon:49028", ob.slots[3].texture)
+ns.setRuleEnabled(250, "vampiricblood", false); step()
+expect("Blood opener: Vampiric Blood rule off -> not in the opener", "icon:49028", ob.slots[2].texture)
+state.known[439843] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+expect("Blood opener (Deathbringer): Death and Decay after Dancing Rune Weapon", "icon:43265", ob.slots[3].texture)
+expect("Blood opener (Deathbringer): then Reaper's Mark", "icon:439843", ob.slots[4].texture)
+ns.setRuleEnabled(250, "vampiricblood", true)
+state.known[49028] = nil; state.known[55233] = nil; state.known[439843] = nil
+events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
 -- Low-health Death Strike icon (alpha driven by the game's curve)
 step()
 expect("HP icon: shown for Blood", true, hf.shown)
@@ -844,6 +863,33 @@ cast(195182); step()
 SlashCmdList.ASSISTCOMPANION("toggle raisedead"); step()
 expect("Cooldowns: /ac toggle raisedead turns it off", "icon:49998", nf.icon.texture)
 SlashCmdList.ASSISTCOMPANION("toggle raisedead")
+-- Red Thirst: Vampiric Blood -2s per 10 runic power; Death Strike = 45 (40 with Ossuary)
+cast(46585); cast(55233); state.known[205723] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
+now = now + 1; for _ = 1, 5 do cast(49998) end                     -- 5 x 45 = 225 RP -> -45s
+now = now + 43; step()
+expect("Red Thirst: 5 Death Strikes -> Vampiric Blood not back at 44s", "icon:49998", nf.icon.texture)
+now = now + 2; step()
+expect("Red Thirst: ...back at 46s (90 - 45)", "icon:55233", nf.icon.texture)
+cast(55233); state.known[219786] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+now = now + 1; for _ = 1, 5 do cast(49998) end                     -- Ossuary: 5 x 40 = 200 -> -40s
+now = now + 48; step()
+expect("Red Thirst + Ossuary: not back at 49s", "icon:49998", nf.icon.texture)
+now = now + 2; step()
+expect("Red Thirst + Ossuary: back at 51s (90 - 40)", "icon:55233", nf.icon.texture)
+cast(55233); state.known[205723] = nil; state.known[219786] = nil
+-- Death's Messenger (Deathbringer): Raise Dead 90s
+state.known[437122] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED")
+cast(46585); now = now + 89; ns.setRuleEnabled(250, "vampiricblood", false); step()
+expect("Death's Messenger: Raise Dead not back at 89s", "icon:49998", nf.icon.texture)
+now = now + 2; step()
+expect("Death's Messenger: Raise Dead back at 91s", "icon:46585", nf.icon.texture)
+ns.setRuleEnabled(250, "vampiricblood", true); state.known[437122] = nil
+-- Consumption: rank 1 badge
+for _, k in ipairs({ "vampiricblood", "raisedead" }) do ns.setRuleEnabled(250, k, false) end
+state.known[1263824] = true; state.next = 1263824; step()
+expect("Blood: Consumption -> rank 1 badge", "1", nf.rank.text)
+for _, k in ipairs({ "vampiricblood", "raisedead" }) do ns.setRuleEnabled(250, k, true) end
+state.next = 49998; state.known[1263824] = nil
 combat(false)
 -- the game's out-of-combat answer wins over cast timing
 state.cd = { [46585] = { now - 10, 120 }, [55233] = { now - 85, 90 } }

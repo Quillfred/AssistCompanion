@@ -1,5 +1,17 @@
 # Assist Companion
 
+## 0.21.7
+
+Blood audit (talent database + current SimC):
+
+* **Bone Shield refresh counts every way Bone Shield gains charges.** Dancing Rune Weapon with Insatiable Blade (+5 charges), Reaper's Mark with Grim Reaper (+3) and grips with Bone Collector all restart its 30 seconds, like Marrowrend and Death's Caress. The addon no longer asks for a Marrowrend right after a Dancing Rune Weapon.
+* **Vampiric Blood with Red Thirst:** each Death Strike takes 9 seconds off Vampiric Blood (8 with Ossuary): 2s per 10 runic power spent. The prompt used to wait the full 90 seconds.
+* **Raise Dead with Death's Messenger** (Deathbringer): 90-second cooldown (was 120), for Blood and Frost.
+* **New Blood opener** from SimC's current optimal list: Death's Caress, Vampiric Blood (only while its rule is on), Raise Dead, Dancing Rune Weapon, then Heart Strike x4 (San'layn), or Death and Decay, Reaper's Mark, Marrowrend, Death Strike (Deathbringer). The old one had no Dancing Rune Weapon.
+* **Consumption shows a "1"** (empower rank badge, Blood's options): SimC always holds it to rank 1.
+* **Debug log:** Blood status lines show `bs=` (seconds since Bone Shield last gained charges) and `vb=` (Red Thirst seconds off Vampiric Blood).
+* Simmed (`tools/blood_rules_sim.py`): the highlight in game is 12-24% behind optimal; with the addon's rules, 2-9%, with optimal's damage taken in AoE.
+
 ## 0.21.6
 
 From simming the addon's Devastation rules (`tools/dev_addon_sim.py`; results in `docs/FINDINGS.md`):

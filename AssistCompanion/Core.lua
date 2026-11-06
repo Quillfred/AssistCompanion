@@ -335,6 +335,7 @@ function ns.ruleEnabled(spec, key)
 end
 function ns.setRuleEnabled(spec, key, on)
   db.disabled[spec .. ":" .. key] = (not on) or nil
+  if ns.rebuildOpener then ns.rebuildOpener() end -- opener steps can depend on a rule
 end
 
 ---------------------------------------------------------------------------
@@ -870,7 +871,8 @@ local function buildOpener()
   if not list then return end
   local hasPet = try(UnitExists, "pet")
   -- Step options: needs = talent required (spell ID, or a list: any of them); without = a talent
-  -- that rules the step out; alt = another ID the same step can be cast as (e.g. Font of Magic).
+  -- that rules the step out; alt = another ID the same step can be cast as (e.g. Font of Magic);
+  -- rule = a rule key: the step only while that rule is on (Blood's Vampiric Blood).
   local function knowsAny(x)
     if type(x) ~= "table" then return knows(x) end
     for _, id in ipairs(x) do if knows(id) then return true end end
@@ -878,11 +880,14 @@ local function buildOpener()
   end
   for _, step in ipairs(list) do
     if (knows(step.id) or (step.alt and knows(step.alt))) and not (step.skipIfPet and hasPet)
-       and (not step.needs or knowsAny(step.needs)) and not (step.without and knowsAny(step.without)) then
+       and (not step.needs or knowsAny(step.needs)) and not (step.without and knowsAny(step.without))
+       and (not step.rule or ns.ruleEnabled(specID, step.rule)) then
       opener.steps[#opener.steps + 1] = step
     end
   end
 end
+
+ns.rebuildOpener = function() if not InCombatLockdown or not InCombatLockdown() then buildOpener() end end
 
 -- Called on each of your successful casts. Accepts the next step, or one of the two
 -- after it (so a skipped or reordered cast doesn't strand the opener).

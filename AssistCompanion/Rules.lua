@@ -47,6 +47,17 @@ local S = {
   RUNE_STRIKE         = 316239, -- the highlight's data uses this ID; Heart Strike replaces it
   DEATH_AND_DECAY     = 43265,
   VAMPIRIC_BLOOD      = 55233,
+  DANCING_RUNE_WEAPON = 49028,
+  REAPERS_MARK        = 439843,  -- Deathbringer
+  CONSUMPTION         = 1263824, -- Blood, empowered
+  INSATIABLE_BLADE    = 377637,  -- Dancing Rune Weapon -30s and +5 Bone Shield charges
+  GRIM_REAPER         = 434905,  -- Reaper's Mark grants 3 Bone Shield charges (Blood)
+  BONE_COLLECTOR      = 458572,  -- pulling an enemy grants a Bone Shield charge
+  DEATH_GRIP          = 49576,
+  GOREFIENDS_GRASP    = 108199,
+  DEATHS_MESSENGER    = 437122,  -- Deathbringer: Raise Dead (and Lichborne) -30s
+  RED_THIRST          = 205723,  -- Vampiric Blood -2s per 10 runic power spent
+  OSSUARY             = 219786,  -- Death Strike -5 runic power (5+ Bone Shield), max runic power +10
   -- Augmentation Evoker
   EBON_MIGHT          = 395152,
   PRESCIENCE          = 409311,
@@ -219,6 +230,19 @@ ns.rules[252] = {
 local BONE_SHIELD_DURATION = 30 -- game data: Bone Shield (195181)
 local BONE_SHIELD_REFRESH = 25  -- refresh with ~5s left, like the optimal rotation
 
+-- Last time Bone Shield gained charges (which restarts its 30s): Marrowrend, Death's Caress, and with
+-- talents Dancing Rune Weapon (Insatiable Blade), Reaper's Mark (Grim Reaper), and grips (Bone
+-- Collector). SimC sc_death_knight.cpp: each of these calls bone_shield->trigger().
+local function boneShieldRefreshed(ctx)
+  local last
+  local function take(id) local t = ctx.lastCast[id]; if t and (not last or t > last) then last = t end end
+  take(S.MARROWREND); take(S.DEATHS_CARESS)
+  if ctx.knows(S.INSATIABLE_BLADE) then take(S.DANCING_RUNE_WEAPON) end
+  if ctx.knows(S.GRIM_REAPER) then take(S.REAPERS_MARK) end
+  if ctx.knows(S.BONE_COLLECTOR) then take(S.DEATH_GRIP); take(S.GOREFIENDS_GRASP) end
+  return last
+end
+
 local function isHeartStrike(ctx, id)
   if not id then return false end
   return id == S.HEART_STRIKE or id == S.RUNE_STRIKE
@@ -236,8 +260,7 @@ ns.rules[250] = {
     check = function(ctx)
       if not ctx.inCombat or not ctx.knows(S.MARROWREND) then return end
       if ctx.next == S.MARROWREND or ctx.next == S.DEATHS_CARESS then return end
-      local a, b = ctx.lastCast[S.MARROWREND], ctx.lastCast[S.DEATHS_CARESS]
-      local last = (a and b) and math.max(a, b) or a or b
+      local last = boneShieldRefreshed(ctx)
       if not last then return end
       local age = ctx.now - last
       if age < BONE_SHIELD_REFRESH or age > BONE_SHIELD_DURATION + 5 then return end
@@ -992,16 +1015,21 @@ ns.openers[1467] = {
   { id = S.DISINTEGRATE, without = S.MASS_DISINTEGRATE },
 }
 
-ns.openers[250] = {                     -- Blood
+ns.openers[250] = {                     -- Blood (SimC optimal, MID2 profiles, Nov 2026)
   { id = S.DEATHS_CARESS },             -- before the pull (ranged; applies Bone Shield)
+  { id = S.VAMPIRIC_BLOOD, rule = "vampiricblood" }, -- only while its rule is on
   { id = 46585, skipIfPet = true },     -- Raise Dead
-  { id = S.MARROWREND },
-  { id = S.MARROWREND },
-  { id = S.BLOOD_BOIL },
-  { id = S.DEATH_AND_DECAY },
-  { id = S.BLOOD_BOIL },
-  { id = S.HEART_STRIKE },
-  { id = S.DEATH_STRIKE },
+  { id = S.DANCING_RUNE_WEAPON },
+  -- San'layn: Heart Strike x4
+  { id = S.HEART_STRIKE, without = S.REAPERS_MARK },
+  { id = S.HEART_STRIKE, without = S.REAPERS_MARK },
+  { id = S.HEART_STRIKE, without = S.REAPERS_MARK },
+  { id = S.HEART_STRIKE, without = S.REAPERS_MARK },
+  -- Deathbringer: Death and Decay, Reaper's Mark, Marrowrend, Death Strike
+  { id = S.DEATH_AND_DECAY, needs = S.REAPERS_MARK },
+  { id = S.REAPERS_MARK },
+  { id = S.MARROWREND, needs = S.REAPERS_MARK },
+  { id = S.DEATH_STRIKE, needs = S.REAPERS_MARK },
 }
 
 ---------------------------------------------------------------------------
@@ -1035,6 +1063,9 @@ ns.openers[250] = {                     -- Blood
 --           Surge are all in the list, with no automation-only entries. Its gaps are
 --           conditions and button overrides (see docs/NEXT_STEPS.md, step 2).
 ---------------------------------------------------------------------------
+-- Raise Dead: 120s, 90s with Death's Messenger (Deathbringer, 437122: -30000 ms).
+local function raiseDeadCooldown(ctx) return 120 - (ctx.knows(S.DEATHS_MESSENGER) and 30 or 0) end
+
 ns.readyCooldowns = {
   [251] = {                                                  -- Frost
     after = "erwrange",
@@ -1051,7 +1082,7 @@ ns.readyCooldowns = {
         return not (breath and breath >= pillar)
       end,
     },
-    { key = "raisedead", name = "Raise Dead", spell = S.RAISE_DEAD, cooldown = 120 }, -- game data (46585)
+    { key = "raisedead", name = "Raise Dead", spell = S.RAISE_DEAD, cooldown = raiseDeadCooldown }, -- game data (46585)
   },
   [1473] = {                                                 -- Augmentation
     after = "ebonfirst",
@@ -1113,8 +1144,9 @@ ns.readyCooldowns = {
   },
   [250] = {                                                  -- Blood
     after = "boneshield",
-    { key = "vampiricblood", name = "Vampiric Blood", spell = S.VAMPIRIC_BLOOD, cooldown = 90 }, -- game data (55233)
-    { key = "raisedead", name = "Raise Dead", spell = S.RAISE_DEAD, cooldown = 120 },
+    { key = "vampiricblood", name = "Vampiric Blood", spell = S.VAMPIRIC_BLOOD, cooldown = 90, -- game data (55233)
+      desc = "Shows Vampiric Blood when it's ready (with Red Thirst, sooner for each Death Strike). The in-game highlight never suggests it." },
+    { key = "raisedead", name = "Raise Dead", spell = S.RAISE_DEAD, cooldown = raiseDeadCooldown },
   },
 }
 
@@ -1146,6 +1178,7 @@ ns.cooldownLeft = cooldownLeft
 
 -- true when the spell is off cooldown (same sources; a second of grace on the game's answer).
 local function cooldownReady(ctx, spell, cooldown)
+  if type(cooldown) == "function" then cooldown = cooldown(ctx) end
   local cd = ctx.onCooldown(spell)
   if cd ~= nil then return not cd end
   local last = ctx.lastCast[spell]
@@ -1320,6 +1353,52 @@ local devRules = {
 ns.rules[1467] = ns.rules[1467] or {}
 for _, rule in ipairs(devRules) do table.insert(ns.rules[1467], rule) end
 
+---------------------------------------------------------------------------
+-- Blood (spec 250): talent timings from the DK audit (docs/FINDINGS.md "Blood audit").
+-- Red Thirst (205723): Vampiric Blood's cooldown -2s per 10 runic power spent (effects 1-2). Runic power
+-- is hidden, so spends are counted from Death Strike casts: 45 (game data 49998), 40 with Ossuary
+-- (assumes 5+ Bone Shield charges, which the Bone Shield rule keeps up).
+local RED_THIRST_PER_RP = 2 / 10
+local bloodSpends = {} -- { t = time, rp = runic power } for Death Strikes, last 5 minutes
+ns.bloodSpends = bloodSpends
+local bloodOssuary = false
+
+local prevOnCast = ns.onCast
+ns.onCast = function(spec, id, now)
+  if spec ~= 250 then return prevOnCast(spec, id, now) end
+  if id == S.DEATH_STRIKE then
+    bloodSpends[#bloodSpends + 1] = { t = now, rp = bloodOssuary and 40 or 45 }
+    while bloodSpends[1] and now - bloodSpends[1].t > 300 do table.remove(bloodSpends, 1) end
+  end
+end
+ns.onTick = ns.onTick or {}
+ns.onTick[250] = function(ctx) bloodOssuary = ctx.knows(S.OSSUARY) end
+
+local function redThirstBetween(ctx, a, b)
+  if not ctx.knows(S.RED_THIRST) then return 0 end
+  local rp = 0
+  for _, e in ipairs(bloodSpends) do if e.t > a and e.t <= b then rp = rp + e.rp end end
+  return rp * RED_THIRST_PER_RP
+end
+ns.cooldownSpeedup[250] = function(ctx, a, b, spell)
+  if spell == S.VAMPIRIC_BLOOD then return redThirstBetween(ctx, a, b) end
+  return 0
+end
+
+-- Consumption (empowered): SimC's optimal list always holds it to rank 1 (empower_to=1).
+ns.empowerRank[250] = function(ctx, spell)
+  if spell == S.CONSUMPTION then return 1 end
+end
+
+-- Debug status: bs = seconds since Bone Shield last gained charges; vb = Red Thirst seconds taken off
+-- Vampiric Blood since its last cast.
+ns.debugStatus[250] = function(ctx)
+  local bs = boneShieldRefreshed(ctx)
+  local vb = ctx.lastCast[S.VAMPIRIC_BLOOD]
+  return ("bs=%s vb=%s"):format(bs and ("%.0f"):format(ctx.now - bs) or "n",
+    vb and ("-%.0f"):format(redThirstBetween(ctx, vb, ctx.now)) or "n")
+end
+
 -- Charges counted from your own casts (hidden in combat). recharge = seconds per charge.
 ns.chargeTrack = {
   -- game data: 2 charges, 12s; Nozdormu Adept -2s (431715: s3 = -2000 ms); Interwoven Threads -10%
@@ -1355,7 +1434,9 @@ ns.powerType = {
 -- Spec-specific settings shown under the spec in the options menu (db keys, checkboxes).
 ns.specOptions = {
   [250] = { { key = "healthIcon", name = "Low-health Death Strike icon", spell = S.DEATH_STRIKE,
-              desc = "A separate Death Strike icon that fades in as your health drops (/ac hp sets the thresholds)." } },
+              desc = "A separate Death Strike icon that fades in as your health drops (/ac hp sets the thresholds)." },
+            { key = "empowerRank", name = "Empower rank on the icon", spell = S.CONSUMPTION,
+              desc = "A 1 on Consumption: SimC's optimal list always holds it to rank 1. Shared with the Evokers' setting." } },
   [251] = { { key = "cooldownReminder", name = "Trinket, potion and racial reminder", spell = S.PILLAR_OF_FROST,
               desc = "Text under the icon for 4 seconds after Pillar of Frost." } },
   [1467] = { { key = "empowerRank", name = "Empower rank on the icon", spell = S.FIRE_BREATH,
