@@ -6,7 +6,7 @@ local _, ns = ...
 
 local C            -- Core.lua's helpers, handed over in ns.initMinimap
 local button
-local ICON = "Interface\\Icons\\INV_Misc_Gear_01"
+local ICON = "Interface\\AddOns\\AssistCompanion\\icon"
 
 local function db() return C.db() end
 
@@ -65,6 +65,7 @@ local function build()
   button.icon = button:CreateTexture(nil, "ARTWORK")
   button.icon:SetSize(17, 17)
   button.icon:SetTexture(ICON)
+  button.icon:SetTexCoord(0.1, 0.9, 0.1, 0.9) -- inside the icon's own frame, for the round button
   button.icon:SetPoint("TOPLEFT", 7, -6)
   local border = button:CreateTexture(nil, "OVERLAY")
   border:SetSize(53, 53)

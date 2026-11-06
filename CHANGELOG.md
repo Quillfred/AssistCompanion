@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.25.2
+
+* **New icon** in the game's AddOns list, the addon compartment and on the minimap button: the gold arrow panel from the CurseForge art (`icon.tga`, 64×64, transparent outside its frame), replacing the generic gear.
+
 ## 0.25.1
 
 * **Mistweaver Monk, first step:** the addon now runs for Mistweaver (listed in the options, Tiger Palm as the melee range check), so its debug log works. No corrections yet. The game's Mistweaver highlight is damage only, and its Blackout Kick rule needs more than 4 stacks of Teachings of the Monastery, which caps at 4, so it may never suggest Blackout Kick. The debug status shows `tp=` (stacks counted from your Tiger Palms) and `totm=` (the buff's own count, when the game lets addons read it), to confirm in game.
