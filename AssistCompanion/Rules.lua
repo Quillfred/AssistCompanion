@@ -1463,10 +1463,12 @@ ns.specInfo = {
   { id = 252, class = "DEATHKNIGHT", className = "Death Knight", name = "Unholy" },
   { id = 1467, class = "EVOKER", className = "Evoker", name = "Devastation" },
   { id = 1473, class = "EVOKER", className = "Evoker", name = "Augmentation" },
+  { id = 270, class = "MONK", className = "Monk", name = "Mistweaver" },
 }
 
 -- Resource read into ctx.power, if not runic power (Enum.PowerType: Essence = 19).
 ns.powerType = {
+  [270] = 0,   -- mana
   [1467] = 19,
   [1473] = 19,
 }
@@ -1493,6 +1495,7 @@ ns.specOptions = {
 
 -- Melee spell used for "is my target in melee range?"
 ns.meleeSpell = {
+  [270] = 100780, -- Tiger Palm (Mistweaver)
   [250] = S.HEART_STRIKE,
   [251] = S.OBLITERATE,
   [252] = S.SCOURGE_STRIKE,
@@ -1560,6 +1563,38 @@ ns.holdSpender = {
     end,
   },
 }
+
+---------------------------------------------------------------------------
+-- Mistweaver Monk (spec 270), in progress. The game's highlight for Mistweaver is damage only
+-- (Touch of Death, Rising Sun Kick, Blackout Kick, Spinning Crane Kick, Tiger Palm, Crackling Jade
+-- Lightning, Jadefire Stomp; assisted_combat.inc steps for 270). Its Blackout Kick step needs
+-- "Teachings of the Monastery applications > 4", and that buff (202090) caps at 4 stacks, so the
+-- highlight may never suggest Blackout Kick. To confirm in game first: the status line counts the
+-- stacks from your casts (each Tiger Palm adds one, Blackout Kick uses them all; tp=) and shows the
+-- buff's own count when the game lets addons read it (totm=).
+local MW_TIGER_PALM, MW_BLACKOUT_KICK, MW_TOTM_BUFF = 100780, 100784, 202090
+local mw = { tp = 0 }
+ns.mwState = mw
+local mwPrevOnCast = ns.onCast
+ns.onCast = function(spec, id, now)
+  if spec ~= 270 then return mwPrevOnCast(spec, id, now) end
+  if id == MW_TIGER_PALM then mw.tp = math.min(4, mw.tp + 1)
+  elseif id == MW_BLACKOUT_KICK then mw.tp = 0 end
+end
+ns.debugStatus[270] = function(ctx)
+  local totm = "?"
+  if C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
+    local ok, aura = pcall(C_UnitAuras.GetPlayerAuraBySpellID, MW_TOTM_BUFF)
+    if ok then
+      if aura == nil then totm = "0"
+      elseif type(aura) == "table" then
+        local n = aura.applications
+        totm = (issecretvalue and issecretvalue(n)) and "hidden" or tostring(n or "?")
+      end
+    end
+  end
+  return ("tp=%d totm=%s"):format(mw.tp, totm)
+end
 
 -- Secondary reminder shown under the main alert (never replaces it).
 ns.reminders = {}
