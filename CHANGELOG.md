@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.22.0
+
+* **Opener countdown (all specs):** out of combat, if any spell in your opener is still on cooldown, a timer above the next-cast icon counts down to when the whole opener is available: "00:35 until full opener is available". It counts every opener step, including ones the opener bar skipped because they were on cooldown. Global-cooldown-length waits don't count. It hides in combat and when the opener is off.
+
 ## 0.21.7
 
 Blood audit (talent database + current SimC):
