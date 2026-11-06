@@ -1,5 +1,13 @@
 # Assist Companion
 
+## 0.22.1
+
+From the owner's Blood log (0.22.0):
+
+* **Opener steps cast out of order stay in the opener.** Pressing Raise Dead before Death's Caress used to drop Death's Caress and Vampiric Blood. Now the step you cast is ticked off and the ones before it stay. A step is only dropped once you've cast two later steps past it, so one you skip on purpose doesn't hold the opener up. All specs.
+* **The empower rank number is big and outlined** (the same style as the Tip the Scales "x2"). The keybind, rank and "x2" now draw above the global cooldown swipe, so they aren't darkened. Consumption's "1" went unseen.
+* Looked at, not changed: holding Death Strike until within 20 runic power of max or below 50% health (instead of the highlight's 80+). Simmed with all Blood rules: −0.4% to +0.6% damage and slightly more damage taken. Not worth it, and SimC's own Deathbringer list spends Death Strike before Heart Strike and Blood Boil anyway.
+
 ## 0.22.0
 
 * **Opener countdown (all specs):** out of combat, if any spell in your opener is still on cooldown, a timer above the next-cast icon counts down to when the whole opener is available: "00:35 until full opener is available". It counts every opener step, including ones the opener bar skipped because they were on cooldown. Global-cooldown-length waits don't count. It hides in combat and when the opener is off.
