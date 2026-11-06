@@ -163,7 +163,7 @@ Evoker: done (0.21.6; Devastation and Augmentation tested in game, Devastation r
 progress: **Blood done** (0.21.7 audit: talent timings, opener, sim of all rules; 0.22–0.23: opener order fix, rank badge above the GCD swipe, Death Strike hold option; all confirmed in the owner's logs; `docs/FINDINGS.md` "Blood audit");
 to confirm in a Blood debug log: Dancing Rune Weapon / Reaper's Mark / Consumption suggested by the highlight,
 `bs=` resetting after Dancing Rune Weapon (Insatiable Blade), `vb=` growing with Death Strikes (Red Thirst).
-**Frost done in 0.24.0** (Rider opener, Chosen of Frostbrood Breath window, rules sim; to confirm in game: the Rider opener). **Unholy done in 0.25.0** (runic power rule San'layn only, rune spenders only; opener unchanged). **Death Knight finished.** Then the next class; healers
+**Frost done in 0.24.0** (Rider opener, Chosen of Frostbrood Breath window, rules sim; to confirm in game: the Rider opener). **Unholy done in 0.25.0** (runic power rule San'layn only, rune spenders only; opener unchanged). **Death Knight finished.** Mistweaver: looked at in 0.25.1–0.25.2 (spec support for debug logs); the highlight's damage rotation is fine and it never heals, so on hold (owner). Next class: owner's choice. Then the next class; healers
 only Mistweaver and Discipline, last.
 
 ## How Blood was done (template for a deep dive)

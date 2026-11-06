@@ -37,6 +37,13 @@ All numbers come from SimulationCraft (`midnight` branch, commit `36e21fe`, game
 
 Health is secret in combat, but `UnitHealthPercent(unit, usePredicted, curve)` evaluates a curve on it, and `Texture:SetAlpha` accepts secret values from addon code, so the low-health icon's alpha is set by the game. Max runic power for Blood is 125 with Ossuary (219786 grants +10), 115 without; `UnitPowerMax` can return a hidden value even out of combat. The highlight's data stores Heart Strike as Rune Strike (316239), which Heart Strike replaces. Blood Boil has 2 charges and a fixed 7.5s recharge (not hasted), so the addon counts charges from your casts. The highlight's Death Strike rules are "≤50% health" or "≥80 runic power"; it casts Blood Boil only to apply Blood Plague, and refreshes Bone Shield on stack count only.
 
+## Mistweaver (on hold, Nov 6 2026)
+
+* SimC has no Mistweaver support (no APL, profile or assisted list), so nothing can be simmed.
+* The game's highlight for Mistweaver (`assisted_combat.inc`, spec 270) is damage only: Touch of Death, Rising Sun Kick, Blackout Kick, Spinning Crane Kick, Tiger Palm, Crackling Jade Lightning, Jadefire Stomp. It never suggests a heal.
+* Owner's log (0.25.2, Conduit of the Celestials, Jadefire Teachings build): the damage part works. Blackout Kick is suggested after 2 Tiger Palms (Way of the Crane: each strikes twice, so the 4 stacks fill; the data rule "applications > 4" works in game). Rising Sun Kick 4 times in a row after Thunder Focus Tea (Morning Breeze). Jadefire Stomp isn't a Mistweaver button in Midnight (Jadefire Teachings is passive; Emperor's Elixir releases a Stomp from a Thunder Focus Tea Rising Sun Kick), so the highlight's two Stomp steps are leftovers that never fire. `totm=0`: Mistweaver's Teachings of the Monastery isn't buff 202090.
+* Owner's call: nothing substantial to change, so on hold. Possible later: Thunder Focus Tea on cooldown with Rising Sun Kick, Renewing Mist charges (Pool of Mists), cooldown-ready icon for Chi-Ji / Yu'lon / Celestial Conduit / Life Cocoon, Mana Tea at low mana (curve on hidden mana).
+
 ## Unholy audit (0.25.0, Nov 6 2026)
 
 `tools/unholy_rules_sim.py`: SimC midnight @ 36e21fe, MID2 profiles (Rider default, San'layn), Patchwerk 300s, 1500 iterations. DPS vs optimal at 1 / 3 / 5 targets:
