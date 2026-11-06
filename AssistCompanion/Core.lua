@@ -718,10 +718,6 @@ nf.suffix = nf.textLayer:CreateFontString(nil, "OVERLAY", "NumberFontNormalHuge"
 nf.suffix:SetPoint("BOTTOMRIGHT", nf.icon, "BOTTOMRIGHT", -1, 1)
 nf.suffix:SetJustifyH("RIGHT")
 nf.suffix:SetTextColor(1, 0.82, 0)
--- Out of combat: time until every opener spell is off cooldown ("0:35 until full opener is available").
-nf.wait = nf:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-nf.wait:SetPoint("BOTTOM", nf.icon, "TOP", 0, 6)
-nf.wait:SetTextColor(1, 0.82, 0)
 nf.note = nf:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 nf.note:SetPoint("TOP", nf.icon, "BOTTOM", 0, -4)
 nf.note:SetTextColor(0.6, 0.85, 1)
@@ -880,12 +876,18 @@ makeMovable(ob, "openerPoint")
 ob.label = ob:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
 ob.label:SetPoint("RIGHT", ob, "LEFT", -4, 0) -- beside the bar, so it can't overlap anything above
 ob.label:SetJustifyH("RIGHT")
-ob.slots, ob.blacks = {}, {}
+ob.slots, ob.blacks, ob.cds = {}, {}, {}
 for i = 1, OPENER_SLOTS do
   local t = ob:CreateTexture(nil, "ARTWORK")
   t:SetTexCoord(0.07, 0.93, 0.07, 0.93)
   ob.slots[i] = t
   ob.blacks[i] = blackBorder(ob, t)
+  -- seconds left on a step that's on cooldown (its icon is grayed out)
+  local cd = ob:CreateFontString(nil, "OVERLAY", i == 1 and "NumberFontNormalLarge" or "NumberFontNormal")
+  cd:SetPoint("CENTER", t, "CENTER", 0, 0)
+  local okF, font, size = pcall(cd.GetFont, cd)
+  if okF and font and cd.SetFont then pcall(cd.SetFont, cd, font, size or 14, "THICKOUTLINE") end
+  ob.cds[i] = cd
 end
 ob.border = ob:CreateTexture(nil, "BORDER", nil, 0) -- gold on the current step, outside the black edge
 ob.border:SetColorTexture(1, 0.82, 0, 0.9)
@@ -987,24 +989,10 @@ local function renderOpener()
   -- Keep cooldown knowledge fresh for the opener's spells (readable out of combat; in combat
   -- this keeps the last known value unless the game happens to allow reading it).
   for k = 1, #steps do snapshotCooldown(steps[k].id) end
-  -- Out of combat: how long until the whole opener is off cooldown (steps on cooldown are skipped
-  -- below, so this says how long to wait for the full one). GCD-length waits don't count.
-  local wait = 0
-  if db.opener and not inCombat then
-    for k = 1, #steps do
-      local r = readyIn(steps[k].id)
-      if r and r > wait then wait = r end
-    end
-  end
-  if wait > GCD_GRACE then
-    local secs = math.ceil(wait)
-    nf.wait:SetText(("%02d:%02d until full opener is available"):format(math.floor(secs / 60), secs % 60))
-  else
-    nf.wait:SetText("")
-  end
   -- Skip steps that are still on cooldown (e.g. Pillar after a quick reset on a dummy),
   -- so they don't hold up the rest of the opener.
-  while opener.index <= #steps and onCooldown(steps[opener.index].id) do
+  -- Only in combat: before the pull the step stays on the bar, grayed out with its seconds left.
+  while inCombat and opener.index <= #steps and onCooldown(steps[opener.index].id) do
     dlog("opener: skipped step %d/%d (%s on cooldown, ready in %.0fs)", opener.index, #steps,
       spellName(steps[opener.index].id), (readyAt[steps[opener.index].id] or 0) - GetTime())
     opener.done[opener.index] = true
@@ -1028,6 +1016,11 @@ local function renderOpener()
       t:SetPoint("LEFT", ob, "LEFT", x, 0)
       t:SetTexture(spellIcon(step.id))
       t:SetAlpha(i == 1 and 1 or 0.65)
+      -- on cooldown: gray, with the seconds left (GCD-length waits don't count)
+      local left = readyIn(step.id)
+      local onCd = left and left > GCD_GRACE
+      if t.SetDesaturated then t:SetDesaturated(onCd and true or false) end
+      ob.cds[i]:SetText(onCd and tostring(math.ceil(left)) or "")
       t:Show()
       ob.blacks[i]:Show()
       if i == 1 then
@@ -1040,6 +1033,7 @@ local function renderOpener()
     else
       t:Hide()
       ob.blacks[i]:Hide()
+      ob.cds[i]:SetText("")
     end
   end
   ob.label:SetText(("Opener\n%d/%d"):format(opener.index, #steps))
