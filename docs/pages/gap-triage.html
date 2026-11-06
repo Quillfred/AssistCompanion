@@ -108,12 +108,14 @@ tr.detail td { background: var(--bg); padding: 14px 16px 18px; text-align: left;
 
   <section class="status" aria-labelledby="st">
     <h2 id="st">What testing in game changed</h2>
-    <span class="when">Updated Nov 5, 2026, from Assist Companion debug logs and game data</span>
+    <span class="when">Updated Nov 6, 2026, from Assist Companion debug logs and game data</span>
     <ul>
       <li><strong>Enemy counts work in combat</strong> when enemy nameplates are on: the addon counts attackable enemies in range or in combat. Every <em>target count</em> gap below is addon-fixable. The in-game highlight counts enemies on its own (it switches to AoE spells without nameplates).</li>
       <li><strong>Runic power is hidden from addons</strong> (secret value), while runes and essence still read. Runic power <em>threshold</em> fixes still work: the addon hands the threshold to the game, which shows or hides the icon (confirmed on Unholy and Blood). Check each spec's resource before assuming a "spend at cap" rule can compare numbers.</li>
-      <li><strong>Devastation's Azure Sweep gap is a SimC artifact</strong>: SimC's Azure Strike refuses to fire while the Azure Sweep buff is up, so the highlight's "Azure Strike while Azure Sweep is up" rule never fires in the sim. In game the button casts Azure Sweep. Devastation's real gaps are essence waste, Pyre at 3 targets and empower ranks.</li>
-      <li><strong>Covered by Assist Companion:</strong> Blood, Frost and Unholy Death Knight, Devastation and Augmentation Evoker (Augmentation isn't in this table: its losses need raid sims with allies).</li>
+      <li><strong>Devastation's Azure Sweep gap is a SimC artifact</strong>: SimC's Azure Strike refuses to fire while the Azure Sweep buff is up, so the highlight's "Azure Strike while Azure Sweep is up" rule never fires in the sim. In game the button casts Azure Sweep. Devastation's real gaps are essence waste, Pyre at 3 targets and empower ranks. Unbound Flame (0 highlight casts) is likely the same kind of artifact: the highlight's rule is "Dragonrage while Unbound Flame is up", and in game that button casts Unbound Flame. Not yet confirmed in game.</li>
+      <li><strong>Being in the highlight's list doesn't mean it gets suggested.</strong> Debug logs showed the in-game highlight never suggested Devastation's Dragonrage, Deep Breath and Tip the Scales, or Augmentation's Tip the Scales, Time Skip and Breath of Eons, though all are in its list. So the <em>cooldowns never suggested</em> counts below (from SimC) are a floor. Check each spec in game before trusting them.</li>
+      <li><strong>Talents change the timings.</strong> Cooldown cuts like Wingleader, Onyx Legacy, Chronoboon or Interwoven Threads, and talents that stretch a buff (Animosity, Rising Fury), move when a cooldown is really ready. Assist Companion now keeps a per-class talent, racial and mastery database from game data to catch these before a spec ships.</li>
+      <li><strong>Covered by Assist Companion:</strong> Blood, Frost and Unholy Death Knight, Devastation and Augmentation Evoker (Augmentation isn't in this table: its losses need raid sims with allies). <strong>Evoker is finished</strong> as of 0.21.5 and was tested on dummies and in a raid. Death Knight is next.</li>
     </ul>
   </section>
 
@@ -7748,10 +7750,10 @@ f.innerHTML =
 
 // Shortlist
 const shortlist = [
-  ['Devastation Evoker ✓', 'Done in Assist Companion 0.20.0: essence cap, Pyre at 3 targets, empower ranks. Azure Sweep turned out to be a SimC artifact, not a real gap.'],
+  ['Devastation Evoker ✓', 'Finished in Assist Companion 0.21.5 and tested in game: essence cap, Pyre at 3 targets, empower ranks; Dragonrage, Deep Breath and Tip the Scales prompts (never suggested in game); Deep Breath timed with Onyx Legacy, Wingleader and Concentrated Power; the opener; enemy count for ranged specs (works on dummies too). Azure Sweep turned out to be a SimC artifact, not a real gap.'],
   ['Elemental Shaman', 'Worst 3-target hole (' + pct(rows.find(r => r.spec === 'Elemental Shaman').l3) + ') and Ascendance is never suggested.'],
   ['Windwalker Monk', '3-target hole, resource waste, and four major cooldowns never suggested (Xuen, Zenith, Celestial Conduit, Touch of Karma).'],
-  ['Cooldown-ready template (all specs)', 'Built (0.11): Frost, Blood and Augmentation use it. Next: switch it on per spec with just the cooldown list. Cheapest win across the most specs.'],
+  ['Cooldown-ready template (all specs)', 'Built (0.11): Frost, Blood, Devastation and Augmentation use it. Next: switch it on per spec with just the cooldown list, after checking in game which cooldowns the highlight really skips. Cheapest win across the most specs.'],
 ];
 document.getElementById('shortlist').innerHTML = shortlist.map(([s, w]) => `<li><strong>${s}</strong> <span class="why">${w}</span></li>`).join('');
 
