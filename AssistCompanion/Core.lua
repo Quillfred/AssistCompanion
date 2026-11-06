@@ -659,6 +659,11 @@ nf.rank = nf:CreateFontString(nil, "OVERLAY", "NumberFontNormalLarge")
 nf.rank:SetPoint("BOTTOMLEFT", nf.icon, "BOTTOMLEFT", 3, 2)
 nf.rank:SetJustifyH("LEFT")
 nf.rank:SetTextColor(1, 0.82, 0)
+-- A rule's press count (e.g. "x2" for the Tip the Scales macro): big, bottom right, so it isn't missed.
+nf.suffix = nf:CreateFontString(nil, "OVERLAY", "NumberFontNormalHuge")
+nf.suffix:SetPoint("BOTTOMRIGHT", nf.icon, "BOTTOMRIGHT", -1, 1)
+nf.suffix:SetJustifyH("RIGHT")
+nf.suffix:SetTextColor(1, 0.82, 0)
 nf.note = nf:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 nf.note:SetPoint("TOP", nf.icon, "BOTTOM", 0, -4)
 nf.note:SetTextColor(0.6, 0.85, 1)
@@ -667,6 +672,9 @@ local function layoutNext()
   local s = db.iconSize
   nf:SetSize(s + 8, s + 8)
   nf.icon:SetSize(s, s)
+  -- "x2" at about 45% of the icon (22 px on the default 48), outlined so it reads on any icon
+  local font = NumberFontNormal and NumberFontNormal.GetFont and NumberFontNormal:GetFont()
+  if font and nf.suffix.SetFont then pcall(nf.suffix.SetFont, nf.suffix, font, math.max(14, math.floor(s * 0.45)), "THICKOUTLINE") end
   placeFrame(nf, "nextPoint")
 end
 
@@ -697,6 +705,7 @@ local function showNext(ctx, alert, note)
   if not db.nextIcon or not spell or not iconVisibleNow() then
     nf.note:SetText("")
     nf.rank:SetText("")
+    nf.suffix:SetText("")
     nf:SetShown(not db.locked)
     return nil, "hidden"
   end
@@ -706,11 +715,11 @@ local function showNext(ctx, alert, note)
   local onButton = override(spell)
   nf.icon:SetTexture(spellIcon(type(onButton) == "number" and onButton ~= 0 and onButton or spell))
   nf.border:SetShown(corrected)
-  -- A rule can add to the keybind text (e.g. "x2": press the Tip the Scales macro twice).
+  -- A rule can add a press count (e.g. "x2": press the Tip the Scales macro twice), shown large.
   local key = keybindFor(spell)
   local suffix = alert and alert.keySuffix and alert.spell == spell and not idle and alert.keySuffix
-  if suffix then key = key and (key .. " " .. suffix) or suffix end
   nf.key:SetText(key or "")
+  nf.suffix:SetText(suffix or "")
   local rank
   local rankFor = db.empowerRank and not idle and ns.empowerRank and specID and ns.empowerRank[specID]
   if rankFor then
@@ -1478,7 +1487,7 @@ SlashCmdList.ASSISTCOMPANION = function(input)
   elseif cmd == "test" then
     testUntil = GetTime() + 4
     local sample = (specID == 252) and ns.S.BLIGHTFALL or ns.S.BREATH
-    nf.icon:SetTexture(spellIcon(sample)); nf.border:Show(); nf.key:SetText("F"); nf.rank:SetText("")
+    nf.icon:SetTexture(spellIcon(sample)); nf.border:Show(); nf.key:SetText("F"); nf.rank:SetText(""); nf.suffix:SetText("")
     nf.icon:SetVertexColor(1, 1, 1); nf.icon:SetDesaturated(false); nf.note:SetText("Reminders appear here")
     nf:Show()
   elseif cmd == "strata" then

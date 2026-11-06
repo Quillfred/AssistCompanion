@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.21.5
+
+* **Augmentation: the Tip the Scales macro's "x2" is big.** With the `tipMacro` option on, when the icon says to press the macro twice, "x2" now shows large and outlined in gold in the icon's bottom right (about 45% of the icon's size, so it scales with the icon) instead of small text after the keybind. The keybind stays in the top right.
+
 ## 0.21.4
 
 * **Evoker passed the dummy test** (0.21.3 log): enemy count 1 on the isolated dummy and before the pull, 3-4 on the group; the opener ran once; Deep Breath was shown within ~2s of when you could cast it (every ~50s with Onyx Legacy and Wingleader).
