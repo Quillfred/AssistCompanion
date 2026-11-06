@@ -8,7 +8,7 @@ history is versioned with the data behind them. Open the `.html` files in a brow
 | `highlight-rankings.html` | [Assisted Highlight Rankings](https://claude.ai/artifact/Bsb4RK7eVZd2DGZSGoABSK) | `tools/run_sims.py`, `screen_ah_builds.py`, `cleave3.py`; button-override corrections from `tools/override_resim.py` (see `docs/TRIAGE.md`) |
 | `gap-triage.html` | [Highlight Gap Triage](https://claude.ai/artifact/8XA1gJsvvMFchkKj3TqGzP) | `tools/triage.py` (`docs/TRIAGE.md`), plus in-game findings from `docs/FINDINGS.md` |
 
-Last updated Nov 6, 2026 (triage: Evoker finished, "in the list but never suggested" and talent-timing notes; rankings unchanged since Nov 5):
+Last updated Nov 6, 2026 (triage: Evoker finished, notes on cooldowns that are in the list but never suggested and on talent timing, plus the simmed "highlight + addon" table. Rankings: Devastation builds re-checked with `tools/talent_search.py`; the highlight builds swap Event Horizon for Eye of Infinity):
 * **Rankings:** the nine specs SimC couldn't play with button overrides (Devourer, Havoc, Shadow,
   Retribution, Affliction, Fury, Marksmanship, Survival, Guardian) show the re-simmed losses. In
   "Best for optimal rotation" mode those are estimates (same correction per fight).

@@ -17,5 +17,6 @@ Scripts used to produce the numbers in `docs/FINDINGS.md`. They expect, next to 
 | `override_map.py` | Builds `override_map.json`: every "button B casts A in some state" pair from the game's Override Action Spell effects |
 | `override_resim.py` | Re-sims the highlight with each override added after its base spell (SimC's base actions refuse to fire in override states, e.g. Chaos Strike during Metamorphosis) |
 | `dev_addon_sim.py` | Devastation: highlight alone vs highlight + Assist Companion's rules (written as a SimC action list), Scalecommander and Flameshaper, 1/3/5 targets (`SIMC=<simc> python3 dev_addon_sim.py [iterations]`) |
+| `talent_search.py` | Best build per rotation (`optimal` / `highlight`) and target count: hill-climbs over choice-node swaps from given start builds (`SIMC=<simc> python3 talent_search.py devastation highlight 1 <build>...`). Point moves between nodes aren't searched (no tree connections in SimC's data) |
 | `talent_db.py` | Talent / mastery / racial database from the game's data: writes `docs/talents/` (`SIMC=<simc> python3 talent_db.py <class>...`) |
 | `triage.py` | Phase 1 triage: per spec and fight, where the highlight loses damage vs optimal and whether an addon could fix it. Writes `triage.json` and `TRIAGE.md` |
