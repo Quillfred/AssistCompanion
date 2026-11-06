@@ -90,6 +90,10 @@ local S = {
   FEED_THE_FLAMES     = 369846,
   MASS_DISINTEGRATE   = 436335, -- Scalecommander
   LEGACY_OF_THE_LIFEBINDER = 1264269, -- Flameshaper
+  CONCENTRATED_POWER  = 1261448, -- Scalecommander: Mass Disintegrate strikes 1 more target
+  ANIMOSITY           = 375797,  -- empowers extend Dragonrage
+  RISING_FURY_3       = 1271788, -- Rising Fury persists after Dragonrage; Dragonrage -> Unbound Flame
+  UNBOUND_FLAME       = 1292321,
   POWER_NEXUS         = 369908, -- +1 max essence
   DEEP_BREATH_STEER   = 433874, -- Deep Breath with Maneuverability (steerable)
   ONYX_LEGACY         = 386348, -- Deep Breath's cooldown -1 min
@@ -104,6 +108,27 @@ local DEV_GENERATORS = { [S.LIVING_FLAME] = true, [S.AZURE_STRIKE] = true, [S.AZ
 local DEV_FIRE_BREATHS = { [S.FIRE_BREATH] = true, [S.FIRE_BREATH_FOM] = true }
 local DEV_SURGES = { [S.ETERNITY_SURGE] = true, [S.ETERNITY_SURGE_FOM] = true }
 local DRAGONRAGE_DURATION = 18 -- game data (375087)
+-- Animosity (375797): each empower during Dragonrage extends it by 5s (effect 1), each time 25% less
+-- (effect 2). Rising Fury (1271783): a stack when Dragonrage starts and every 6s in it (effect 4), max 5;
+-- with the third rank (1271788) it persists 4s per stack after Dragonrage ends. SimC sc_evoker.cpp.
+local ANIMOSITY_EXTEND, ANIMOSITY_DECAY = 5, 0.75
+local RISING_FURY_TICK, RISING_FURY_MAX, RISING_FURY_PERSIST = 6, 5, 4
+local rage = { start = nil, ends = nil, mul = 1, undo = nil } -- filled from your casts (ns.onCast, 1467)
+ns.devRage = rage
+
+-- Seconds left of Dragonrage (with Animosity) or, with Rising Fury rank 3, of Rising Fury after it.
+-- SimC's Flameshaper Fire Breath goes to rank 2 while either is up.
+local function devRageLeft(ctx)
+  local start = ctx.lastCast[S.DRAGONRAGE]
+  if not start then return 0 end
+  local ends = (rage.start == start and rage.ends) or start + DRAGONRAGE_DURATION
+  if ctx.knows(S.RISING_FURY_3) then
+    local stacks = math.min(RISING_FURY_MAX, 1 + math.floor((ends - start) / RISING_FURY_TICK))
+    ends = ends + stacks * RISING_FURY_PERSIST
+  end
+  return math.max(0, ends - ctx.now)
+end
+ns.devRageLeft = devRageLeft
 
 local PILLAR_DURATION = 12   -- seconds (game data: Pillar of Frost id 51271)
 
@@ -843,8 +868,7 @@ ns.empowerRank = {
     local usePyre = ctx.knows(S.LEGACY_OF_THE_LIFEBINDER)
       and (n >= 5 or (n >= 3 and (ctx.knows(S.VOLATILITY) or ctx.knows(S.FEED_THE_FLAMES))))
     if n == 1 or usePyre then return 1 end
-    local rage = ctx.lastCast[S.DRAGONRAGE]
-    if n == 2 or (rage and ctx.now - rage < DRAGONRAGE_DURATION) then return 2 end
+    if n == 2 or devRageLeft(ctx) > 0 then return 2 end
     return 3
   end,
   [1473] = function(ctx, spell)
@@ -865,8 +889,8 @@ ns.debugStatus = {
     local f = ns.empowerRank[1467]
     local cut = 0
     for _, c in ipairs(ns.devState.cuts) do cut = cut + c.s end
-    return ("es=%s fb=%s db=%.0f mass=%d wl=%.0f"):format(tostring(f(ctx, S.ETERNITY_SURGE) or "n"),
-      tostring(f(ctx, S.FIRE_BREATH) or "n"), ns.devDeepBreathLeft(ctx), ns.devState.mass, cut)
+    return ("es=%s fb=%s db=%.0f mass=%d wl=%.0f dr=%.0f"):format(tostring(f(ctx, S.ETERNITY_SURGE) or "n"),
+      tostring(f(ctx, S.FIRE_BREATH) or "n"), ns.devDeepBreathLeft(ctx), ns.devState.mass, cut, devRageLeft(ctx))
   end,
   -- em = our Ebon Might estimate (seconds left); up/emcd = Upheaval / Ebon Might cooldown estimates;
   -- x = learned empower recovery factor; upb = the Upheaval ID on your button; tip = Tip the Scales
@@ -1193,6 +1217,7 @@ end
 -- empower gives a stack (its buff 436336); the next Disintegrate uses one and strikes up to 3 targets
 -- (effect 1). Targets struck = the enemy count at that moment, capped at 3. (SimC sc_evoker.cpp:
 -- empowers trigger mass_disintegrate_stacks; Disintegrate adjusts cooldown.deep_breath.)
+-- Concentrated Power (1261448, effect 1) adds 1 target.
 local MASS_DISINTEGRATE_TARGETS, WINGLEADER_DEV_CUT = 3, 1.0
 local dev = { mass = 0, cuts = {}, enemies = nil, undo = nil }
 ns.devState = dev
@@ -1214,12 +1239,21 @@ local augOnCast, augOnCancel = ns.onCast, ns.onCastCancelled
 ns.onCast = function(spec, id, now)
   if spec ~= 1467 then return augOnCast(spec, id, now) end
   dev.undo = nil
-  if DEV_FIRE_BREATHS[id] or DEV_SURGES[id] then
+  rage.undo = nil
+  if id == S.DRAGONRAGE then
+    rage.start, rage.ends, rage.mul = now, now + DRAGONRAGE_DURATION, 1
+  elseif DEV_FIRE_BREATHS[id] or DEV_SURGES[id] then
     if dev.hasMass then dev.mass = dev.mass + 1; dev.undo = id end
+    if dev.hasAnimosity and rage.ends and now < rage.ends then
+      local ext = ANIMOSITY_EXTEND * rage.mul
+      rage.ends, rage.mul = rage.ends + ext, rage.mul * ANIMOSITY_DECAY
+      rage.undo = { id = id, ext = ext }
+    end
   elseif id == S.DISINTEGRATE and dev.mass > 0 then
     dev.mass = dev.mass - 1
     if dev.hasWingleader then
-      local n = math.max(1, math.min(MASS_DISINTEGRATE_TARGETS, dev.enemies or 1))
+      local cap = MASS_DISINTEGRATE_TARGETS + (dev.hasConcentrated and 1 or 0)
+      local n = math.max(1, math.min(cap, dev.enemies or 1))
       dev.cuts[#dev.cuts + 1] = { t = now, s = n * WINGLEADER_DEV_CUT }
       while dev.cuts[1] and now - dev.cuts[1].t > 300 do table.remove(dev.cuts, 1) end
     end
@@ -1229,12 +1263,18 @@ ns.onCastCancelled = function(spec, id, now)
   if spec ~= 1467 then return augOnCancel(spec, id, now) end
   if dev.undo == id and dev.mass > 0 then dev.mass = dev.mass - 1 end -- a cancelled empower gives no stack
   dev.undo = nil
+  if rage.undo and rage.undo.id == id then -- nor extends Dragonrage
+    rage.ends, rage.mul = rage.ends - rage.undo.ext, rage.mul / ANIMOSITY_DECAY
+  end
+  rage.undo = nil
 end
 
 ns.onTick = ns.onTick or {}
 ns.onTick[1467] = function(ctx)
   dev.hasMass = ctx.knows(S.MASS_DISINTEGRATE)
   dev.hasWingleader = ctx.knows(S.WINGLEADER)
+  dev.hasConcentrated = ctx.knows(S.CONCENTRATED_POWER)
+  dev.hasAnimosity = ctx.knows(S.ANIMOSITY)
   dev.enemies = ctx.enemies
   if not ctx.inCombat then dev.mass = 0 end
 end

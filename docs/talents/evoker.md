@@ -90,7 +90,7 @@ Mastery scales with gear and buffs, so anything it lengthens, shortens or adds t
 | Azure Sweep | 1265867 |  | targets |  |  | Eternity Surge upgrades your next Azure Strike to Azure Sweep, damaging all nearby enemies and dealing $1265871s2% additional damage. $@spellicon1265872 $@spellname1265872 $@spelldesc1265872 |
 | Arcane Intensity | 375618 |  |  |  |  | Disintegrate and Azure Strike deal $s1% more damage. |
 | Ruby Embers | 365937 |  | targets |  |  | Living Flame deals $361500o2 damage over $361500d to enemies, or restores $361509o2 health to allies over $361509d. Stacks $361509u times. |
-| Animosity | 375797 |  | empower, duration |  |  | Casting an empower spell extends the duration of Dragonrage by ${$s1/1000} sec. Each time this occurs during Dragonrage, its effectiveness is reduced by $s2%. |
+| Animosity | 375797 |  | empower, duration |  | ✓ | Casting an empower spell extends the duration of Dragonrage by ${$s1/1000} sec. Each time this occurs during Dragonrage, its effectiveness is reduced by $s2%. |
 | Essence Attunement | 375722 |  | resource |  |  | Essence Burst stacks ${$s1+1} times. |
 | Engulfing Blaze | 370837 |  |  |  |  | Living Flame deals $s2% increased damage and healing and its cast time is reduced by ${$s1/-1000}.1 sec. |
 | Heat Wave | 375725 |  |  |  |  | Fire Breath deals $s1% more damage. |
@@ -104,10 +104,10 @@ Mastery scales with gear and buffs, so anything it lengthens, shortens or adds t
 | Shattering Stars | 1265802 |  | empower |  |  | Eternity Surge additionally releases a Shattering Star at your target that deals $s1% more damage per empower level reached. $@spellicon1265804 $@spellname1265804 $@spelldesc1265804 |
 | Feed the Flames | 369846 |  |  |  | ✓ | After casting $411288s2 Pyres, your next Pyre will explode into a Firestorm. $@spellicon368847 $@spellname368847 $@spelldesc368847 |
 | Burnout | 375801 |  |  |  |  | Fire Breath damage has $s1% chance to cause your next Living Flame to be instant cast, stacking $375802u times. |
-| Onyx Legacy | 386348 |  | cooldown |  |  | Deep Breath's cooldown is reduced by 1 min. |
+| Onyx Legacy | 386348 |  | cooldown |  | ✓ | Deep Breath's cooldown is reduced by 1 min. |
 | Spellweaver's Dominance | 370845 |  |  |  |  | Your damaging critical strikes deal ${$s1+200}% damage instead of the usual 200%. |
 | Star Salvo | 1265826 |  | targets |  |  | Increases Shattering Star damage by $s1%. Shattering Stars are exhaled at all of your Eternity Surge targets. |
-| Imminent Destruction | 370781 |  | resource |  |  | Deep Breath reduces the Essence costs of your next $s1 Disintegrates and Pyres by $411055s1. Stacks up to $411055U times. |
+| Imminent Destruction | 370781 |  | resource |  | ✓ | Deep Breath reduces the Essence costs of your next $s1 Disintegrates and Pyres by $411055s1. Stacks up to $411055U times. |
 | Font of Magic | 411212 |  | empower |  | ✓ | Your empower spells' maximum level is increased by 1, and they reach maximum empower level $s3% faster. |
 | Titanic Wrath | 386272 |  | resource |  |  | Essence Burst increases the damage of affected spells by ${$s1}.1%. |
 | Azure Celerity | 1219723 |  |  |  |  | Disintegrate deals damage $s1% more often, but deals $s2% less damage. |
@@ -119,7 +119,7 @@ Mastery scales with gear and buffs, so anything it lengthens, shortens or adds t
 | Iridescence | 370867 |  | empower |  |  | Casting an empower spell increases the damage of your next $386353u spells of the same color by $386353s1% within $386353d. |
 | Rising Fury | 1271687 | tiered | resource |  |  | While Dragonrage is active you gain Rising Fury every $1271783t4 sec, increasing your haste by $1271783s1%, stacking up to $1271783U times. |
 | Rising Fury | 1271796 | tiered | resource |  |  | At $1271783U stacks of Rising Fury, all damage dealt is increased by $s1%. |
-| Rising Fury | 1271788 | tiered | cooldown, resource |  |  | When Dragonrage ends, Rising Fury persists for ${$s1/1000} sec per stack, and Dragonrage becomes Unbound Flame. Unbound Flame may be cast $1292323u times before Dragonrage finishes its cooldown. $@spellicon1292321 $@spellname1292321 $@spelldesc1292321 |
+| Rising Fury | 1271788 | tiered | cooldown, resource |  | ✓ | When Dragonrage ends, Rising Fury persists for ${$s1/1000} sec per stack, and Dragonrage becomes Unbound Flame. Unbound Flame may be cast $1292323u times before Dragonrage finishes its cooldown. $@spellicon1292321 $@spellname1292321 $@spelldesc1292321 |
 
 ### Hero: Scalecommander (18)
 
@@ -131,10 +131,10 @@ Mastery scales with gear and buffs, so anything it lengthens, shortens or adds t
 | Bombardments | 434300 |  | targets |  |  | $?c1[Mass Disintegrate][Mass Eruption] marks your primary target for destruction for the next $434473d. You and your allies have a chance to trigger a Bombardment when attacking marked targets, dealing $<dmg> Volcanic damage split amongst all nearby enemies. |
 | Onslaught | 441245 |  | charges |  |  | Entering combat grants a charge of Burnout, causing your next Living Flame to cast instantly. |
 | Command Squadron | 1260745 |  | targets |  |  | While flying during $?s403631[Breath of Eons][Deep Breath] you are assisted by a squadron of Dracthyr who assault enemies with Pyre, dealing $1236970s1 Fire damage to nearby enemies up to $s3 times. |
-| Melt Armor | 441176 |  | resource, duration, targets |  |  | $?s403631[Breath of Eons][Deep Breath] causes enemies to take $s2% increased damage from Bombardments and Essence abilities for $441172d.$?c1[ The duration of this effect is extended when Deep Breath is cast multiple times.][] |
+| Melt Armor | 441176 |  | resource, duration, targets |  | ✓ | $?s403631[Breath of Eons][Deep Breath] causes enemies to take $s2% increased damage from Bombardments and Essence abilities for $441172d.$?c1[ The duration of this effect is extended when Deep Breath is cast multiple times.][] |
 | Wingleader | 441206 |  | cooldown |  | ✓ | $?c1[Mass Disintegrate][Mass Eruption] reduces the remaining cooldown of $?c1[Deep Breath][Breath of Eons] by $?c1[${$s1/1000}.1][${$s2/1000}.1] sec for each target struck. |
 | Unrelenting Siege | 441246 |  |  |  |  | For each second you are in combat, Azure Strike, Living Flame, and $?c1[Disintegrate][Eruption] deal $s1% increased damage, up to $s2%. |
-| Concentrated Power | 1261448 |  | targets |  |  | $?c1[Mass Disintegrate][Mass Eruption] strikes $s1 additional $Ltarget:targets;. |
+| Concentrated Power | 1261448 |  | targets |  | ✓ | $?c1[Mass Disintegrate][Mass Eruption] strikes $s1 additional $Ltarget:targets;. |
 | Hardened Scales | 441180 | choice |  |  |  | Obsidian Scales reduces damage taken by an additional ${$s1/-1}%. |
 | Menacing Presence | 441181 | choice | targets |  |  | Knocking enemies up or backwards reduces their damage done to you by $s1% for $441201d. |
 | Diverted Power | 441219 | choice | resource |  |  | Bombardments have a chance to generate Essence Burst. |
@@ -142,7 +142,7 @@ Mastery scales with gear and buffs, so anything it lengthens, shortens or adds t
 | Nimble Flyer | 441253 | choice |  |  |  | While Hovering, damage taken from area of effect attacks is reduced by ${$s1/-1}%. |
 | Slipstream | 441257 | choice | charges |  |  | $?s403631[Breath of Eons][Deep Breath] resets a charge of Hover. |
 | Refined Essence | 1261452 |  | resource |  |  | Essence abilities deal $s1% additional damage. |
-| Maneuverability | 433871 |  | duration, targets |  |  | $?s403631[Breath of Eons][Deep Breath] can now be steered in your desired direction. In addition, $?s403631[Breath of Eons][Deep Breath] burns targets for $441172o1 Volcanic damage over $441172d.$?c1[ The duration of this effect is extended when Deep Breath… |
+| Maneuverability | 433871 |  | duration, targets |  | ✓ | $?s403631[Breath of Eons][Deep Breath] can now be steered in your desired direction. In addition, $?s403631[Breath of Eons][Deep Breath] burns targets for $441172o1 Volcanic damage over $441172d.$?c1[ The duration of this effect is extended when Deep Breath… |
 
 ### Hero: Flameshaper (17)
 
@@ -235,10 +235,10 @@ Mastery scales with gear and buffs, so anything it lengthens, shortens or adds t
 | Bombardments | 434300 |  | targets |  |  | $?c1[Mass Disintegrate][Mass Eruption] marks your primary target for destruction for the next $434473d. You and your allies have a chance to trigger a Bombardment when attacking marked targets, dealing $<dmg> Volcanic damage split amongst all nearby enemies. |
 | Onslaught | 441245 |  | charges |  |  | Entering combat grants a charge of Burnout, causing your next Living Flame to cast instantly. |
 | Command Squadron | 1260745 |  | targets |  |  | While flying during $?s403631[Breath of Eons][Deep Breath] you are assisted by a squadron of Dracthyr who assault enemies with Pyre, dealing $1236970s1 Fire damage to nearby enemies up to $s3 times. |
-| Melt Armor | 441176 |  | resource, duration, targets |  |  | $?s403631[Breath of Eons][Deep Breath] causes enemies to take $s2% increased damage from Bombardments and Essence abilities for $441172d.$?c1[ The duration of this effect is extended when Deep Breath is cast multiple times.][] |
+| Melt Armor | 441176 |  | resource, duration, targets |  | ✓ | $?s403631[Breath of Eons][Deep Breath] causes enemies to take $s2% increased damage from Bombardments and Essence abilities for $441172d.$?c1[ The duration of this effect is extended when Deep Breath is cast multiple times.][] |
 | Wingleader | 441206 |  | cooldown |  | ✓ | $?c1[Mass Disintegrate][Mass Eruption] reduces the remaining cooldown of $?c1[Deep Breath][Breath of Eons] by $?c1[${$s1/1000}.1][${$s2/1000}.1] sec for each target struck. |
 | Unrelenting Siege | 441246 |  |  |  |  | For each second you are in combat, Azure Strike, Living Flame, and $?c1[Disintegrate][Eruption] deal $s1% increased damage, up to $s2%. |
-| Concentrated Power | 1261448 |  | targets |  |  | $?c1[Mass Disintegrate][Mass Eruption] strikes $s1 additional $Ltarget:targets;. |
+| Concentrated Power | 1261448 |  | targets |  | ✓ | $?c1[Mass Disintegrate][Mass Eruption] strikes $s1 additional $Ltarget:targets;. |
 | Hardened Scales | 441180 | choice |  |  |  | Obsidian Scales reduces damage taken by an additional ${$s1/-1}%. |
 | Menacing Presence | 441181 | choice | targets |  |  | Knocking enemies up or backwards reduces their damage done to you by $s1% for $441201d. |
 | Diverted Power | 441219 | choice | resource |  |  | Bombardments have a chance to generate Essence Burst. |
@@ -246,7 +246,7 @@ Mastery scales with gear and buffs, so anything it lengthens, shortens or adds t
 | Nimble Flyer | 441253 | choice |  |  |  | While Hovering, damage taken from area of effect attacks is reduced by ${$s1/-1}%. |
 | Slipstream | 441257 | choice | charges |  |  | $?s403631[Breath of Eons][Deep Breath] resets a charge of Hover. |
 | Refined Essence | 1261452 |  | resource |  |  | Essence abilities deal $s1% additional damage. |
-| Maneuverability | 433871 |  | duration, targets |  |  | $?s403631[Breath of Eons][Deep Breath] can now be steered in your desired direction. In addition, $?s403631[Breath of Eons][Deep Breath] burns targets for $441172o1 Volcanic damage over $441172d.$?c1[ The duration of this effect is extended when Deep Breath… |
+| Maneuverability | 433871 |  | duration, targets |  | ✓ | $?s403631[Breath of Eons][Deep Breath] can now be steered in your desired direction. In addition, $?s403631[Breath of Eons][Deep Breath] burns targets for $441172o1 Volcanic damage over $441172d.$?c1[ The duration of this effect is extended when Deep Breath… |
 
 ### Hero: Chronowarden (16)
 
