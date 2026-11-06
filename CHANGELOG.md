@@ -1,5 +1,12 @@
 # Assist Companion
 
+## 0.21.6
+
+From simming the addon's Devastation rules (`tools/dev_addon_sim.py`; results in `docs/FINDINGS.md`):
+
+* **Essence cap keeps Azure Sweep for Flameshaper on 3+ targets.** Spending essence instead of Azure Sweep lost 1.2% there (Flameshaper at 3 targets now -6.3% from optimal, was -7.4%). Everywhere else it still spends.
+* **Pyre at 3 targets (Flameshaper) needs Volatility at rank 2, or Feed the Flames**, like SimC. The rank is read from your talent loadout; if the game won't give it, only Feed the Flames counts. Also applies to the Fire Breath rank 1 "Pyre plan".
+
 ## 0.21.5
 
 * **Augmentation: the Tip the Scales macro's "x2" is big.** With the `tipMacro` option on, when the icon says to press the macro twice, "x2" now shows large and outlined in gold in the icon's bottom right (about 45% of the icon's size, so it scales with the icon) instead of small text after the keybind. The keybind stays in the top right.

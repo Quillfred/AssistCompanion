@@ -85,6 +85,36 @@ local function knows(id)
   return v
 end
 
+-- Ranks bought in the active talent loadout, by spell ID (e.g. Volatility 1 or 2). Built on first use
+-- and after talent changes (wiped with knownCache); nil when the talent API isn't there.
+local rankCache
+local function buildRanks()
+  if not (C_ClassTalents and C_ClassTalents.GetActiveConfigID and C_Traits and C_Traits.GetConfigInfo) then return nil end
+  local config = try(C_ClassTalents.GetActiveConfigID)
+  local info = config and try(C_Traits.GetConfigInfo, config)
+  if not info or type(info.treeIDs) ~= "table" then return nil end
+  local ranks = {}
+  for _, tree in ipairs(info.treeIDs) do
+    for _, node in ipairs(try(C_Traits.GetTreeNodes, tree) or {}) do
+      local n = try(C_Traits.GetNodeInfo, config, node)
+      local active = n and n.activeEntry and n.activeEntry.entryID
+      local rank = n and (n.activeRank or n.ranksPurchased) or 0
+      if active and rank > 0 then
+        local e = try(C_Traits.GetEntryInfo, config, active)
+        local d = e and e.definitionID and try(C_Traits.GetDefinitionInfo, e.definitionID)
+        if d and d.spellID then ranks[d.spellID] = math.max(ranks[d.spellID] or 0, rank) end
+      end
+    end
+  end
+  return ranks
+end
+-- Rank of a talent (0 = not taken), or nil if it can't be read.
+local function talentRank(id)
+  if rankCache == nil then rankCache = buildRanks() or false end
+  if not rankCache then return nil end
+  return rankCache[id] or 0
+end
+
 local function override(id)
   if not (C_Spell and C_Spell.GetOverrideSpell) then return nil end
   return (try(C_Spell.GetOverrideSpell, id))
@@ -1102,7 +1132,7 @@ end
 ---------------------------------------------------------------------------
 -- Main loop
 ---------------------------------------------------------------------------
-local ctx = { lastCast = lastCast, knows = knows, override = override, onCooldown = onCooldown, readyIn = readyIn,
+local ctx = { lastCast = lastCast, knows = knows, talentRank = talentRank, override = override, onCooldown = onCooldown, readyIn = readyIn,
               charges = charges, description = spellDescription,
               -- true/false: usable now (resources etc., not cooldown); nil if the game won't say
               usable = function(id)
@@ -1270,6 +1300,7 @@ events:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player")
 -- rebuild on a real spec/talent change or when the opener hasn't been started.
 local function refresh(event)
   wipe(knownCache)
+  rankCache = nil
   clearBindingCache()
   specID = currentSpecID()
   powerMaxCache = nil -- talents/spec may have changed it; re-read (or fall back) fresh

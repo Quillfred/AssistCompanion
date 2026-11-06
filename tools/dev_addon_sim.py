@@ -16,7 +16,7 @@ highlight's list (SimC's assisted_combat/evoker_devastation.simc). Four rotation
                (what hl_simc does, but with the button overrides working): splits the addon's gain into
                its cooldown part and its rotation part (essence cap, Pyre at 3, ranks).
   hl_ranks / hl_cap   breakdown: hl_cds + only the empower rank badge / only essence cap + Pyre at 3.
-  hl_addon     hl_game + Assist Companion 0.21.5's Devastation rules: Dragonrage / Deep Breath / Tip the
+  hl_addon     hl_game + Assist Companion 0.21.6's Devastation rules: Dragonrage / Deep Breath / Tip the
                Scales prompts, essence cap, Pyre at 3 targets (Flameshaper), empower rank badge.
 
 Usage: SIMC=<simc checkout with build/simc> python3 tools/dev_addon_sim.py [iterations]
@@ -43,7 +43,7 @@ PRE = ["actions.precombat=snapshot_stats", "actions.precombat+=/living_flame"]
 ITEMS = ["actions.items=potion",
          "actions.items+=/use_items,if=buff.dragonrage.up|!talent.dragonrage|cooldown.dragonrage.remains>20"]
 
-FS_PYRE3 = "talent.legacy_of_the_lifebinder&(talent.volatility|talent.feed_the_flames)"
+FS_PYRE3 = "talent.legacy_of_the_lifebinder&(talent.volatility.rank=2|talent.feed_the_flames)"
 # Empower rank badge (Rules.lua ns.empowerRank[1467]), as conditions per rank.
 ES_RANKS = [
     (1, "active_enemies<=1+talent.eternitys_span"),
@@ -84,12 +84,17 @@ def highlight_game(ranks, cap):
     L += ["disintegrate,if=active_enemies>3&buff.mass_disintegrate_stacks.up",
           "unbound_flame,if=buff.unbound_flame.up&buff.essence_burst.stack<=1",  # Dragonrage button
           "pyre,if=active_enemies>3"]
-    if cap:  # essence cap: spend instead of the generators below
-        L += [f"pyre,if=essence>=essence.max&(active_enemies>3|active_enemies=3&{FS_PYRE3})",
-              "disintegrate,if=essence>=essence.max"]
+    CAP = [f"pyre,if=essence>=essence.max&(active_enemies>3|active_enemies=3&{FS_PYRE3})",
+           "disintegrate,if=essence>=essence.max"]
+    # essence cap: spend instead of the generators below (0.21.6: Flameshaper on 3+ keeps Azure Sweep)
+    spare = "talent.legacy_of_the_lifebinder&active_enemies>=3"
+    if cap:
+        L += [c.replace(",if=", f",if=!({spare})&", 1) for c in CAP]
     L += ["azure_sweep,if=buff.azure_sweep.up",  # Azure Strike button
           "living_flame,if=active_enemies>3&buff.burnout.up&buff.leaping_flames.up",
           "azure_strike,if=active_enemies>3"]
+    if cap:
+        L += [c.replace(",if=", f",if=({spare})&", 1) for c in CAP]
     if cap:
         L += [f"pyre,if=active_enemies=3&{FS_PYRE3}"]
     L += ["disintegrate", "living_flame"]

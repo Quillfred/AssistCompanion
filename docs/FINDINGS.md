@@ -104,6 +104,7 @@ No debug log, so the fight was replayed through the addon's code: Quillbreath's 
 * On top of the cooldowns, **the empower rank badge is most of the rest**: +25.8 / +15.0 / +13.5% (Scalecommander 1/3/5 targets), +44.8 / +23.4 / +28.6% (Flameshaper), against max rank every time (SimC's default when no rank is given; the highlight doesn't say one).
 * **Essence cap** is worth +0.8 to +1.4%, almost all from spending instead of Azure Sweep, except **Flameshaper at 3 targets: -1.2%** (Azure Sweep is worth more there). Sparing Azure Sweep makes the rule worth ~0 everywhere.
 * **Pyre at 3 targets never fired** on the Flameshaper profile: SimC's `use_pyre_fs` needs `talent.volatility.rank=2` or Feed the Flames; the addon checks Volatility at any rank (IsPlayerSpell can't see the rank).
+* **0.21.6** acts on both: essence cap spares Azure Sweep for Flameshaper on 3+ targets, and Pyre at 3 needs Volatility rank 2 (read with `C_Traits`) or Feed the Flames. Re-sim: Flameshaper 3 targets -7.4% -> **-6.3%**; other rows unchanged within 0.1%.
 * The Flameshaper 5-target `hl_addon` beating optimal by 1.6% means SimC's own APL isn't perfect there, not that the addon is.
 
 ## Devastation, owner's first debug log (0.20.3, Scalecommander, Font of Magic)
