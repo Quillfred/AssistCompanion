@@ -1435,6 +1435,8 @@ ns.powerType = {
 ns.specOptions = {
   [250] = { { key = "healthIcon", name = "Low-health Death Strike icon", spell = S.DEATH_STRIKE,
               desc = "A separate Death Strike icon that fades in as your health drops (/ac hp sets the thresholds)." },
+            { key = "holdDeathStrike", name = "Hold runic power for Death Strike", spell = S.DEATH_STRIKE,
+              desc = "When the highlight asks for Death Strike, show Blood Boil or Heart Strike instead (gold border) unless you're within 20 runic power of max or at 50% health or lower (then Death Strike, red border at low health). Keeps runic power banked for several Death Strikes after a big hit. The game decides from your hidden runic power and health." },
             { key = "empowerRank", name = "Empower rank on the icon", spell = S.CONSUMPTION,
               desc = "A 1 on Consumption: SimC's optimal list always holds it to rank 1. Shared with the Evokers' setting." } },
   [251] = { { key = "cooldownReminder", name = "Trinket, potion and racial reminder", spell = S.PILLAR_OF_FROST,
@@ -1497,6 +1499,29 @@ ns.powerIcon = {
     spell = S.DEATH_STRIKE,
     when = function(ctx) return ctx.next ~= S.DEATH_STRIKE end,
     at = function(ctx) return (ctx.powerMax or 100) - 20 end,
+  },
+}
+
+-- Hold runic power (Core.lua: hold layers). When the highlight asks for `spell`, cover it with
+-- `instead` unless runic power is within reach of max (`at`) or health is at or below `health`%.
+-- Blood: keeps runic power banked for several Death Strikes after a big hit (owner's request).
+-- Simmed with all Blood rules: -0.4% to +0.6% damage (docs/FINDINGS.md), so it's an option, off by default.
+ns.holdSpender = {
+  [250] = {
+    option = "holdDeathStrike",
+    spell = S.DEATH_STRIKE,
+    health = 50,
+    at = function(ctx) return (ctx.powerMax or 100) - 20 end,
+    instead = function(ctx)
+      if ctx.inMelee ~= false and ctx.knows(S.BLOOD_BOIL) then
+        local c = ctx.charges(S.BLOOD_BOIL)
+        if c and c >= 1 then return S.BLOOD_BOIL end
+      end
+      if ctx.runes and ctx.runes >= 1 then
+        local hs = ctx.override(S.HEART_STRIKE)
+        return (type(hs) == "number" and hs ~= 0) and hs or S.HEART_STRIKE
+      end
+    end,
   },
 }
 

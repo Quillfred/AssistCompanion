@@ -26,6 +26,7 @@ local DEFAULTS = {
   gcdSwipe = true,         -- global cooldown swipe on the next-cast icon
   tipMacro = false,        -- Augmentation: the player uses a /cancelaura Tip the Scales macro
   empowerRank = true,      -- empower rank badge on Fire Breath / Upheaval (Rules.lua: ns.empowerRank)
+  holdDeathStrike = false, -- Blood: hold runic power for Death Strike (Rules.lua: ns.holdSpender)
   healthIcon = true,       -- Blood: Death Strike icon that fades in as your health drops
   healthFull = 35,         -- health % at or below which it's fully visible
   healthNone = 50,         -- health % at or above which it's invisible
@@ -664,27 +665,44 @@ nf.gcd:SetDrawEdge(false)
 nf.gcd:SetDrawBling(false)
 nf.gcd:SetHideCountdownNumbers(true)
 nf.gcd:SetFrameLevel(nf:GetFrameLevel() + 1)
--- Text over the icon (keybind, empower rank, "x2") sits above the GCD swipe and the runic power layer,
--- so the swipe doesn't darken it (owner: Consumption's rank "1" went unseen).
+-- Text over the icon (keybind, empower rank, "x2") sits above the GCD swipe, so the swipe doesn't
+-- darken it (owner: Consumption's rank "1" went unseen).
 nf.textLayer = CreateFrame("Frame", nil, nf)
 nf.textLayer:SetAllPoints(nf)
-nf.textLayer:SetFrameLevel(nf:GetFrameLevel() + 5)
+nf.textLayer:SetFrameLevel(nf:GetFrameLevel() + 2)
 
-local function updateGCD()
-  if not db or not db.gcdSwipe then nf.gcd:Hide() return end
-  nf.gcd:Show()
+-- GCD swipes: the next-cast icon's, plus one on each layer that can cover it (runic power, hold),
+-- since those draw above the icon's text and swipe.
+local gcdSwipes = { nf.gcd }
+local function addGCDSwipe(parent, icon)
+  local cd = CreateFrame("Cooldown", nil, parent, "CooldownFrameTemplate")
+  cd:SetAllPoints(icon)
+  cd:SetDrawEdge(false)
+  cd:SetDrawBling(false)
+  cd:SetHideCountdownNumbers(true)
+  gcdSwipes[#gcdSwipes + 1] = cd
+  return cd
+end
+
+local function setGCD(cd)
+  if not db or not db.gcdSwipe then cd:Hide() return end
+  cd:Show()
   -- Preferred: duration object (Midnight API).
-  if C_Spell and C_Spell.GetSpellCooldownDuration and nf.gcd.SetCooldownFromDurationObject then
+  if C_Spell and C_Spell.GetSpellCooldownDuration and cd.SetCooldownFromDurationObject then
     local ok, dur = pcall(C_Spell.GetSpellCooldownDuration, GCD_SPELL)
-    if ok and dur ~= nil and pcall(nf.gcd.SetCooldownFromDurationObject, nf.gcd, dur, true) then return end
+    if ok and dur ~= nil and pcall(cd.SetCooldownFromDurationObject, cd, dur, true) then return end
   end
   -- Fallback: start/duration (possibly secret) passed straight to the cooldown frame.
   if C_Spell and C_Spell.GetSpellCooldown then
     local ok, info = pcall(C_Spell.GetSpellCooldown, GCD_SPELL)
     if ok and type(info) == "table" then
-      pcall(nf.gcd.SetCooldown, nf.gcd, info.startTime, info.duration, info.modRate)
+      pcall(cd.SetCooldown, cd, info.startTime, info.duration, info.modRate)
     end
   end
+end
+
+local function updateGCD()
+  for _, cd in ipairs(gcdSwipes) do setGCD(cd) end
 end
 
 nf.key = nf.textLayer:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
@@ -1097,13 +1115,16 @@ end
 -- the spender at the threshold and back once you spend. The GCD swipe stays above it.
 local pf = CreateFrame("Frame", "AssistCompanionPower", nf)
 pf:SetAllPoints(nf)
-pf:SetFrameLevel(nf:GetFrameLevel() + 1)
-nf.gcd:SetFrameLevel(nf:GetFrameLevel() + 2)
-nf.textLayer:SetFrameLevel(nf:GetFrameLevel() + 5)
+-- Levels: icon, GCD swipe (+1), text (+2: keybind, rank, x2), then these layers (+3, +4), which have
+-- their own icon and keybind and cover the text below when the game shows them.
+pf:SetFrameLevel(nf:GetFrameLevel() + 3)
+nf.gcd:SetFrameLevel(nf:GetFrameLevel() + 1)
+nf.textLayer:SetFrameLevel(nf:GetFrameLevel() + 2)
 pf.icon = pf:CreateTexture(nil, "ARTWORK")
 pf.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 pf.icon:SetAllPoints(nf.icon)
 pf.black = blackBorder(pf, pf.icon)
+pf.gcd = addGCDSwipe(pf, pf.icon)
 pf.glow = pf:CreateTexture(nil, "BORDER", nil, 0)
 pf.glow:SetColorTexture(0.25, 0.6, 1, 1) -- blue: runic power
 pf.glow:SetPoint("TOPLEFT", pf.icon, -BLACK_EDGE - 2, BLACK_EDGE + 2)
@@ -1182,6 +1203,82 @@ local function updatePowerIcon(c, mode, alertKey)
     pf:Hide() powerIconState = "error" return
   end
   powerIconState = (issecretvalue and issecretvalue(alpha)) and "hidden" or tostring(alpha)
+end
+
+---------------------------------------------------------------------------
+-- Hold runic power (option, Blood: ns.holdSpender). When the highlight asks for the spender (Death
+-- Strike) the addon covers it with the next thing to press (Blood Boil with a charge, else Heart
+-- Strike). Runic power and health are hidden, so two layers and the game decide:
+--   hold layer (replacement icon, gold border): shown while runic power is below the threshold;
+--   low-health layer (the spender, red border) on top: shown at or below the health threshold.
+-- So the spender shows near max runic power or at low health, the replacement otherwise.
+---------------------------------------------------------------------------
+local function coverLayer(name, level, r, g, b)
+  local l = CreateFrame("Frame", name, nf)
+  l:SetAllPoints(nf)
+  l:SetFrameLevel(nf:GetFrameLevel() + level)
+  l.icon = l:CreateTexture(nil, "ARTWORK")
+  l.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+  l.icon:SetAllPoints(nf.icon)
+  l.black = blackBorder(l, l.icon)
+  l.gcd = addGCDSwipe(l, l.icon)
+  l.glow = l:CreateTexture(nil, "BORDER", nil, 0)
+  l.glow:SetColorTexture(r, g, b, 1)
+  l.glow:SetPoint("TOPLEFT", l.icon, -BLACK_EDGE - 2, BLACK_EDGE + 2)
+  l.glow:SetPoint("BOTTOMRIGHT", l.icon, BLACK_EDGE + 2, -BLACK_EDGE - 2)
+  l.key = l:CreateFontString(nil, "OVERLAY", "NumberFontNormal")
+  l.key:SetPoint("TOPRIGHT", l.icon, "TOPRIGHT", -2, -2)
+  l.key:SetJustifyH("RIGHT")
+  l:Hide()
+  return l
+end
+local holdLayer = coverLayer("AssistCompanionHold", 3, 1, 0.82, 0)
+local lowLayer = coverLayer("AssistCompanionHoldLow", 4, 0.9, 0.1, 0.1)
+local holdState = "off"
+local holdCurve, holdCurveFor, lowCurve, lowCurveFor
+
+-- 1 below `frac` of max, 0 at or above (both 0-1 and 0-100 scales).
+local function buildBelowCurve(frac)
+  if not (C_CurveUtil and C_CurveUtil.CreateCurve) then return nil end
+  local ok, c = pcall(C_CurveUtil.CreateCurve)
+  if not ok or not c then return nil end
+  if c.SetType and Enum and Enum.LuaCurveType then pcall(c.SetType, c, Enum.LuaCurveType.Linear) end
+  local t = math.max(0.01, math.min(0.99, frac))
+  c:AddPoint(0, 1); c:AddPoint(t - 0.001, 1); c:AddPoint(t, 0); c:AddPoint(1.0, 0)
+  local T = t * 100
+  c:AddPoint(1.001, 1); c:AddPoint(T - 0.1, 1); c:AddPoint(T, 0); c:AddPoint(100, 0)
+  return c
+end
+
+local function hideHold(state) holdLayer:Hide(); lowLayer:Hide(); holdState = state end
+
+local function updateHold(c, mode)
+  local cfg = ns.holdSpender and specID and ns.holdSpender[specID]
+  if not cfg or not db[cfg.option] then return hideHold("off") end
+  if not inCombat or not nf:IsShown() or not db.locked then return hideHold("off") end
+  if mode ~= "highlight" or c.next ~= cfg.spell then return hideHold("waiting") end
+  local okI, instead = pcall(cfg.instead, c)
+  if not okI or not instead then return hideHold("nothing else") end
+  local okAt, at = pcall(cfg.at, c)
+  local max = c.powerMax or 100
+  if not okAt or type(at) ~= "number" or max <= 0 then return hideHold("off") end
+  local key = string.format("%.3f", at / max)
+  if holdCurveFor ~= key then holdCurve, holdCurveFor = buildBelowCurve(at / max), key end
+  local lowKey = tostring(cfg.health)
+  if lowCurveFor ~= lowKey then lowCurve, lowCurveFor = buildHealthCurve(cfg.health, cfg.health + 1), lowKey end
+  if not holdCurve or not lowCurve or not UnitPowerPercent or not UnitHealthPercent then return hideHold("no api") end
+  local ok1, a1 = pcall(UnitPowerPercent, "player", powerType(), false, holdCurve)
+  local ok2, a2 = pcall(UnitHealthPercent, "player", true, lowCurve)
+  if not ok1 or a1 == nil or not ok2 or a2 == nil then return hideHold("error") end
+  holdLayer.icon:SetTexture(spellIcon(instead))
+  holdLayer.key:SetText(keybindFor(instead) or "")
+  lowLayer.icon:SetTexture(spellIcon(cfg.spell))
+  lowLayer.key:SetText(keybindFor(cfg.spell) or "")
+  holdLayer:Show(); lowLayer:Show()
+  if not pcall(holdLayer.SetAlpha, holdLayer, a1) or not pcall(lowLayer.SetAlpha, lowLayer, a2) then
+    return hideHold("error")
+  end
+  holdState = "on:" .. spellName(instead)
 end
 
 local function layoutAll()
@@ -1275,6 +1372,7 @@ local function tick()
   end
   local shown, mode, rank = showNext(ctx, iconAlert, note)
   updatePowerIcon(ctx, mode, alertKey)
+  updateHold(ctx, mode)
   showText(alert)
 
   if db.debug then
@@ -1309,6 +1407,7 @@ local function tick()
         end
         if ns.powerIcon and specID and ns.powerIcon[specID] then
           extra = extra .. " rpicon=" .. powerIconState .. (powerTest and "(test)" or "")
+          if ns.holdSpender and ns.holdSpender[specID] then extra = extra .. " hold=" .. holdState end
         end
         dlog("status: highlight=%s rp=%s/%s%s runes=%s enemies=%s (%s) melee=%s opener=%s%s%s%s",
           ctx.next and (spellName(ctx.next) .. " " .. ctx.next) or "none",

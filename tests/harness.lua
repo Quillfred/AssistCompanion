@@ -1919,7 +1919,8 @@ do
   expect("RP icon: shows Death Coil on 1 target", "icon:47541", pf.icon.texture)
   expect("RP icon: it's a layer on the next-cast icon, not a separate frame", AssistCompanionNext, pf.parent)
   expect("RP icon: the next-cast icon underneath still shows the highlight", "icon:55090", nf.icon.texture)
-  expect("RP icon: GCD swipe drawn above the layer", true, nf.gcd.level > pf.level)
+  expect("RP icon: the layer covers the icon's text (keybind) but has its own GCD swipe", true,
+    pf.level > nf.textLayer.level and pf.gcd ~= nil)
   -- Blightfall (listed before the runic power rule) wins: layer off
   state.overrides = { [1233448] = 1271967 }; state.next = 77575; step()
   expect("RP icon: higher-priority correction (Blightfall) -> layer hidden", true,
@@ -1991,7 +1992,39 @@ do
   expect("RP test: low runic power -> invisible", 0, pf.alpha)
   SlashCmdList.ASSISTCOMPANION("rptest"); step()
   expect("RP test: off again -> hidden, label cleared", true, not pf.shown and pf.label.text == "")
-  UnitPowerPercent = nil; AssistCompanionDB.debug = false; combat(false); state.rp = 10; step()
+  -- Hold runic power for Death Strike (Blood option): hold layer (Blood Boil / Heart Strike) shown
+  -- below max-20 runic power, Death Strike layer on top at <= 50% health
+  local hold, low = AssistCompanionHold, AssistCompanionHoldLow
+  function UnitPowerPercent(unit, ptype, predicted, curve) return curve:Evaluate(state.rpPct) end
+  state.spec = 250; state.pet = true; state.overrides = {}
+  state.known = { [195182]=true, [49998]=true, [50842]=true, [206930]=true, [219786]=true }
+  state.charges = { [50842] = { 1, 2, 0, 7.5 } }
+  events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+  for _, k in ipairs({ "boneshield", "rpcap", "bloodboil", "vampiricblood", "raisedead" }) do ns.setRuleEnabled(250, k, false) end
+  local savedUnitPower = UnitPower
+  UnitPower = function(u, t) if t == 5 then return 3 end return state.rp end
+  state.rp = "SECRET"; state.rpmax = 125; state.next = 49998; state.hp = 1.0; state.hpSecret = false
+  combat(true); step()
+  expect("Hold: option off -> no hold layers", false, hold.shown or low.shown)
+  AssistCompanionDB.holdDeathStrike = true
+  state.rpPct = 0.52; step()   -- 65 of 125
+  expect("Hold: 65/125 runic power, full health -> Blood Boil over Death Strike", true, hold.shown and hold.alpha == 1)
+  expect("Hold: ...Blood Boil icon (a charge)", "icon:50842", hold.icon.texture)
+  expect("Hold: ...low-health layer invisible", 0, low.alpha)
+  cast(50842); cast(50842); cast(50842); step()   -- charges are counted from your casts in combat
+  expect("Hold: no Blood Boil charge -> Heart Strike", "icon:206930", hold.icon.texture)
+  state.rpPct = 0.85; step()  -- 106 of 125: within 20 of max
+  expect("Hold: within 20 of max -> hold layer invisible (Death Strike)", 0, hold.alpha)
+  state.rpPct = 0.52; state.hp = 0.4; step()
+  expect("Hold: 40% health -> Death Strike layer on top", 1, low.alpha)
+  expect("Hold: ...with the Death Strike icon", "icon:49998", low.icon.texture)
+  state.hp = 1.0; state.next = 206930; step()
+  expect("Hold: highlight not on Death Strike -> layers off", false, hold.shown or low.shown)
+  state.next = 49998; combat(false); step()
+  expect("Hold: out of combat -> off", false, hold.shown)
+  AssistCompanionDB.holdDeathStrike = false; UnitPower = savedUnitPower
+  for _, k in ipairs({ "boneshield", "rpcap", "bloodboil", "vampiricblood", "raisedead" }) do ns.setRuleEnabled(250, k, true) end
+  UnitPowerPercent = nil; AssistCompanionDB.debug = false; combat(false); state.rp = 10; state.rpmax = nil; step()
 end
 
 io.stdout:write(table.concat(printed, "\n"), "\n")
