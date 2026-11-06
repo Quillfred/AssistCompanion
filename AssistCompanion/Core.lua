@@ -874,8 +874,9 @@ local ob = CreateFrame("Frame", "AssistCompanionOpener", UIParent, "BackdropTemp
 ob:SetSize(44 + (OPENER_SLOTS - 1) * 30 + OPENER_SLOTS * 8 + 8, 62)
 makeMovable(ob, "openerPoint")
 ob.label = ob:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-ob.label:SetPoint("RIGHT", ob, "LEFT", -4, 0) -- beside the bar, so it can't overlap anything above
-ob.label:SetJustifyH("RIGHT")
+-- above the bar's first icon (owner: beside the bar it covered the next-cast icon placed next to it)
+ob.label:SetPoint("BOTTOMLEFT", ob, "TOPLEFT", 4, -6)
+ob.label:SetJustifyH("LEFT")
 ob.slots, ob.blacks, ob.cds = {}, {}, {}
 for i = 1, OPENER_SLOTS do
   local t = ob:CreateTexture(nil, "ARTWORK")
@@ -1036,7 +1037,7 @@ local function renderOpener()
       ob.cds[i]:SetText("")
     end
   end
-  ob.label:SetText(("Opener\n%d/%d"):format(opener.index, #steps))
+  ob.label:SetText(("Opener %d/%d"):format(opener.index, #steps))
   ob:Show()
   return steps[opener.index]
 end

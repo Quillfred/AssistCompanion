@@ -1,5 +1,10 @@
 # Assist Companion
 
+## 0.23.2
+
+* **The opener label ("Opener 1/8") is now above the bar's first icon**, on one line. Beside the bar it covered the next-cast icon when the bar sat next to it.
+* From the owner's 0.23.1 Blood log: the out-of-order fix worked (Raise Dead before Death's Caress kept Death's Caress and Vampiric Blood); the opener bar's cooldown numbers matched the talents (Raise Dead 90s, Dancing Rune Weapon 90s, Vampiric Blood with Red Thirst).
+
 ## 0.23.1
 
 * **Opener bar: spells on cooldown are grayed out with their seconds left** (all specs). This replaces the "00:35 until full opener is available" line above the icon.

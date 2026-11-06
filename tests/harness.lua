@@ -270,19 +270,19 @@ state.known = { [47568]=true, [51271]=true, [1249658]=true, [49020]=true, [27930
 events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED"); now = now + 300; step()
 expect("Opener: Frost shows before pull with hostile target", true, ob.shown)
 expect("Opener: Frost skips Reaper's Mark when not talented", "icon:47568,icon:51271,icon:1249658,icon:49020,icon:279302,icon:49020", openerIcons())
-expect("Opener: label", "Opener\n1/8", ob.label.text)
+expect("Opener: label", "Opener 1/8", ob.label.text)
 expect("Opener: first icon is large", 44, ob.slots[1].size[1])
 combat(true); cast(47568); step()
-expect("Opener: advances after first cast", "Opener\n2/8", ob.label.text)
+expect("Opener: advances after first cast", "Opener 2/8", ob.label.text)
 cast(1249658); step() -- pressed Breath before Pillar: Breath ticked off, Pillar still pending
-expect("Opener: out-of-order cast keeps the skipped step pending", "Opener\n2/8", ob.label.text)
+expect("Opener: out-of-order cast keeps the skipped step pending", "Opener 2/8", ob.label.text)
 expect("Opener: ...Pillar first, Breath gone", "icon:51271,icon:49020,icon:279302,icon:49020,icon:49020,icon:49020", openerIcons())
 cast(49020); step()   -- a second cast past Pillar: dropped
-expect("Opener: a step passed by two later casts is dropped", "Opener\n5/8", ob.label.text)
+expect("Opener: a step passed by two later casts is dropped", "Opener 5/8", ob.label.text)
 cast(279302); cast(49020); cast(49020); cast(49020); step()
 expect("Opener: finished -> hidden", false, ob.shown)
 combat(false); step()
-expect("Opener: resets after combat", "Opener\n1/8", ob.label.text)
+expect("Opener: resets after combat", "Opener 1/8", ob.label.text)
 state.target = false; step()
 expect("Opener: hidden with no target out of combat", false, ob.shown)
 state.target = nil; combat(true); now = now + 30; step()
@@ -293,7 +293,7 @@ state.spec = 252; state.pet = true
 state.known = { [46584]=true, [77575]=true, [85948]=true, [42650]=true, [1233448]=true, [1247378]=true, [47541]=true }
 events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED"); step()
 expect("Opener: Unholy with ghoul out starts at Outbreak", "icon:77575", ob.slots[1].texture)
-expect("Opener: Unholy length without Raise Dead", "Opener\n1/9", ob.label.text)
+expect("Opener: Unholy length without Raise Dead", "Opener 1/9", ob.label.text)
 state.pet = false; events.scripts.OnEvent(events, "UNIT_PET", "player"); step()
 expect("Opener: Unholy with no ghoul starts at Raise Dead", "icon:46584", ob.slots[1].texture)
 -- Dark Transformation turned into Blightfall still counts for that step
@@ -437,9 +437,9 @@ events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED")
 now = now + 600; state.next = 49143; step()
 -- pull: Pillar + Breath used, then combat drops (wipe)
 combat(true); cast(47568); cast(51271); cast(1249658); step()
-expect("Reset: mid-opener before wipe", "Opener\n4/8", ob.label.text)
+expect("Reset: mid-opener before wipe", "Opener 4/8", ob.label.text)
 combat(false); step()
-expect("Reset: combat drop -> opener back to step 1", "Opener\n1/8", ob.label.text)
+expect("Reset: combat drop -> opener back to step 1", "Opener 1/8", ob.label.text)
 -- next pull right away: Breath must count as ready even though it was cast <120s ago
 AssistCompanionDB.openerIcon = false
 combat(true); now = now + 5; cast(51271); state.next = 49020; step()
@@ -447,26 +447,26 @@ expect("Reset: Breath treated as off cooldown after combat drop", "icon:1249658"
 combat(false); AssistCompanionDB.openerIcon = true
 -- a short combat drop (Deep Breath flying off dummies) is the same fight: nothing resets
 combat(true); cast(47568); cast(51271); step()
-expect("Short drop: mid-opener", "Opener\n3/8", ob.label.text)
+expect("Short drop: mid-opener", "Opener 3/8", ob.label.text)
 combat(false, true); now = now + 3; step(); combat(true); step()
-expect("Short drop: back in combat within 6s -> opener kept", "Opener\n3/8", ob.label.text)
+expect("Short drop: back in combat within 6s -> opener kept", "Opener 3/8", ob.label.text)
 combat(false)
 -- death resets mid-pull
 combat(true); cast(47568); cast(51271); step()
 events.scripts.OnEvent(events, "PLAYER_DEAD"); step()
-expect("Reset: death -> opener back to step 1", "Opener\n1/8", ob.label.text)
+expect("Reset: death -> opener back to step 1", "Opener 1/8", ob.label.text)
 combat(false)
 -- encounter end resets
 combat(true); cast(47568); step()
 events.scripts.OnEvent(events, "ENCOUNTER_END"); combat(false); step()
-expect("Reset: encounter end -> step 1", "Opener\n1/8", ob.label.text)
+expect("Reset: encounter end -> step 1", "Opener 1/8", ob.label.text)
 -- out-of-combat press: stays advanced briefly, resets after 10s idle
 cast(47568); step()
-expect("Reset: out-of-combat press advances", "Opener\n2/8", ob.label.text)
+expect("Reset: out-of-combat press advances", "Opener 2/8", ob.label.text)
 now = now + 5; step()
-expect("Reset: still advanced after 5s", "Opener\n2/8", ob.label.text)
+expect("Reset: still advanced after 5s", "Opener 2/8", ob.label.text)
 now = now + 6; step()
-expect("Reset: reset after 10s idle out of combat", "Opener\n1/8", ob.label.text)
+expect("Reset: reset after 10s idle out of combat", "Opener 1/8", ob.label.text)
 AssistCompanionDB.openerIcon = false
 
 -- OPENER SURVIVES MID-COMBAT SPELLBOOK UPDATES ----------------------------
@@ -477,20 +477,20 @@ events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
 events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 700; step()
 combat(true)
 cast(47568); cast(51271); cast(439843); cast(1249658); cast(49020); cast(279302); cast(49020); step()
-expect("Opener bug: at step 8 of 9 (two Obliterates left)", "Opener\n8/9", ob.label.text)
+expect("Opener bug: at step 8 of 9 (two Obliterates left)", "Opener 8/9", ob.label.text)
 events.scripts.OnEvent(events, "SPELLS_CHANGED"); step() -- e.g. Pillar of Frost ends
-expect("Opener bug: SPELLS_CHANGED mid-combat does not reset", "Opener\n8/9", ob.label.text)
+expect("Opener bug: SPELLS_CHANGED mid-combat does not reset", "Opener 8/9", ob.label.text)
 events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
-expect("Opener bug: talent event mid-combat does not reset", "Opener\n8/9", ob.label.text)
+expect("Opener bug: talent event mid-combat does not reset", "Opener 8/9", ob.label.text)
 cast(49020); cast(49020); step()
 expect("Opener bug: finishes normally", false, ob.shown)
 combat(false); step()
-expect("Opener bug: still resets on combat drop", "Opener\n1/9", ob.label.text)
+expect("Opener bug: still resets on combat drop", "Opener 1/9", ob.label.text)
 -- out of combat, mid-opener: SPELLS_CHANGED keeps progress; a real talent change rebuilds
 cast(47568); events.scripts.OnEvent(events, "SPELLS_CHANGED"); step()
-expect("Opener bug: SPELLS_CHANGED out of combat keeps progress", "Opener\n2/9", ob.label.text)
+expect("Opener bug: SPELLS_CHANGED out of combat keeps progress", "Opener 2/9", ob.label.text)
 events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
-expect("Opener bug: talent change out of combat rebuilds", "Opener\n1/9", ob.label.text)
+expect("Opener bug: talent change out of combat rebuilds", "Opener 1/9", ob.label.text)
 AssistCompanionDB.openerIcon = false
 
 -- GCD SWIPE ----------------------------------------------------------------
@@ -557,7 +557,7 @@ state.cd[51271] = { now - 10, 45 }; state.charges[47568] = { 1, 2, now - 5, 90 }
 step()
 expect("CD skip: ERW with a charge left stays first", "icon:47568", nf.icon.texture)
 cast(47568); step()
-expect("CD gray: out of combat, Pillar on cooldown stays on the bar", "Opener\n2/9", ob.label.text)
+expect("CD gray: out of combat, Pillar on cooldown stays on the bar", "Opener 2/9", ob.label.text)
 expect("CD gray: ...grayed out", true, ob.slots[1].desat)
 expect("CD gray: ...with its seconds left", "35", ob.cds[1].text)
 expect("CD gray: ready steps aren't gray", false, ob.slots[2].desat)
@@ -566,7 +566,7 @@ now = now + 5; step()
 expect("CD gray: counts down", "30", ob.cds[1].text)
 combat(true); step()
 expect("CD skip: in combat, Pillar still on cooldown is skipped", "icon:439843", nf.icon.texture)
-expect("CD skip: opener moves on past Pillar", "Opener\n3/9", ob.label.text)
+expect("CD skip: opener moves on past Pillar", "Opener 3/9", ob.label.text)
 combat(false); now = now + 40; step()
 expect("CD gray: back to full color once ready", false, ob.slots[1].desat)
 -- GCD-length cooldown isn't treated as "on cooldown"
@@ -594,7 +594,7 @@ for _, l in ipairs(AssistCompanionDB.debugLog) do
   if l:find("opener: skipped step 2/", 1, true) then skips = skips + 1 end
 end
 expect("CD skip: rebuilt opener isn't reset again every frame (and out of combat nothing is skipped)", true, resets <= 1 and skips == 0)
-expect("CD gray: rebuilt opener keeps its cooldown steps, grayed", true, ob.label.text == "Opener\n1/9" and ob.slots[1].desat == true)
+expect("CD gray: rebuilt opener keeps its cooldown steps, grayed", true, ob.label.text == "Opener 1/9" and ob.slots[1].desat == true)
 AssistCompanionDB.debug = false; AssistCompanionDB.debugLog = nil
 -- Breath icon respects Breath's real cooldown after a combat drop on a dummy
 AssistCompanionDB.openerIcon = false
@@ -1890,7 +1890,7 @@ do
   expect("Devastation opener (Scalecommander): Living Flame, Dragonrage, Eternity Surge, Tip, Fire Breath, Deep Breath",
     "icon:361469,icon:375087,icon:359073,icon:370553,icon:357208,icon:357210", openerIcons())
   cast(361469); cast(375087); cast(382411); step()                    -- Eternity Surge cast as its Font of Magic ID
-  expect("Devastation opener: Font of Magic Eternity Surge counts as the step (4 of 7)", "Opener\n4/7", ob.label.text)
+  expect("Devastation opener: Font of Magic Eternity Surge counts as the step (4 of 7)", "Opener 4/7", ob.label.text)
   state.known[436335] = nil; state.known[441176] = nil; state.known[1264269] = true  -- Flameshaper
   events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
   expect("Devastation opener (Flameshaper): Living Flame, Dragonrage, Tip, Eternity Surge, Fire Breath, Disintegrate",
