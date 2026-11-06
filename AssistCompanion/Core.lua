@@ -695,6 +695,10 @@ nf.suffix = nf:CreateFontString(nil, "OVERLAY", "NumberFontNormalHuge")
 nf.suffix:SetPoint("BOTTOMRIGHT", nf.icon, "BOTTOMRIGHT", -1, 1)
 nf.suffix:SetJustifyH("RIGHT")
 nf.suffix:SetTextColor(1, 0.82, 0)
+-- Out of combat: time until every opener spell is off cooldown ("0:35 until full opener is available").
+nf.wait = nf:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+nf.wait:SetPoint("BOTTOM", nf.icon, "TOP", 0, 6)
+nf.wait:SetTextColor(1, 0.82, 0)
 nf.note = nf:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 nf.note:SetPoint("TOP", nf.icon, "BOTTOM", 0, -4)
 nf.note:SetTextColor(0.6, 0.85, 1)
@@ -933,7 +937,22 @@ local function renderOpener()
   end
   -- Keep cooldown knowledge fresh for the opener's spells (readable out of combat; in combat
   -- this keeps the last known value unless the game happens to allow reading it).
-  for k = opener.index, #steps do snapshotCooldown(steps[k].id) end
+  for k = 1, #steps do snapshotCooldown(steps[k].id) end
+  -- Out of combat: how long until the whole opener is off cooldown (steps on cooldown are skipped
+  -- below, so this says how long to wait for the full one). GCD-length waits don't count.
+  local wait = 0
+  if db.opener and not inCombat then
+    for k = 1, #steps do
+      local r = readyIn(steps[k].id)
+      if r and r > wait then wait = r end
+    end
+  end
+  if wait > GCD_GRACE then
+    local secs = math.ceil(wait)
+    nf.wait:SetText(("%02d:%02d until full opener is available"):format(math.floor(secs / 60), secs % 60))
+  else
+    nf.wait:SetText("")
+  end
   -- Skip steps that are still on cooldown (e.g. Pillar after a quick reset on a dummy),
   -- so they don't hold up the rest of the opener.
   while opener.index <= #steps and onCooldown(steps[opener.index].id) do

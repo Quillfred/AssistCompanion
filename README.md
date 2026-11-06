@@ -33,7 +33,7 @@ The addon only displays information. You press every button yourself.
 
 The game hides runic power from addons, so for the two runic power rows above the game itself decides: at the threshold the next-cast icon turns into the spender with a **blue border**, and back once you spend. Target counts (Unholy, Frost, Devastation) need enemy nameplates turned on.
 
-Corrections have a gold border. While an opener is running, the icon follows the opener instead and has a blue border. Like Blizzard's action bars, the icon turns **red** when your target is out of range, **blue** when you don't have enough runes or runic power, and **dark gray** when it can't be used for another reason. A global cooldown swipe runs over it. See [`docs/FINDINGS.md`](docs/FINDINGS.md) for the sims and game data behind each rule.
+Corrections have a gold border. While an opener is running, the icon follows the opener instead and has a blue border. Like Blizzard's action bars, the icon turns **red** when your target is out of range, **blue** when you don't have enough runes or runic power, and **dark gray** when it can't be used for another reason. A global cooldown swipe runs over it. Out of combat, if any opener spell is still on cooldown, a countdown above the icon says how long until the whole opener is available ("00:35 until full opener is available"). See [`docs/FINDINGS.md`](docs/FINDINGS.md) for the sims and game data behind each rule.
 
 **Blood low-health icon:** a separate Death Strike icon fades in as your health drops (fully visible at 35%, hidden above 50%). Health is hidden from addons in combat, so the game itself sets the icon's transparency from your health; the addon never reads it.
 

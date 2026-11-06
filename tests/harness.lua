@@ -556,6 +556,16 @@ expect("CD skip: ERW with a charge left stays first", "icon:47568", nf.icon.text
 cast(47568); step()
 expect("CD skip: Pillar on cooldown is skipped", "icon:439843", nf.icon.texture)
 expect("CD skip: opener moves on past Pillar", "Opener\n3/9", ob.label.text)
+expect("Opener timer: Pillar 35s left -> countdown above the icon", "00:35 until full opener is available", nf.wait.text)
+now = now + 30; step()
+expect("Opener timer: counts down", "00:05 until full opener is available", nf.wait.text)
+state.cd[51271] = { now - 100, 45 }; now = now + 6; step()
+expect("Opener timer: everything ready -> gone", "", nf.wait.text)
+state.cd[51271] = { now, 125 }; step()
+expect("Opener timer: minutes", "02:05 until full opener is available", nf.wait.text)
+combat(true); step()
+expect("Opener timer: hidden in combat", "", nf.wait.text)
+combat(false); state.cd[51271] = { now - 100, 45 }; now = now + 1; step()
 -- GCD-length cooldown isn't treated as "on cooldown"
 events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); state.cd = { [51271] = { now - 0.2, 1.5 } }; state.charges = {}
 now = now + 20; step()
