@@ -179,7 +179,7 @@ expect("Display: strata is HIGH", "HIGH", display.strata)
 expect("Display: frame level is high", 9000, display.level)
 
 -- UNHOLY -----------------------------------------------------------------
-state.spec = 252; state.known = { [207317] = true }
+state.spec = 252; state.known = { [207317] = true, [433901] = true }
 events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
 -- Blightfall loop: DT button is Blightfall and the highlight says Outbreak
 state.overrides = { [1233448] = 1271967 }; state.next = 77575; state.rp = 30; step()
@@ -325,7 +325,7 @@ function GetBindingKey(cmd)
   local map = { ACTIONBUTTON3 = "F", MULTIACTIONBAR1BUTTON2 = "SHIFT-2" }
   return map[cmd]
 end
-state.spec = 252; state.known = { [207317] = true }; state.pet = true
+state.spec = 252; state.known = { [207317] = true, [433901] = true }; state.pet = true
 events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
 state.bars = { [55090] = 3, [47541] = 62, [77575] = 5 }; state.target = nil; state.overrides = {}
 state.next = 55090; state.rp = 30; state.plates = 1; state.barRange = true; step()
@@ -392,7 +392,7 @@ function EnumerateFrames(prev)
   for i, f in ipairs(fakeButtons) do if f == prev then return fakeButtons[i + 1] end end
 end
 function InCombatLockdown() return false end
-state.spec = 252; state.known = { [207317] = true }; state.pet = true; state.overrides = {}
+state.spec = 252; state.known = { [207317] = true, [433901] = true }; state.pet = true; state.overrides = {}
 state.bars = { [85948] = 121 }       -- Festering Strike only on a custom bar slot
 events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
 events.scripts.OnEvent(events, "UPDATE_BINDINGS")
@@ -534,7 +534,7 @@ SlashCmdList.ASSISTCOMPANION("gcd")
 state.usable, state.noPower = {}, {}
 C_Spell.IsSpellUsable = function(id) return state.usable[id] ~= false, state.noPower[id] or false end
 AssistCompanionDB.openerIcon = false
-state.spec = 252; state.known = { [207317] = true }; state.pet = true; state.overrides = {}
+state.spec = 252; state.known = { [207317] = true, [433901] = true }; state.pet = true; state.overrides = {}
 events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
 state.bars = {}; state.target = nil; state.next = 55090; state.rp = 10; state.plates = 1; state.barRange = true; state.inRange = true
 now = now + 800; step()
@@ -543,6 +543,51 @@ state.usable[55090] = false; state.noPower[55090] = true; step()
 expect("Shading: not enough runes -> blue", "0.5,0.5,1", table.concat(nf.icon.color, ","))
 state.noPower[55090] = false; step()
 expect("Shading: unusable for other reason -> gray", "0.4,0.4,0.4", table.concat(nf.icon.color, ","))
+-- The game hides its usable check in combat (owner: Heart Strike with no runes stayed full color).
+-- Runes come from GetRuneCooldown (UnitPower reads 6 all the time); hidden resources tint via a curve.
+do
+  local savedUsable, savedSecret = C_Spell.IsSpellUsable, issecretvalue
+  issecretvalue = function(v) return v == "SECRET" end
+  C_Spell.IsSpellUsable = function() return "SECRET", "SECRET" end
+  local ready = { true, true, false, false, false, false }
+  GetRuneCooldown = function(i) return 0, 10, ready[i] end
+  local costs = { [55090] = { { type = 5, cost = 1 } }, [47541] = { { type = 6, cost = 30 } } }
+  C_Spell.GetSpellPowerCost = function(id) return costs[id] end
+  state.usable[55090] = nil; state.noPower[55090] = nil
+  step()
+  expect("Short: usable check hidden, 2 runes ready, costs 1 -> normal", 1, nf.icon.color[1])
+  ready = { false, false, false, false, false, false }; step()
+  expect("Short: no runes ready -> blue", "0.5,0.5,1", table.concat(nf.icon.color, ","))
+  ready = { true, false, false, false, false, false }
+  -- runic power hidden: the blue tint's alpha comes from the game's curve (below cost/max -> 0.55)
+  state.next = 47541; state.rp = "SECRET"; state.rpmax = 100
+  local pct = 0.2
+  local savedCurve = C_CurveUtil
+  C_CurveUtil = { CreateCurve = function()
+    local c = { pts = {} }
+    function c:SetType() end
+    function c:AddPoint(x, y) self.pts[#self.pts + 1] = { x, y } end
+    function c:Evaluate(x)
+      table.sort(self.pts, function(a, b) return a[1] < b[1] end)
+      local p = self.pts
+      if x <= p[1][1] then return p[1][2] end
+      for i = 2, #p do if x <= p[i][1] then local a, b = p[i - 1], p[i]
+        return a[2] + (b[2] - a[2]) * (x - a[1]) / (b[1] - a[1]) end end
+      return p[#p][2]
+    end
+    return c
+  end }
+  UnitPowerPercent = function(unit, ptype, predicted, curve) return curve:Evaluate(pct) end
+  step()
+  expect("Short: hidden runic power 20 < 30 -> tint shown", 0.55, nf.short.alpha)
+  expect("Short: ...icon itself stays normal", 1, nf.icon.color[1])
+  pct = 0.5; step()
+  expect("Short: 50 >= 30 -> no tint", 0, nf.short.alpha)
+  C_Spell.IsSpellUsable, issecretvalue = savedUsable, savedSecret
+  GetRuneCooldown, C_Spell.GetSpellPowerCost, UnitPowerPercent, C_CurveUtil = nil, nil, nil, savedCurve
+  state.next = 55090; state.rp = 10; state.rpmax = nil; step()
+  expect("Short: usable check readable again -> tint cleared", 0, nf.short.alpha)
+end
 state.noPower[55090] = true; state.barRange = false; state.inRange = false; step()
 expect("Shading: out of range beats no-power (red)", "1,0.3,0.3", table.concat(nf.icon.color, ","))
 state.barRange = true; state.inRange = true; state.usable, state.noPower = {}, {}
@@ -1923,7 +1968,7 @@ do
     return curve:Evaluate(state.rpPct * state.rpScale)
   end
   AssistCompanionDB.locked = true
-  state.spec = 252; state.known = { [207317] = true, [47541] = true }; state.overrides = {}
+  state.spec = 252; state.known = { [207317] = true, [47541] = true, [433901] = true }; state.overrides = {}
   events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
   state.rp = "SECRET"; state.next = 55090; state.plates = 1
   combat(true); step()
@@ -1951,7 +1996,15 @@ do
   state.rpPct = 0.9; state.plates = 5; step()
   expect("RP icon: 5 targets -> Epidemic", "icon:207317", pf.icon.texture)
   state.next = 77575; step()
-  expect("RP icon: highlight on a cooldown (Outbreak) -> still shown", true, pf.shown and pf.alpha == 1)
+  expect("RP icon: highlight on a cooldown (Outbreak) -> not covered (0.25.0)", false, pf.shown)
+  state.next = 1247378; step()
+  expect("RP icon: ...nor Putrefy", false, pf.shown)
+  state.overrides = { [55090] = 433895 }; state.next = 433895; step()
+  expect("RP icon: Vampiric Strike (Scourge Strike's button) -> covered", true, pf.shown and pf.alpha == 1)
+  state.overrides = {}; state.next = 55090
+  state.known[433901] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+  expect("RP icon: Rider (no Vampiric Strike talent) -> off", false, pf.shown)
+  state.known[433901] = true; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
   state.next = 47541; step()
   expect("RP icon: highlight already on Death Coil -> hidden", false, pf.shown)
   state.next = 207317; step()

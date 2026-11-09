@@ -15,6 +15,7 @@ Scripts used to produce the numbers in `docs/FINDINGS.md`. They expect, next to 
 | `blood_sims.py` | Blood: optimal vs highlight at 1/3/5 targets (casts, runic power waste, Bone Shield uptime, damage taken) |
 | `blood_rules_sim.py` | Blood: the highlight alone vs with the addon's rules (SimC list), San'layn and Deathbringer, 1/3/5 targets, per-rule breakdown (`SIMC=<simc> python3 blood_rules_sim.py [iterations]`) |
 | `frost_rules_sim.py` | Frost: the highlight alone vs with the addon's rules (SimC list), Deathbringer and Rider, 1/3/5 targets, per-rule breakdown |
+| `unholy_rules_sim.py` | Unholy: the highlight alone vs with the addon's rules (SimC list), Rider and San'layn, 1/3/5 targets (`UNHOLY_RP=` threshold) |
 | `override_map.py` | Builds `override_map.json`: every "button B casts A in some state" pair from the game's Override Action Spell effects |
 | `override_resim.py` | Re-sims the highlight with each override added after its base spell (SimC's base actions refuse to fire in override states, e.g. Chaos Strike during Metamorphosis) |
 | `dev_addon_sim.py` | Devastation: highlight alone vs highlight + Assist Companion's rules (written as a SimC action list), Scalecommander and Flameshaper, 1/3/5 targets (`SIMC=<simc> python3 dev_addon_sim.py [iterations]`) |

@@ -370,7 +370,20 @@ local function inMelee()
 end
 
 local RUNES = (Enum and Enum.PowerType and Enum.PowerType.Runes) or 5
-local function runes() return (try(UnitPower, "player", RUNES)) end
+-- Ready runes. UnitPower(runes) reads 6 all the time in 12.1.5 (owner's logs: runes=6 while out of
+-- runes), so count the runes whose cooldown is done, as Blizzard's rune frame does.
+local function runes()
+  if GetRuneCooldown then
+    local n, known = 0, false
+    for i = 1, 6 do
+      local ok, _, _, ready = pcall(GetRuneCooldown, i)
+      ready = ok and readable(ready)
+      if ready ~= nil then known = true; if ready then n = n + 1 end end
+    end
+    if known then return n end
+  end
+  return (try(UnitPower, "player", RUNES))
+end
 
 ---------------------------------------------------------------------------
 -- Charge tracking (Rules.lua: ns.chargeTrack). Charges are hidden in combat, so we read
@@ -650,8 +663,14 @@ end
 nf.border = nf:CreateTexture(nil, "BORDER", nil, 0) -- colored (gold/blue), outside the black edge
 nf.border:SetColorTexture(1, 0.82, 0, 1)
 nf.icon = nf:CreateTexture(nil, "ARTWORK")
+-- Blue tint for "not enough resource" when the game hides both the usable check and the resource:
+-- its alpha comes from a curve the game evaluates on your power (see shortTint below).
+nf.short = nf:CreateTexture(nil, "ARTWORK", nil, 7)
+nf.short:SetColorTexture(0.1, 0.2, 0.9, 1)
+nf.short:SetAlpha(0)
 nf.icon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
 nf.icon:SetPoint("CENTER")
+nf.short:SetAllPoints(nf.icon)
 nf.black = blackBorder(nf, nf.icon)
 nf.border:SetPoint("TOPLEFT", nf.icon, -BLACK_EDGE - 2, BLACK_EDGE + 2)
 nf.border:SetPoint("BOTTOMRIGHT", nf.icon, BLACK_EDGE + 2, -BLACK_EDGE - 2)
@@ -734,6 +753,59 @@ local function layoutNext()
   placeFrame(nf, "nextPoint")
 end
 
+-- "Not enough resource" for a spell, when the game won't say (its usable check is hidden in combat).
+-- Runes and readable resources are compared here; a hidden resource (runic power, essence...) goes to
+-- the game as a curve, and the blue tint over the icon (nf.short) gets the game's answer as its alpha.
+-- Returns true/false when known, nil when the tint (or nothing) decides.
+local shortCurves = {}
+local shortState = "n" -- debug: short / ok / tint / n (not known)
+local function shortCurve(frac)
+  local key = string.format("%.3f", frac)
+  if shortCurves[key] ~= nil then return shortCurves[key] or nil end
+  local c
+  if C_CurveUtil and C_CurveUtil.CreateCurve then
+    local ok, made = pcall(C_CurveUtil.CreateCurve)
+    if ok and made then
+      c = made
+      if c.SetType and Enum and Enum.LuaCurveType then pcall(c.SetType, c, Enum.LuaCurveType.Linear) end
+      local t, A = math.max(0.001, math.min(0.999, frac)), 0.55 -- tint strength
+      c:AddPoint(0, A); c:AddPoint(t - 0.0005, A); c:AddPoint(t, 0); c:AddPoint(1.0, 0)
+      local T = t * 100
+      c:AddPoint(1.001, A); c:AddPoint(T - 0.05, A); c:AddPoint(T, 0); c:AddPoint(100, 0)
+    end
+  end
+  shortCurves[key] = c or false
+  return c
+end
+
+local function shortOnResource(spell)
+  shortState = "n"
+  if not (C_Spell and C_Spell.GetSpellPowerCost) then return nil end
+  local ok, costs = pcall(C_Spell.GetSpellPowerCost, spell)
+  if not ok or type(costs) ~= "table" then return nil end
+  for _, e in ipairs(costs) do
+    local ptype, cost = readable(e.type), readable(e.cost or e.minCost)
+    if ptype and type(cost) == "number" and cost > 0 then
+      if ptype == RUNES then
+        local r = runes()
+        if r then return r < cost end
+        return nil
+      end
+      local p = try(UnitPower, "player", ptype)
+      if type(p) == "number" then return p < cost end
+      local max = try(UnitPowerMax, "player", ptype)
+      if (type(max) ~= "number" or max <= 0) and ptype == powerType() then max = powerMaxCache end
+      if type(max) ~= "number" or max <= 0 or not UnitPowerPercent then return nil end
+      local curve = shortCurve(cost / max)
+      if not curve then return nil end
+      local okA, alpha = pcall(UnitPowerPercent, "player", ptype, false, curve)
+      if okA and alpha ~= nil and pcall(nf.short.SetAlpha, nf.short, alpha) then shortState = "tint" end
+      return nil
+    end
+  end
+  return nil
+end
+
 -- alert: rule result or nil. note: reminder text or nil.
 local function showNext(ctx, alert, note)
   local spell, corrected, wait = ctx.next, false, false
@@ -790,6 +862,12 @@ local function showNext(ctx, alert, note)
   local range = inRangeFor(spell)
   local usable, noPower
   if C_Spell and C_Spell.IsSpellUsable then usable, noPower = try(C_Spell.IsSpellUsable, spell) end
+  nf.short:SetAlpha(0)
+  -- The game hides its usable check in combat: work "short on resource" out from the spell's cost.
+  if usable == nil and noPower == nil and not wait and range ~= false then
+    noPower = shortOnResource(spell)
+  end
+  shortState = noPower == true and "short" or noPower == false and "ok" or shortState
   if wait or range == false then
     nf.icon:SetVertexColor(1, 0.3, 0.3)
   elseif noPower then
@@ -1400,6 +1478,7 @@ local function tick()
           local ok, raw = pcall(UnitPower, "player", powerType())
           rpText = (ok and issecretvalue and issecretvalue(raw)) and "hidden" or (ok and tostring(raw) or "error")
         end
+        extra = extra .. " short=" .. shortState
         if ns.powerIcon and specID and ns.powerIcon[specID] then
           extra = extra .. " rpicon=" .. powerIconState .. (powerTest and "(test)" or "")
           if ns.holdSpender and ns.holdSpender[specID] then extra = extra .. " hold=" .. holdState end

@@ -9,7 +9,7 @@ whether the addon already uses the spell.
     SIMC=/path/to/simc python3 tools/talent_db.py deathknight evoker
 
 SIMC defaults to ../simc next to the repository (see tools/README.md). Healer specs are left out
-unless --healers is given.
+unless --healers is given, except Mistweaver and Discipline, which the addon covers.
 """
 import os
 import re
@@ -39,6 +39,8 @@ SPEC_CLASS = {1: (71, 72, 73), 2: (65, 66, 70), 3: (253, 254, 255), 4: (259, 260
               6: (250, 251, 252), 7: (262, 263, 264), 8: (62, 63, 64), 9: (265, 266, 267),
               10: (268, 269, 270), 11: (102, 103, 104, 105), 12: (577, 581, 1480), 13: (1467, 1468, 1473)}
 HEALERS = {65, 256, 257, 264, 270, 105, 1468}
+# Healers the addon covers (owner's plan: Mistweaver and Discipline only): always included.
+COVERED_HEALERS = {270, 256}
 TREES = {1: "class", 2: "spec", 3: "hero"}
 NODE_TYPES = {0: "", 1: "tiered", 2: "choice", 3: "hero choice"}
 
@@ -209,7 +211,7 @@ def write_masteries(names, texts, used, healers):
         by_class.setdefault(cls, []).append((spec, spell))
     for cls in sorted(by_class):
         for spec, spell in sorted(by_class[cls]):
-            if spec in HEALERS and not healers:
+            if spec in HEALERS and spec not in COVERED_HEALERS and not healers:
                 continue
             text = texts.get(spell, "")
             fl = [f for f in flags_for(text) if f in ("cooldown", "resource", "duration", "charges")]
@@ -229,7 +231,7 @@ def write_class(cls_key, traits, heroes, texts, names, used, healers, masteries)
     spec_ids = sorted({s for t in mine for s in t["specs"]} |
                       {s for s, n in SPECS.items() if any(s in t["specs"] for t in mine)})
     if not healers:
-        spec_ids = [s for s in spec_ids if s not in HEALERS]
+        spec_ids = [s for s in spec_ids if s not in HEALERS or s in COVERED_HEALERS]
     hero_ids = sorted({t["hero"] for t in mine if t["hero"]})
     # Which hero trees each spec can pick: the selection rows (tree 4). Hero talents themselves only
     # list one of the specs that can use them, so they can't tell us.

@@ -1,5 +1,33 @@
 # Assist Companion
 
+## 0.25.2
+
+* **New icon** in the game's AddOns list, the addon compartment and on the minimap button: the gold arrow panel from the CurseForge art (`icon.tga`, 64×64, transparent outside its frame), replacing the generic gear.
+
+## 0.25.1
+
+* **Mistweaver Monk, first step:** the addon now runs for Mistweaver (listed in the options, Tiger Palm as the melee range check), so its debug log works. No corrections yet. The game's Mistweaver highlight is damage only, and its Blackout Kick rule needs more than 4 stacks of Teachings of the Monastery, which caps at 4, so it may never suggest Blackout Kick. The debug status shows `tp=` (stacks counted from your Tiger Palms) and `totm=` (the buff's own count, when the game lets addons read it), to confirm in game.
+* Talent database: Mistweaver and Discipline included (`docs/talents/monk.md`, `priest.md`).
+
+## 0.25.0
+
+Unholy audit (talent database, current SimC, owner's Rider and San'layn logs). Death Knight is finished.
+
+* **The runic power rule (Death Coil / Epidemic at 80+) is now San'layn only, and only in place of your rune spenders** (Scourge Strike, Festering Strike and what their buttons cast: Vampiric Strike, Festering Scythe). It no longer covers Putrefy, Soul Reaper or Outbreak.
+  * Rider of the Apocalypse: the rule cost 0.3–1.3% damage in every sim, at 80, 90 or 100 runic power, so it's off.
+  * San'layn: +0.1 to +2.8% this way, against 0 to +1.7% when it covered everything.
+* Opener unchanged: SimC's current opener matches it for both hero trees. Talents: Unholy's rules don't time any cooldowns, so none of them affect it.
+* The Blightfall fix still works (owner's San'layn log: shown and pressed twice).
+
+## 0.24.1
+
+* **"Not enough resource" shading works in combat again (all classes).** The game hides its usable check in combat, so the icon never turned blue (owner: Heart Strike with no runes stayed full color). Now the addon reads the spell's cost and checks it:
+  * **Runes:** counted directly, and the icon turns blue when you don't have enough.
+  * **Readable resources** (energy, focus, rage...): compared directly; the icon turns blue.
+  * **Hidden resources** (runic power, essence...): a blue tint over the icon that the game shows when you're below the cost, the same way the runic power icon works.
+* **Rune count fixed.** It read 6 all the time (owner's logs). Now it counts ready runes, as Blizzard's rune bar does. This also fixes Blood's "Death's Caress when low on runes" and the Death Strike hold's "nothing else to press".
+* Debug log: `short=` (short / ok / tint / n).
+
 ## 0.24.0
 
 Frost audit (talent database + current SimC):
