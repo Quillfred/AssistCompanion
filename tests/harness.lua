@@ -2092,6 +2092,89 @@ do
   UnitPowerPercent = nil; AssistCompanionDB.debug = false; combat(false); state.rp = 10; state.rpmax = nil; step()
 end
 
+-- WINDWALKER -----------------------------------------------------------------
+do
+  local TP, BOK, SCK, RSK, FOF = 100780, 100784, 101546, 107428, 113656
+  local ZEN, XUEN, CC, CCH = 1249625, 123904, 443028, 1248989
+  C_Spell.GetSpellCharges, C_Spell.GetSpellCooldown = nil, nil -- hidden: everything from casts
+  issecretvalue = nil; UnitPowerPercent = nil
+  state.spec = 269; state.overrides = {}; state.target = nil; state.inRange = true; state.usable = {}; state.noPower = {}
+  state.known = { [TP]=true, [BOK]=true, [SCK]=true, [RSK]=true, [FOF]=true, [ZEN]=true }
+  state.rp = 3; state.rpmax = 5; state.plates = 1
+  events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+  events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 500
+  local function rules() local t = {} for _, r in ipairs(ns.rules[269]) do t[#t + 1] = r.key end return table.concat(t, ",") end
+  expect("Windwalker: rule order", "xuen,conduit,zenith,danceofchiji,sck3,sckaoe", rules())
+  expect("Windwalker: listed in the options", true, (function()
+    for _, sp in ipairs(ns.specInfo) do if sp.id == 269 then return true end end return false end)())
+  state.next = TP; step()
+  expect("Windwalker: out of combat -> no Zenith prompt", "icon:100780", nf.icon.texture)
+  combat(true); step()
+  expect("Windwalker: in combat, Zenith charge ready -> Zenith", "icon:1249625", nf.icon.texture)
+  cast(ZEN); now = now + 1; step()
+  expect("Windwalker: Zenith running -> highlight", "icon:100780", nf.icon.texture)
+  now = now + 16; step()
+  expect("Windwalker: Zenith over, second charge -> Zenith again", "icon:1249625", nf.icon.texture)
+  cast(ZEN); now = now + 17; step()
+  expect("Windwalker: no charge left -> highlight", "icon:100780", nf.icon.texture)
+  now = now + 60; step()
+  expect("Windwalker: first charge back after 90s -> Zenith", "icon:1249625", nf.icon.texture)
+  talented(280197, true); ns.setRuleEnabled(269, "zenith", false); step()
+  -- 3 targets: Spinning Crane Kick in place of Tiger Palm / Blackout Kick
+  state.plates = 3; state.next = TP; step()
+  expect("Windwalker: 3 targets + Tiger Palm -> Spinning Crane Kick", "icon:101546", nf.icon.texture)
+  expect("Windwalker: ...as a correction (gold border)", true, nf.border.shown)
+  state.next = BOK; step()
+  expect("Windwalker: 3 targets + Blackout Kick -> Spinning Crane Kick", "icon:101546", nf.icon.texture)
+  state.next = FOF; step()
+  expect("Windwalker: 3 targets + Fists of Fury -> stays", "icon:113656", nf.icon.texture)
+  state.next = TP; cast(SCK); step()
+  expect("Windwalker: last ability was Spinning Crane Kick (Combo Strikes) -> Tiger Palm", "icon:100780", nf.icon.texture)
+  cast(TP); state.rp = 1; step()
+  expect("Windwalker: 1 chi -> can't afford it, Tiger Palm stays", "icon:100780", nf.icon.texture)
+  state.rp = 3; state.plates = 2; step()
+  expect("Windwalker: 2 targets -> Tiger Palm stays", "icon:100780", nf.icon.texture)
+  -- 4+ targets: Spinning Crane Kick over Rising Sun Kick
+  state.plates = 5; state.next = RSK; step()
+  expect("Windwalker: 5 targets + Rising Sun Kick -> Spinning Crane Kick", "icon:101546", nf.icon.texture)
+  state.plates = 3; step()
+  expect("Windwalker: 3 targets + Rising Sun Kick -> stays (lost damage in the sims)", "icon:107428", nf.icon.texture)
+  -- Dance of Chi-Ji glow, 1-2 targets
+  state.plates = 1; state.next = RSK; step()
+  expect("Windwalker: no glow -> Rising Sun Kick", "icon:107428", nf.icon.texture)
+  events.scripts.OnEvent(events, "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW", SCK); step()
+  expect("Windwalker: Dance of Chi-Ji glow on 1 target -> Spinning Crane Kick", "icon:101546", nf.icon.texture)
+  state.rp = 0; step()
+  expect("Windwalker: ...free, so 0 chi is fine", "icon:101546", nf.icon.texture)
+  state.rp = 3; state.plates = 3; step()
+  expect("Windwalker: glow on 3 targets -> no Dance of Chi-Ji rule", "icon:107428", nf.icon.texture)
+  state.plates = 1
+  events.scripts.OnEvent(events, "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE", SCK); step()
+  expect("Windwalker: glow gone -> Rising Sun Kick", "icon:107428", nf.icon.texture)
+  -- secret spell ID in the glow event: ignored
+  issecretvalue = function(v) return v == "SECRET" end
+  events.scripts.OnEvent(events, "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW", "SECRET"); step()
+  expect("Windwalker: secret glow event -> ignored", "icon:107428", nf.icon.texture)
+  issecretvalue = nil
+  -- Xuen and Celestial Conduit (Conduit of the Celestials)
+  state.known[XUEN] = true; state.known[CCH] = true; talented(XUEN, true)
+  expect("Windwalker: Xuen ready -> Invoke Xuen", "icon:123904", nf.icon.texture)
+  cast(XUEN); now = now + 1; step()
+  expect("Windwalker: after Xuen -> Celestial Conduit", "icon:443028", nf.icon.texture)
+  cast(CC); now = now + 1; step()
+  expect("Windwalker: Conduit used -> highlight", "icon:107428", nf.icon.texture)
+  now = now + 89; step()
+  expect("Windwalker: Conduit off cooldown but no Xuen in the last 60s -> highlight", "icon:107428", nf.icon.texture)
+  now = now + 30; step()
+  expect("Windwalker: Xuen back after 120s -> Invoke Xuen", "icon:123904", nf.icon.texture)
+  talented(392986, true); cast(XUEN); now = now + 61; cast(RSK); step()
+  expect("Windwalker: Conduit window over (60s) -> highlight", "icon:107428", nf.icon.texture)
+  now = now + 30; step()
+  expect("Windwalker: Xuen's Bond -> Xuen back after 90s", "icon:123904", nf.icon.texture)
+  ns.setRuleEnabled(269, "zenith", true); talented(280197, false)
+  combat(false); state.rp = 10; state.rpmax = nil; state.plates = 1; step()
+end
+
 io.stdout:write(table.concat(printed, "\n"), "\n")
 io.stdout:write(("\n%d passed, %d failed\n"):format(pass, fail))
 os.exit(fail == 0 and 0 or 1)
