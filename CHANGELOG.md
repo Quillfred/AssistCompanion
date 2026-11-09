@@ -1,5 +1,18 @@
 # Assist Companion
 
+## 0.26.0
+
+**Windwalker Monk.** The game's highlight in game is 23–52% behind SimC's optimal rotation. With the addon's rules it's 6–16% behind, ahead of SimC's own version of the highlight (which presses every cooldown). Simmed for both hero trees at 1–5 targets (`tools/windwalker_rules_sim.py`).
+
+* **Zenith when a charge is ready** and Zenith isn't running. The highlight never shows it. This is the biggest gain: +19 to +37%. Charges are counted from your casts (90s each, -20s Spiritual Focus, -10s Efficient Training).
+* **Invoke Xuen when ready** (90s with Xuen's Bond) and **Celestial Conduit once after each Xuen** (Conduit of the Celestials). Neither is ever shown by the highlight. +4 to +7% and +1 to +4%.
+* **Spinning Crane Kick at 3 targets** in place of Tiger Palm or Blackout Kick (the highlight starts at 4): +20 to +27% at 3 targets.
+* **Spinning Crane Kick over Rising Sun Kick at 4+ targets**: +18% for Conduit, +1.5% for Shado-Pan at 5.
+* **Dance of Chi-Ji at 1 stack on 1–2 targets** (the highlight waits for 2): +2 to +5%. The proc is read from the glow on your Spinning Crane Kick button, so this one needs confirming in game.
+* The Spinning Crane Kick corrections never repeat your last ability (Combo Strikes) and check your chi.
+* **Opener** (SimC's current one): Tiger Palm, Invoke Xuen (Conduit), Zenith, Fists of Fury, Rising Sun Kick, Whirling Dragon Punch.
+* Debug log: `zen=` (Zenith charges / seconds left), `glow=` (Dance of Chi-Ji glow: y / n / ?), `last=` (last ability), `xuen=`, plus `glow on/off` lines.
+
 ## 0.25.2
 
 * **New icon** in the game's AddOns list, the addon compartment and on the minimap button: the gold arrow panel from the CurseForge art (`icon.tga`, 64×64, transparent outside its frame), replacing the generic gear.

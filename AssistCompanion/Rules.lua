@@ -114,6 +114,30 @@ local S = {
   MELT_ARMOR          = 441176, -- Scalecommander
   MANEUVERABILITY     = 433871, -- Scalecommander
   IMMINENT_DESTRUCTION = 370781,
+  -- Windwalker Monk (game data; the highlight's steps for spec 269 use these IDs)
+  TIGER_PALM          = 100780,
+  BLACKOUT_KICK       = 100784,
+  SPINNING_CRANE_KICK = 101546,
+  RISING_SUN_KICK     = 107428,
+  RUSHING_WIND_KICK   = 467307,  -- on the Rising Sun Kick button while its buff is up
+  FISTS_OF_FURY       = 113656,
+  WHIRLING_DRAGON_PUNCH = 152175,
+  STRIKE_OF_THE_WINDLORD = 392983,
+  TOUCH_OF_DEATH      = 322109,
+  CRACKLING_JADE_LIGHTNING = 117952,
+  CHI_BURST           = 461404,
+  SLICING_WINDS       = 1217413,
+  FLYING_SERPENT_KICK = 101545,  -- the highlight's Slicing Winds step uses this ID
+  ZENITH              = 1249625, -- 2 charges, 90s recharge, 15s (game data)
+  ZENITH_STOMP        = 1272696,
+  INVOKE_XUEN         = 123904,  -- Conduit of the Celestials, 120s
+  CELESTIAL_CONDUIT   = 443028,  -- 90s; usable for 60s after Invoke Xuen (1248989 -> 1248992)
+  CELESTIAL_CONDUIT_HERO = 1248989,
+  XUENS_BOND          = 392986,  -- Invoke Xuen -30s
+  SPIRITUAL_FOCUS     = 280197,  -- Zenith recharge -20s
+  EFFICIENT_TRAINING  = 450989,  -- Shado-Pan: Zenith recharge -10s
+  DRINKING_HORN_COVER = 391370,  -- Zenith +5s
+  ASCENSION           = 115396,  -- +1 max chi
 }
 ns.S = S
 
@@ -974,6 +998,14 @@ ns.debugStatus = {
 
 -- Logged at the start of each fight: which timing-related talents you have.
 ns.debugTalents = {
+  [269] = function(knows)
+    local list = { { 123904, "Invoke Xuen" }, { 1248989, "Celestial Conduit" }, { 392986, "Xuen's Bond" },
+      { 280197, "Spiritual Focus" }, { 450989, "Efficient Training" }, { 391370, "Drinking Horn Cover" },
+      { 115396, "Ascension" }, { 1249625, "Zenith" } }
+    local have = {}
+    for _, t in ipairs(list) do if knows(t[1]) then have[#have + 1] = t[2] end end
+    return #have > 0 and table.concat(have, ", ") or "none of the timing talents"
+  end,
   [1473] = function(knows)
     local list = {
       { S.ACCRETION, "Accretion" }, { S.TIME_SKIP, "Time Skip" }, { S.TOMORROW_TODAY, "Tomorrow, Today" },
@@ -1053,6 +1085,15 @@ ns.openers[1467] = {
   { id = S.DEEP_BREATH, alt = S.DEEP_BREATH_STEER, needs = { S.MELT_ARMOR, S.MANEUVERABILITY } }, -- Scalecommander
   { id = S.DISINTEGRATE },
   { id = S.DISINTEGRATE, without = S.MASS_DISINTEGRATE },
+}
+
+ns.openers[269] = {                     -- Windwalker (SimC optimal, MID2 profiles, Nov 2026; same for 3 seeds)
+  { id = S.TIGER_PALM },
+  { id = S.INVOKE_XUEN },               -- Conduit of the Celestials (Shado-Pan doesn't have it)
+  { id = S.ZENITH },
+  { id = S.FISTS_OF_FURY },
+  { id = S.RISING_SUN_KICK },
+  { id = S.WHIRLING_DRAGON_PUNCH },
 }
 
 ns.openers[250] = {                     -- Blood (SimC optimal, MID2 profiles, Nov 2026)
@@ -1268,6 +1309,134 @@ for spec, list in pairs(ns.readyCooldowns) do
 end
 
 ---------------------------------------------------------------------------
+-- Windwalker Monk (spec 269). Audit: docs/FINDINGS.md "Windwalker audit"; sims: tools/windwalker_rules_sim.py.
+-- The highlight in game never shows Zenith, Celestial Conduit or Invoke Xuen (Zenith and Conduit are
+-- "Blizzard automation" steps; Xuen isn't in its list), only uses Spinning Crane Kick as filler at 4+
+-- targets, puts Rising Sun Kick ahead of it at 4+, and waits for 2 Dance of Chi-Ji stacks.
+-- Combo Strikes (mastery): never the same ability twice in a row, so every Spinning Crane Kick
+-- correction checks your last ability (from your casts).
+---------------------------------------------------------------------------
+local ZENITH_DURATION, ZENITH_LOCKOUT = 15, 16 -- game data: 15s buff; 16s between casts
+local XUEN_CONDUIT_WINDOW = 60                  -- 1248992: Celestial Conduit usable 60s after Xuen
+local WW_COMBO = {}
+for _, k in ipairs({ "TIGER_PALM", "BLACKOUT_KICK", "SPINNING_CRANE_KICK", "RISING_SUN_KICK", "RUSHING_WIND_KICK",
+    "FISTS_OF_FURY", "WHIRLING_DRAGON_PUNCH", "STRIKE_OF_THE_WINDLORD", "TOUCH_OF_DEATH", "CRACKLING_JADE_LIGHTNING",
+    "CHI_BURST", "SLICING_WINDS", "FLYING_SERPENT_KICK", "CELESTIAL_CONDUIT", "ZENITH_STOMP" }) do
+  WW_COMBO[S[k]] = true
+end
+
+-- Your last Combo Strikes ability (id) from your casts, or nil.
+local function wwLastStrike(ctx)
+  local best, at = nil, -math.huge
+  for id in pairs(WW_COMBO) do
+    local t = ctx.lastCast[id]
+    if t and t > at then best, at = id, t end
+  end
+  return best
+end
+ns.wwLastStrike = wwLastStrike
+
+-- Seconds of Zenith left (0 = not running), timed from your cast.
+local function zenithLeft(ctx)
+  local t = ctx.lastCast[S.ZENITH]
+  if not t then return 0 end
+  local d = ZENITH_DURATION + (ctx.knows(S.DRINKING_HORN_COVER) and 5 or 0)
+  return math.max(0, d - (ctx.now - t))
+end
+ns.wwZenithLeft = zenithLeft
+
+-- Spinning Crane Kick is fine to show: not your last ability (Combo Strikes), not already suggested,
+-- and affordable (2 chi, 1 during Zenith, free with Dance of Chi-Ji) when chi can be read.
+local function sckOk(ctx)
+  if not ctx.knows(S.SPINNING_CRANE_KICK) or ctx.next == S.SPINNING_CRANE_KICK then return false end
+  if wwLastStrike(ctx) == S.SPINNING_CRANE_KICK then return false end
+  local chi = ctx.power
+  if type(chi) == "number" and not ctx.glowing(S.SPINNING_CRANE_KICK) then
+    local cost = zenithLeft(ctx) > 0 and 1 or 2
+    if chi < cost then return false end
+  end
+  return true
+end
+
+local wwRules = {
+  {
+    key = "xuen", name = "Invoke Xuen ready", spell = S.INVOKE_XUEN,
+    desc = "Shows Invoke Xuen, the White Tiger when it's ready (90s with Xuen's Bond). The in-game highlight never suggests it. Simmed: +4 to +7% (Conduit of the Celestials).",
+    check = function(ctx)
+      if not ctx.inCombat or not ctx.knows(S.INVOKE_XUEN) or ctx.next == S.INVOKE_XUEN then return end
+      if not ns.cooldownReady(ctx, S.INVOKE_XUEN, 120 - (ctx.knows(S.XUENS_BOND) and 30 or 0)) then return end
+      return { spell = S.INVOKE_XUEN, iconOnly = true, text = "Invoke Xuen", sub = "Ready" }
+    end,
+  },
+  {
+    key = "conduit", name = "Celestial Conduit ready", spell = S.CELESTIAL_CONDUIT,
+    desc = "Shows Celestial Conduit once after each Invoke Xuen (it can be cast for 60 seconds after), when it's off cooldown. The in-game highlight never suggests it. Simmed: +1 to +4%; using it right away beat saving it for Zenith.",
+    check = function(ctx)
+      if not ctx.inCombat or ctx.next == S.CELESTIAL_CONDUIT then return end
+      if not (ctx.knows(S.CELESTIAL_CONDUIT_HERO) or ctx.knows(S.CELESTIAL_CONDUIT)) then return end
+      local xuen = ctx.lastCast[S.INVOKE_XUEN]
+      if not xuen or ctx.now - xuen > XUEN_CONDUIT_WINDOW then return end
+      local cc = ctx.lastCast[S.CELESTIAL_CONDUIT]
+      if cc and cc >= xuen then return end -- once per Xuen
+      if not ns.cooldownReady(ctx, S.CELESTIAL_CONDUIT, 90) then return end
+      return { spell = S.CELESTIAL_CONDUIT, iconOnly = true, text = "Celestial Conduit", sub = "Ready" }
+    end,
+  },
+  {
+    key = "zenith", name = "Zenith ready", spell = S.ZENITH,
+    desc = "Shows Zenith when a charge is ready and Zenith isn't running (charges counted from your casts: 90s each, less with Spiritual Focus and Efficient Training). The in-game highlight never suggests it. Simmed: the biggest gain, +19 to +37%.",
+    check = function(ctx)
+      if not ctx.inCombat or not ctx.knows(S.ZENITH) or ctx.next == S.ZENITH then return end
+      local t = ctx.lastCast[S.ZENITH]
+      if zenithLeft(ctx) > 0 or (t and ctx.now - t < ZENITH_LOCKOUT) then return end
+      local c = ctx.charges(S.ZENITH)
+      if c ~= nil and c < 1 then return end
+      return { spell = S.ZENITH, iconOnly = true, text = "Zenith", sub = "Ready" }
+    end,
+  },
+  {
+    key = "danceofchiji", name = "Dance of Chi-Ji at 1 stack", spell = S.SPINNING_CRANE_KICK,
+    desc = "Shows Spinning Crane Kick on 1-2 targets while Dance of Chi-Ji is up (its glow on your Spinning Crane Kick button). The highlight waits for 2 stacks, so the proc sits unused. Simmed: +2 to +5% on 1-2 targets.",
+    check = function(ctx)
+      if (ctx.enemies or 1) > 2 or ctx.glowing(S.SPINNING_CRANE_KICK) ~= true then return end
+      if not sckOk(ctx) then return end
+      return { spell = S.SPINNING_CRANE_KICK, text = "Spinning Crane Kick", sub = "Dance of Chi-Ji" }
+    end,
+  },
+  {
+    key = "sck3", name = "Spinning Crane Kick on 3 targets", spell = S.SPINNING_CRANE_KICK,
+    desc = "Shows Spinning Crane Kick instead of Tiger Palm or Blackout Kick at exactly 3 targets. The highlight's Spinning Crane Kick only starts at 4. Simmed: +20 to +27% at 3 targets. Needs enemy nameplates on.",
+    check = function(ctx)
+      if ctx.enemies ~= 3 or (ctx.next ~= S.TIGER_PALM and ctx.next ~= S.BLACKOUT_KICK) then return end
+      if not sckOk(ctx) then return end
+      return { spell = S.SPINNING_CRANE_KICK, text = "Spinning Crane Kick", sub = "3 targets" }
+    end,
+  },
+  {
+    key = "sckaoe", name = "Spinning Crane Kick over Rising Sun Kick on 4+", spell = S.SPINNING_CRANE_KICK,
+    desc = "Shows Spinning Crane Kick instead of Rising Sun Kick at 4 or more targets (SimC's optimal list). Simmed: +1.5% (Shado-Pan) to +18% (Conduit of the Celestials) at 5 targets; at 3 it lost damage. Needs enemy nameplates on.",
+    check = function(ctx)
+      if not ctx.enemies or ctx.enemies < 4 or ctx.next ~= S.RISING_SUN_KICK then return end
+      if not sckOk(ctx) then return end
+      return { spell = S.SPINNING_CRANE_KICK, text = "Spinning Crane Kick", sub = ctx.enemies .. " targets" }
+    end,
+  },
+}
+ns.rules[269] = ns.rules[269] or {}
+for _, rule in ipairs(wwRules) do table.insert(ns.rules[269], rule) end
+ns.trackCooldowns[269] = { S.INVOKE_XUEN, S.CELESTIAL_CONDUIT }
+
+-- Debug status: zen = Zenith charges (counted) and seconds left; glow = Dance of Chi-Ji glow on Spinning
+-- Crane Kick (y / n / ? = unknown); last = your last Combo Strikes ability.
+ns.debugStatus[269] = function(ctx)
+  local g = ctx.glowing(S.SPINNING_CRANE_KICK)
+  local last = wwLastStrike(ctx)
+  return ("zen=%s/%.0fs glow=%s last=%s xuen=%s"):format(tostring(ctx.charges(S.ZENITH)), zenithLeft(ctx),
+    g == nil and "?" or (g and "y" or "n"), last and tostring(last) or "n",
+    ctx.knows(S.INVOKE_XUEN) and ("%.0f"):format(ns.cooldownLeft(ctx, S.INVOKE_XUEN, 120 - (ctx.knows(S.XUENS_BOND) and 30 or 0))) or "-")
+end
+
+---------------------------------------------------------------------------
 -- Devastation Evoker (spec 1467)
 -- From the game's highlight rules (assisted_combat.inc) vs SimC's optimal list (docs/FINDINGS.md):
 --   * essence waste 24% vs 8-12% optimal: the highlight keeps generating at max essence;
@@ -1446,6 +1615,10 @@ ns.chargeTrack = {
     return (12 - (knows(S.NOZDORMU_ADEPT) and 2 or 0)) * (knows(S.INTERWOVEN_THREADS) and 0.9 or 1)
   end } },
   [250] = { [S.BLOOD_BOIL] = { max = 2, recharge = 7.5 } }, -- game data: 2 charges, 7.5s, not hasted
+  -- Windwalker Zenith: 2 charges, 90s; Spiritual Focus -20s, Efficient Training (Shado-Pan) -10s (game data, category 1592)
+  [269] = { [S.ZENITH] = { max = 2, recharge = function(knows)
+    return 90 - (knows(S.SPIRITUAL_FOCUS) and 20 or 0) - (knows(S.EFFICIENT_TRAINING) and 10 or 0)
+  end } },
 }
 
 -- Max runic power when the game won't say (UnitPowerMax can be hidden). Blood is 115,
@@ -1453,6 +1626,7 @@ ns.chargeTrack = {
 ns.powerMaxFallback = {
   [250] = function(knows) return 115 + (knows(219786) and 10 or 0) end,
   [1467] = function(knows) return 5 + (knows(S.POWER_NEXUS) and 1 or 0) end, -- essence
+  [269] = function(knows) return 5 + (knows(S.ASCENSION) and 1 or 0) end,      -- chi
 }
 
 -- Specs the options menu lists, grouped by class (in this order). The game's own names are
@@ -1463,11 +1637,13 @@ ns.specInfo = {
   { id = 252, class = "DEATHKNIGHT", className = "Death Knight", name = "Unholy" },
   { id = 1467, class = "EVOKER", className = "Evoker", name = "Devastation" },
   { id = 1473, class = "EVOKER", className = "Evoker", name = "Augmentation" },
+  { id = 269, class = "MONK", className = "Monk", name = "Windwalker" },
   { id = 270, class = "MONK", className = "Monk", name = "Mistweaver" },
 }
 
 -- Resource read into ctx.power, if not runic power (Enum.PowerType: Essence = 19).
 ns.powerType = {
+  [269] = 12,  -- chi
   [270] = 0,   -- mana
   [1467] = 19,
   [1473] = 19,
@@ -1495,6 +1671,7 @@ ns.specOptions = {
 
 -- Melee spell used for "is my target in melee range?"
 ns.meleeSpell = {
+  [269] = S.TIGER_PALM,
   [270] = 100780, -- Tiger Palm (Mistweaver)
   [250] = S.HEART_STRIKE,
   [251] = S.OBLITERATE,

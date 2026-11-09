@@ -445,6 +445,22 @@ local function charges(id)
   return st and st.charges or nil
 end
 
+---------------------------------------------------------------------------
+-- Proc glows on your action buttons (spell activation overlays, e.g. Dance of Chi-Ji on Spinning
+-- Crane Kick). The proc's buff is hidden in combat; the glow may not be. From the glow events when
+-- they've fired for that spell, else the game's IsSpellOverlayed. true / false, or nil if unknown.
+---------------------------------------------------------------------------
+local glowing = {}
+local function glowState(id)
+  if glowing[id] ~= nil then return glowing[id] end
+  local api = C_SpellActivationOverlay and C_SpellActivationOverlay.IsSpellOverlayed
+  if api then
+    local v = readable(try(api, id))
+    if v ~= nil then return v and true or false end
+  end
+  return nil
+end
+
 local function spellIcon(id)
   if C_Spell and C_Spell.GetSpellTexture then
     local t = try(C_Spell.GetSpellTexture, id)
@@ -1365,7 +1381,7 @@ end
 -- Main loop
 ---------------------------------------------------------------------------
 local ctx = { lastCast = lastCast, knows = knows, talentRank = talentRank, override = override, onCooldown = onCooldown, readyIn = readyIn,
-              charges = charges, description = spellDescription,
+              charges = charges, description = spellDescription, glowing = glowState,
               -- true/false: usable now (resources etc., not cooldown); nil if the game won't say
               usable = function(id)
                 if not (C_Spell and C_Spell.IsSpellUsable) then return nil end
@@ -1529,6 +1545,9 @@ events:RegisterUnitEvent("UNIT_SPELLCAST_CHANNEL_STOP", "player")
 events:RegisterUnitEvent("UNIT_SPELLCAST_INTERRUPTED", "player")
 -- A cast the game refused (e.g. not ready yet): Augmentation corrects its Tip the Scales estimate.
 events:RegisterUnitEvent("UNIT_SPELLCAST_FAILED", "player")
+-- Proc glows (pcall: in case the game renames them)
+pcall(events.RegisterEvent, events, "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
+pcall(events.RegisterEvent, events, "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE")
 
 -- Spec/talent/spellbook changes. The game also fires SPELLS_CHANGED mid-combat (e.g. when a
 -- buff that swaps a button ends), so never rebuild the opener in combat, and out of combat only
@@ -1605,6 +1624,13 @@ events:SetScript("OnEvent", function(_, event, arg1, _, spellID, arg4)
     if id and ns.onChannelStop then
       local ok, length = pcall(ns.onChannelStop, specID, id, GetTime())
       if ok and length then dlog("channel ended: %s after %.2fs", spellName(id), length) end
+    end
+  elseif event == "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW" or event == "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE" then
+    local id = readable(arg1)
+    if type(id) == "number" then
+      local on = event == "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW"
+      if glowing[id] ~= on then dlog("glow %s: %s (%d)", on and "on" or "off", spellName(id), id) end
+      glowing[id] = on
     end
   elseif event == "UNIT_SPELLCAST_FAILED" then
     local id = readable(spellID)

@@ -37,6 +37,45 @@ All numbers come from SimulationCraft (`midnight` branch, commit `36e21fe`, game
 
 Health is secret in combat, but `UnitHealthPercent(unit, usePredicted, curve)` evaluates a curve on it, and `Texture:SetAlpha` accepts secret values from addon code, so the low-health icon's alpha is set by the game. Max runic power for Blood is 125 with Ossuary (219786 grants +10), 115 without; `UnitPowerMax` can return a hidden value even out of combat. The highlight's data stores Heart Strike as Rune Strike (316239), which Heart Strike replaces. Blood Boil has 2 charges and a fixed 7.5s recharge (not hasted), so the addon counts charges from your casts. The highlight's Death Strike rules are "≤50% health" or "≥80 runic power"; it casts Blood Boil only to apply Blood Plague, and refreshes Bone Shield on stack count only.
 
+## Windwalker audit (0.26.0, Nov 9 2026)
+
+**Highlight rules** (game data, `assisted_combat.inc` steps for 269; SimC `assisted_combat/monk_windwalker.simc`): Touch of
+Death, Strike of the Windlord, Celestial Conduit*, Zenith*, Flying Serpent Kick (Slicing Winds)*, Spinning Crane Kick at
+2 Dance of Chi-Ji stacks, Rushing Wind Kick, Tiger Palm at 101+ energy, Whirling Dragon Punch, Fists of Fury, Rising Sun
+Kick, Blackout Kick (Combo Breaker), Chi Burst, Spinning Crane Kick at **>3** targets, Blackout Kick at <=2, Tiger Palm.
+\* "Blizzard automation" steps, not shown in game. Invoke Xuen isn't in the list at all (SimC's highlight sims add it
+and Touch of Karma from its own cooldown list, so SimC's highlight numbers are too kind).
+
+**Talents** (`docs/talents/monk.md`, game data): Zenith 2 charges, 90s, 15s buff, 16s between casts; Spiritual Focus
+-20s, Efficient Training (Shado-Pan) -10s (category 1592); Drinking Horn Cover +5s. Invoke Xuen 120s, Xuen's Bond -30s
+(Conduit of the Celestials only in Midnight). Celestial Conduit 90s, castable for 60s after Invoke Xuen (1248989 -> 1248992).
+
+**Opener** (SimC MID2, 300s, seeds 1-3, both hero trees identical): Tiger Palm, Invoke Xuen (Conduit), Zenith, Fists of
+Fury, Rising Sun Kick, Whirling Dragon Punch.
+
+**Rules sim** (`tools/windwalker_rules_sim.py`, 1000 iterations, Patchwerk 300s; % vs optimal at 1/2/3/4/5 targets):
+
+| Build | hl_simc | hl_game | addon (shipped) | addon without Dance of Chi-Ji |
+|---|---|---|---|---|
+| Shado-Pan | -5 / -7 / -23 / -9 / -11 | -23 / -27 / -35 / -31 / -33 | **-6 / -7 / -10 / -11 / -12** | -8 / -10 / -10 / -11 / -11 |
+| Conduit | -14 / -21 / -31 / -20 / -22 | -36 / -43 / -52 / -40 / -41 | **-14 / -20 / -16 / -10 / -10** | -17 / -24 / -16 / -10 / -10 |
+
+Each rule with all the others on (DPS gained, 1/3/5 targets): Zenith +19/+37/+30% (Shado-Pan), +21/+27/+22% (Conduit);
+Spinning Crane Kick at 3: +20% / +27% at 3 targets; Xuen +7/+5/+4% (Conduit); Celestial Conduit +4/+1/+1%.
+Candidates on top: Spinning Crane Kick over Rising Sun Kick at 4+ (+18% Conduit, +1.5% Shado-Pan at 5; from 3 it lost
+7% at 3 targets for Shado-Pan, so 4+ only); Dance of Chi-Ji at 1 stack (+2 to +5% at 1-2 targets, -0.1 to -1% at 3,
+so 1-2 only). Rejected: holding Zenith for Xuen (no gain), Celestial Conduit only during Zenith (-1 to -3%), Spinning
+Crane Kick at 3 only for the filler Tiger Palm (+1.6% Shado-Pan, -4% Conduit; the game can't tell which Tiger Palm step
+fired anyway).
+
+**What's left** (Conduit, the bigger gap): Spinning Crane Kick on 1 target with Unbroken Rhythm / Celestial Conduit
+(40 vs 9 casts), Rushing Wind Kick timing, Touch of Karma (a defensive; SimC uses it for damage, 1.7%). Their buffs are
+hidden in combat, so not addon-fixable without a proc glow.
+
+**To confirm in game:** whether the Dance of Chi-Ji glow events fire with a readable spell ID (`glow on: Spinning Crane
+Kick` lines, `glow=y`); Zenith charges (`zen=`); whether Celestial Conduit replaces the Xuen button (then the keybind may
+show Xuen's); that the highlight really never shows Zenith / Conduit / Xuen.
+
 ## Mistweaver (on hold, Nov 6 2026)
 
 * SimC has no Mistweaver support (no APL, profile or assisted list), so nothing can be simmed.
