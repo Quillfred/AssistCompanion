@@ -2105,6 +2105,9 @@ do
   events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 500
   local function rules() local t = {} for _, r in ipairs(ns.rules[269]) do t[#t + 1] = r.key end return table.concat(t, ",") end
   expect("Windwalker: rule order", "xuen,conduit,zenith,danceofchiji,sck3,sckaoe", rules())
+  state.rangeAsked = {}; step()
+  expect("Windwalker: enemies counted in Fists of Fury range (8 yd, Spinning Crane Kick's radius)", true, state.rangeAsked[113656] or false)
+  expect("Windwalker: melee check still uses Tiger Palm", true, state.rangeAsked[100780] or false)
   expect("Windwalker: listed in the options", true, (function()
     for _, sp in ipairs(ns.specInfo) do if sp.id == 269 then return true end end return false end)())
   state.next = TP; step()

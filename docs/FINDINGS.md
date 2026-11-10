@@ -78,6 +78,15 @@ and the Dance of Chi-Ji rule fired twice, both pressed. Chi reads in combat (`rp
 mid-combat when Rushing Wind Kick takes the Rising Sun Kick button, and Core wiped its charge counts on it, so Zenith
 went back to 2 charges and was shown on cooldown. Fixed in 0.26.1.
 
+**Owner's second log (0.26.1, Conduit of the Celestials, 1 dummy then 4):** Zenith counted right: the game's own
+cooldown read at the second pull ("ready in 35s") matches the addon's 90s recharge from the first charge's return to
+the second. The game glows the Zenith button 8-17s *before* a charge is back (always right after a chi spender that
+emptied chi: likely Tigereye Brew stacks), so the glow is not a ready signal; ignored. Xuen: opener step, ready prompt at
+90s (Xuen's Bond), skipped in the opener when on cooldown. Celestial Conduit: shown right after Xuen, cast as 443028
+(so its own button / keybind), Unity Within (443591) glows during it. Enemy count: 4 dummies with nameplates on read
+`np=4 inrange=2` with Tiger Palm's 5 yd, while the highlight's own ">3 targets" Spinning Crane Kick fired; 0.26.2 counts
+within Fists of Fury's 8 yd (`ns.countMeleeSpell`).
+
 **To confirm in game:** whether the Dance of Chi-Ji glow events fire with a readable spell ID (`glow on: Spinning Crane
 Kick` lines, `glow=y`); Zenith charges (`zen=`); whether Celestial Conduit replaces the Xuen button (then the keybind may
 show Xuen's); that the highlight really never shows Zenith / Conduit / Xuen.

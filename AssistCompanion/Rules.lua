@@ -1685,6 +1685,14 @@ ns.countRangeSpell = {
   [1473] = S.ERUPTION,
 }
 
+-- Melee specs whose AoE reaches past melee range: count enemies within this spell's range instead of
+-- the melee spell's (still "in combat or in range"). Windwalker: Fists of Fury, 8 yd = Spinning Crane
+-- Kick's radius (owner's log: 4 dummies, Tiger Palm's 5 yd counted 2 while the highlight's own 4+ target
+-- Spinning Crane Kick rule fired).
+ns.countMeleeSpell = {
+  [269] = S.FISTS_OF_FURY,
+}
+
 -- Low-health icon: fades in as your health drops (the game evaluates your hidden health).
 ns.healthIcon = {
   [250] = { spell = S.DEATH_STRIKE },

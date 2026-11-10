@@ -1,5 +1,10 @@
 # Assist Companion
 
+## 0.26.2
+
+* **Windwalker enemy count reaches 8 yards** (Fists of Fury's range, the same as Spinning Crane Kick's radius) instead of Tiger Palm's melee range. Owner's log: on 4 dummies it counted 2 while the game's own highlight saw 4+, so the 3-target and 4+ Spinning Crane Kick rules never fired.
+* Confirmed in game (Conduit of the Celestials): Invoke Xuen opener step and ready prompt (90s with Xuen's Bond), Celestial Conduit right after Xuen (cast as 443028), Zenith charges now match the game's own cooldown to the second. The Zenith button glows before its charge is back (Tigereye Brew, most likely); the addon ignores it.
+
 ## 0.26.1
 
 * **Fixed: Zenith shown while on cooldown** (owner's log). When Rushing Wind Kick took over the Rising Sun Kick button, the game told addons "spells changed", and the addon reset its charge counts mid-fight, so it thought Zenith had 2 charges again. Counts are now kept in combat (this also protects Blood Boil and Prescience).

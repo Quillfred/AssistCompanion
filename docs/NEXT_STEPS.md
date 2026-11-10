@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.26.1** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.26.2** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -163,7 +163,7 @@ Evoker: done (0.21.6; Devastation and Augmentation tested in game, Devastation r
 progress: **Blood done** (0.21.7 audit: talent timings, opener, sim of all rules; 0.22–0.23: opener order fix, rank badge above the GCD swipe, Death Strike hold option; all confirmed in the owner's logs; `docs/FINDINGS.md` "Blood audit");
 to confirm in a Blood debug log: Dancing Rune Weapon / Reaper's Mark / Consumption suggested by the highlight,
 `bs=` resetting after Dancing Rune Weapon (Insatiable Blade), `vb=` growing with Death Strikes (Red Thirst).
-**Frost done in 0.24.0** (Rider opener, Chosen of Frostbrood Breath window, rules sim; to confirm in game: the Rider opener). **Unholy done in 0.25.0** (runic power rule San'layn only, rune spenders only; opener unchanged). **Death Knight finished.** **Windwalker done in 0.26.0** (Zenith / Xuen / Celestial Conduit ready, Spinning Crane Kick at 3 and over Rising Sun Kick at 4+, Dance of Chi-Ji at 1 stack via the button glow, opener; `docs/FINDINGS.md` "Windwalker audit"; 0.26.1: charge counts no longer reset by SPELLS_CHANGED in combat (Zenith shown on cooldown); confirmed in the owner's Shado-Pan log: Dance of Chi-Ji glow (`glow=y`, readable spell ID), opener, chi readable; to confirm: `zen=` charges after the fix, Celestial Conduit shown after Xuen and which button casts it). Mistweaver: looked at in 0.25.1–0.25.2 (spec support for debug logs); the highlight's damage rotation is fine and it never heals, so on hold (owner). Next class: owner's choice. Then the next class; healers
+**Frost done in 0.24.0** (Rider opener, Chosen of Frostbrood Breath window, rules sim; to confirm in game: the Rider opener). **Unholy done in 0.25.0** (runic power rule San'layn only, rune spenders only; opener unchanged). **Death Knight finished.** **Windwalker done in 0.26.0** (Zenith / Xuen / Celestial Conduit ready, Spinning Crane Kick at 3 and over Rising Sun Kick at 4+, Dance of Chi-Ji at 1 stack via the button glow, opener; `docs/FINDINGS.md` "Windwalker audit"; 0.26.2: enemies counted within Fists of Fury range (8 yd). 0.26.1: charge counts no longer reset by SPELLS_CHANGED in combat (Zenith shown on cooldown); confirmed in the owner's Shado-Pan log: Dance of Chi-Ji glow (`glow=y`, readable spell ID), opener, chi readable; to confirm: `zen=` charges after the fix, Celestial Conduit shown after Xuen and which button casts it). Mistweaver: looked at in 0.25.1–0.25.2 (spec support for debug logs); the highlight's damage rotation is fine and it never heals, so on hold (owner). Next class: owner's choice. Then the next class; healers
 only Mistweaver and Discipline, last.
 
 ## How Blood was done (template for a deep dive)

@@ -226,6 +226,7 @@ end
 -- melee spell (ns.meleeSpell).
 local function countSpell()
   return (ns.countRangeSpell and specID and ns.countRangeSpell[specID])
+      or (ns.countMeleeSpell and specID and ns.countMeleeSpell[specID])
       or (ns.meleeSpell and specID and ns.meleeSpell[specID])
 end
 
