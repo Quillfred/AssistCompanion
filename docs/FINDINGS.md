@@ -75,6 +75,9 @@ earlier pull); `cb=2` read before the pull (Endless Draught); `combo=y` after Bl
 `enemies=4`. Bug: after Black Ox Brew the count read `cb=2` (refilled to max) though it grants one charge, so after the
 next Infusion the icon showed Celestial Infusion with none left for 12 s and the owner waited on it. 0.27.1: Black Ox
 Brew adds one Celestial charge; a brew the game refuses (UNIT_SPELLCAST_FAILED) drops its count to 0.
+Owner: Purifying Brew can't be pressed with no stagger (dummies that don't hit back), so the icon stuck on it; tests
+moved to tanking dummies. 0.27.3: no Purifying Brew at 0 stagger when `UnitStagger` is readable; a refused Purifying
+Brew is hidden 4 s with its charges kept. Whether stagger is readable in combat: `stagger=` / `level=` in the log.
 
 ## Windwalker audit (0.26.0, Nov 9 2026)
 

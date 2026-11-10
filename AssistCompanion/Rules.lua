@@ -1486,7 +1486,16 @@ end
 -- never early.
 ---------------------------------------------------------------------------
 local BM_COMBO_DURATION = 15
-local bm = { combo = nil, cuts = {} } -- combo = time Blackout Kick empowered your next ability
+local BM_PB_RETRY = 4 -- seconds Purifying Brew stays off the icon after the game refused it
+local bm = { combo = nil, cuts = {}, pbBlocked = nil } -- combo = time Blackout Kick empowered your next ability
+
+-- Your stagger as a number, or nil if the game hides it (owner: Purifying Brew can't be used without stagger).
+local function bmStagger()
+  if type(UnitStagger) ~= "function" then return nil end
+  local ok, v = pcall(UnitStagger, "player")
+  if not ok or type(v) ~= "number" or (issecretvalue and issecretvalue(v)) then return nil end
+  return v
+end
 ns.bmState = bm
 local BM_COMBO_SPENDERS = {}
 for _, k in ipairs({ "TIGER_PALM", "BREATH_OF_FIRE", "KEG_SMASH", "PURIFYING_BREW", "CELESTIAL_BREW", "CELESTIAL_INFUSION" }) do
@@ -1529,10 +1538,16 @@ end
 local bmPrevFailed = ns.onCastFailed
 ns.onCastFailed = function(spec, id, ctx)
   if spec ~= 268 then return bmPrevFailed and bmPrevFailed(spec, id, ctx) end
+  -- Purifying Brew is refused with no stagger to purify (a dummy that doesn't hit you), not only when it's
+  -- out of charges: keep the count, keep it off the icon for a few seconds.
+  if id == S.PURIFYING_BREW then
+    bm.pbBlocked = ctx and ctx.now or GetTime()
+    return "Purifying Brew refused (no stagger, or no charge): hidden for a few seconds"
+  end
   for _, b in ipairs(BM_BREWS) do
     if id == b and ns.chargeEmpty then
       ns.chargeEmpty(b)
-      return ("%s not ready: charge count reset to 0"):format(b == S.PURIFYING_BREW and "Purifying Brew" or "Celestial Brew")
+      return "Celestial Brew not ready: charge count reset to 0"
     end
   end
 end
@@ -1556,9 +1571,12 @@ local BM_POOL_AT = 65
 local bmRules = {
   {
     key = "purify", name = "Purifying Brew", spell = S.PURIFYING_BREW,
-    desc = "Shows Purifying Brew whenever a charge is ready (SimC's optimal list uses it on cooldown; with Pretense of Instability and Special Delivery it's damage as well as defense). The in-game highlight never suggests brews. Simmed: +3 to +6%.",
+    desc = "Shows Purifying Brew whenever a charge is ready and you have stagger to purify (SimC's optimal list uses it on cooldown; with Pretense of Instability and Special Delivery it's damage as well as defense). If the game hides your stagger and refuses a Purifying Brew, it stays off the icon for a few seconds. The in-game highlight never suggests brews. Simmed: +3 to +6%.",
     check = function(ctx)
       if not ctx.inCombat or not ctx.knows(S.PURIFYING_BREW) or ctx.next == S.PURIFYING_BREW then return end
+      local st = bmStagger()
+      if st ~= nil and st <= 0 then return end
+      if bm.pbBlocked and ctx.now - bm.pbBlocked < BM_PB_RETRY then return end
       local c = ctx.charges(S.PURIFYING_BREW)
       if c == nil or c < 1 then return end
       return { spell = S.PURIFYING_BREW, text = "Purifying Brew", sub = c .. " charge" .. (c == 1 and "" or "s") }

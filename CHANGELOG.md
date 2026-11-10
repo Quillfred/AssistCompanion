@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.27.3
+
+* **Fixed: Brewmaster stuck on Purifying Brew with no stagger** (owner: on dummies that don't hit you it can't be pressed). It's no longer shown at 0 stagger when the game lets the addon read stagger. If the game hides stagger and refuses a Purifying Brew, it stays off the icon for 4 seconds and its charges are kept (0.27.1 wrongly set them to 0).
+
 ## 0.27.2
 
 * Brewmaster debug log: `stagger=` (your stagger amount) and `level=` (light / moderate / heavy), or `hidden` if the game hides them in combat. To find out whether a "Purifying Brew at heavy stagger" option is possible.

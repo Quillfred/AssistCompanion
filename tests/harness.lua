@@ -2224,9 +2224,16 @@ do
   expect("Brewmaster: Keg Smashes took 8s off -> still 2s left", "icon:121253", nf.icon.texture)
   cast(TP); cast(TP); step()             -- 3s off
   expect("Brewmaster: Tiger Palms -> Purifying Brew back early", "icon:119582", nf.icon.texture)
-  -- a brew the game refuses: count dropped, the icon moves on
+  -- Purifying Brew refused (no stagger on a dummy): off the icon for a few seconds, charges kept
   events.scripts.OnEvent(events, "UNIT_SPELLCAST_FAILED", "player", "guid", PB); step()
-  expect("Brewmaster: Purifying Brew refused (not ready) -> highlight", "icon:121253", nf.icon.texture)
+  expect("Brewmaster: Purifying Brew refused -> highlight", "icon:121253", nf.icon.texture)
+  now = now + 5; step()
+  expect("Brewmaster: ...back after a few seconds (charge kept)", "icon:119582", nf.icon.texture)
+  UnitStagger = function() return 0 end; step()
+  expect("Brewmaster: stagger readable and 0 -> no Purifying Brew", "icon:121253", nf.icon.texture)
+  UnitStagger = function() return 5000 end; step()
+  expect("Brewmaster: stagger 5000 -> Purifying Brew", "icon:119582", nf.icon.texture)
+  UnitStagger = nil
   ns.setRuleEnabled(268, "purify", false); ns.setRuleEnabled(268, "celestial", false)
   -- Empty the Cellar: on the Exploding Keg button
   state.overrides = { [EK] = ETC }; step()
