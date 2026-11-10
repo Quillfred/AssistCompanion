@@ -16,6 +16,7 @@ Scripts used to produce the numbers in `docs/FINDINGS.md`. They expect, next to 
 | `blood_rules_sim.py` | Blood: the highlight alone vs with the addon's rules (SimC list), San'layn and Deathbringer, 1/3/5 targets, per-rule breakdown (`SIMC=<simc> python3 blood_rules_sim.py [iterations]`) |
 | `frost_rules_sim.py` | Frost: the highlight alone vs with the addon's rules (SimC list), Deathbringer and Rider, 1/3/5 targets, per-rule breakdown |
 | `unholy_rules_sim.py` | Unholy: the highlight alone vs with the addon's rules (SimC list), Rider and San'layn, 1/3/5 targets (`UNHOLY_RP=` threshold) |
+| `brewmaster_rules_sim.py` | Brewmaster: the highlight alone vs with the addon's rules (SimC list), Master of Harmony (and Shado-Pan with `BM_SHADOPAN=<talent string>`), 1/3/5 targets, each rule left out, energy pooling variants |
 | `windwalker_rules_sim.py` | Windwalker: the highlight alone vs with the addon's rules (SimC list), Shado-Pan and Conduit, 1-5 targets (`WW_FIGHTS=1,2,3,4,5`), each rule alone and left out, candidate rules |
 | `override_map.py` | Builds `override_map.json`: every "button B casts A in some state" pair from the game's Override Action Spell effects |
 | `override_resim.py` | Re-sims the highlight with each override added after its base spell (SimC's base actions refuse to fire in override states, e.g. Chaos Strike during Metamorphosis) |

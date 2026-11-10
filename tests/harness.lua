@@ -2182,6 +2182,137 @@ do
   combat(false); state.rp = 10; state.rpmax = nil; state.plates = 1; step()
 end
 
+-- BREWMASTER -----------------------------------------------------------------
+do
+  local KS, BOK, TP, BOF, EK, ETC, PB, CI, BOB, NIU = 121253, 205523, 100780, 115181, 325153, 1262768, 119582, 1241059, 115399, 132578
+  local BOC, FP = 196736, 389942
+  C_Spell.GetSpellCharges, C_Spell.GetSpellCooldown = nil, nil -- hidden: everything from casts
+  issecretvalue = nil; UnitPowerPercent = nil
+  state.spec = 268; state.overrides = {}; state.target = nil; state.inRange = true; state.usable = {}; state.noPower = {}
+  state.known = { [KS]=true, [BOK]=true, [TP]=true, [BOF]=true, [EK]=true, [PB]=true, [CI]=true, [BOB]=true, [NIU]=true,
+                  [BOC]=true, [FP]=true }
+  state.rp = 100; state.rpmax = 100; state.plates = 1
+  events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+  events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 500
+  local function rules() local t = {} for _, r in ipairs(ns.rules[268]) do t[#t + 1] = r.key end return table.concat(t, ",") end
+  expect("Brewmaster: rule order", "purify,celestial,niuzao,blackoxbrew,cellar,combo3", rules())
+  expect("Brewmaster: listed in the options", true, (function()
+    for _, sp in ipairs(ns.specInfo) do if sp.id == 268 then return true end end return false end)())
+  -- opener by hero tree
+  state.known[115203] = true; state.known[123986] = true; state.known[450508] = true
+  events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+  expect("Brewmaster opener, Master of Harmony: Blackout Kick, Fortifying Brew, Chi Burst, Niuzao, Tiger Palm, Breath of Fire",
+    "icon:205523,icon:115203,icon:123986,icon:132578,icon:100780,icon:115181", openerIcons())
+  state.known[450508] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+  expect("Brewmaster opener, Shado-Pan: Blackout Kick, Niuzao, Breath of Fire, Keg Smash",
+    "icon:205523,icon:132578,icon:115181,icon:121253", openerIcons())
+  state.known[115203] = nil; state.known[123986] = nil
+  events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+  state.next = KS; step()
+  expect("Brewmaster: out of combat -> highlight", "icon:121253", nf.icon.texture)
+  combat(true); step()
+  expect("Brewmaster: in combat, Purifying Brew charges -> Purifying Brew", "icon:119582", nf.icon.texture)
+  cast(PB); step()
+  expect("Brewmaster: one charge left -> still Purifying Brew", "icon:119582", nf.icon.texture)
+  cast(PB); step()
+  expect("Brewmaster: no charges -> Celestial Infusion", "icon:1241059", nf.icon.texture)
+  cast(CI); step()
+  expect("Brewmaster: -> Invoke Niuzao", "icon:132578", nf.icon.texture)
+  cast(NIU); step()
+  expect("Brewmaster: Celestial Infusion spent -> Black Ox Brew", "icon:115399", nf.icon.texture)
+  cast(BOB); step()
+  expect("Brewmaster: Black Ox Brew refills Purifying Brew", "icon:119582", nf.icon.texture)
+  cast(PB); cast(PB); step()
+  expect("Brewmaster: Black Ox Brew granted Celestial Infusion", "icon:1241059", nf.icon.texture)
+  cast(CI); step()
+  expect("Brewmaster: ...only one charge (owner's log: two with Endless Draught counted as refilled)", "icon:121253", nf.icon.texture)
+  expect("Brewmaster: everything spent -> highlight", "icon:121253", nf.icon.texture)
+  -- brew recharge sped up by Tiger Palm (1.5s with Face Palm) and Keg Smash (3s, 5s with Blackout Combo)
+  now = now + 10; step()
+  expect("Brewmaster: 10s after Purifying Brew -> not back (20s)", "icon:121253", nf.icon.texture)
+  cast(KS); cast(BOK); cast(KS); step()   -- 3 + 5 = 8s off
+  expect("Brewmaster: Keg Smashes took 8s off -> still 2s left", "icon:121253", nf.icon.texture)
+  cast(TP); cast(TP); step()             -- 3s off
+  expect("Brewmaster: Tiger Palms -> Purifying Brew back early", "icon:119582", nf.icon.texture)
+  -- Purifying Brew refused (no stagger on a dummy): off the icon for a few seconds, charges kept
+  events.scripts.OnEvent(events, "UNIT_SPELLCAST_FAILED", "player", "guid", PB); step()
+  expect("Brewmaster: Purifying Brew refused -> highlight", "icon:121253", nf.icon.texture)
+  now = now + 5; step()
+  expect("Brewmaster: ...back after a few seconds (charge kept)", "icon:119582", nf.icon.texture)
+  UnitStagger = function() return 0 end; step()
+  expect("Brewmaster: stagger readable and 0 -> no Purifying Brew", "icon:121253", nf.icon.texture)
+  UnitStagger = function() return 5000 end; step()
+  expect("Brewmaster: stagger 5000 -> Purifying Brew", "icon:119582", nf.icon.texture)
+  UnitStagger = nil
+  ns.setRuleEnabled(268, "purify", false); ns.setRuleEnabled(268, "celestial", false)
+  -- Empty the Cellar: on the Exploding Keg button
+  state.overrides = { [EK] = ETC }; step()
+  expect("Brewmaster: Empty the Cellar on the Exploding Keg button -> shown", "icon:1262768", nf.icon.texture)
+  state.overrides = {}; step()
+  -- Blackout Combo on 3+ targets
+  state.plates = 3; cast(BOK); state.next = KS; step()
+  expect("Brewmaster: 3 targets, Blackout Combo up, highlight Keg Smash -> Tiger Palm", "icon:100780", nf.icon.texture)
+  state.plates = 2; step()
+  expect("Brewmaster: 2 targets -> the highlight handles it", "icon:121253", nf.icon.texture)
+  state.plates = 3; cast(TP); step()
+  expect("Brewmaster: combo spent -> Keg Smash", "icon:121253", nf.icon.texture)
+  -- save energy for Keg Smash: a hold layer the game draws from hidden energy (curve at 65/100)
+  do
+    local hold = AssistCompanionHold
+    local savedUPP = UnitPowerPercent
+    function UnitPowerPercent(unit, ptype, predicted, curve) return curve:Evaluate(state.rpPct) end
+    ns.setRuleEnabled(268, "purify", false); ns.setRuleEnabled(268, "celestial", false)
+    ns.setRuleEnabled(268, "niuzao", false); ns.setRuleEnabled(268, "blackoxbrew", false)
+    state.plates = 1; state.next = TP; state.rp = "SECRET"; issecretvalue = function(v) return v == "SECRET" end
+    state.rpPct = 0.40; step()
+    expect("Brewmaster: filler Tiger Palm at 40% energy -> Keg Smash layer shown", true, hold.shown and hold.alpha == 1)
+    expect("Brewmaster: ...with the Keg Smash icon", "icon:121253", hold.icon.texture)
+    state.rpPct = 0.80; step()
+    expect("Brewmaster: 80% energy -> layer invisible (Tiger Palm)", 0, hold.alpha)
+    state.rpPct = 0.40; cast(BOK); step()
+    expect("Brewmaster: Tiger Palm spending Blackout Combo -> no layer", false, hold.shown)
+    cast(TP); AssistCompanionDB.bmSaveEnergy = false; step()
+    expect("Brewmaster: option off -> no layer", false, hold.shown)
+    AssistCompanionDB.bmSaveEnergy = true; issecretvalue = nil; state.rp = 100
+    UnitPowerPercent = savedUPP
+    for _, k in ipairs({ "niuzao", "blackoxbrew" }) do ns.setRuleEnabled(268, k, true) end
+  end
+  -- stagger probe for the debug log
+  local savedAuras = C_UnitAuras
+  C_UnitAuras = { GetPlayerAuraBySpellID = function(id) if id == 124273 then return { applications = 1 } end end }
+  UnitStagger = function() return 12345 end
+  expect("Brewmaster: stagger readable -> amount and level in the debug status", "stagger=12345 level=heavy", ns.bmStaggerText())
+  issecretvalue = function(v) return v == "SECRET" end; UnitStagger = function() return "SECRET" end
+  C_UnitAuras = { GetPlayerAuraBySpellID = function() return "SECRET" end }
+  expect("Brewmaster: stagger hidden -> 'hidden'", "stagger=hidden level=hidden", ns.bmStaggerText())
+  issecretvalue = nil; UnitStagger = nil; C_UnitAuras = savedAuras
+  -- energy probe
+  local sp, sb = C_Spell.IsSpellUsable, C_ActionBar.IsUsableAction
+  local savedRegen = GetPowerRegen
+  UnitPower = function() return "SECRET" end; issecretvalue = function(v) return v == "SECRET" end
+  UnitPowerPercent = function() return "SECRET" end
+  GetPowerRegen = function() return 10, 12.5 end
+  C_Spell.IsSpellUsable = function() return true, false end
+  state.bars = { [121253] = 7 }
+  C_ActionBar.IsUsableAction = function(slot) if slot == 7 then return false, true end end
+  expect("Brewmaster: energy probe line", "energy: power=hidden power0=hidden pct=hidden regen=10.0/12.5 ks=y,n tp=y,n ksbar=n,y tpbar=noslot,noslot", ns.bmEnergyText())
+  C_Spell.IsSpellUsable, C_ActionBar.IsUsableAction, GetPowerRegen = sp, sb, savedRegen
+  UnitPowerPercent = nil; issecretvalue = nil; state.bars = {}
+  UnitPower = function() return state.rp end
+  expect("Brewmaster: no stagger API -> '?'", "stagger=? level=?", ns.bmStaggerText())
+  -- Empty Barrel (Bring Me Another): no Celestial Infusion until Keg Smash throws the barrel
+  ns.setRuleEnabled(268, "purify", false); ns.setRuleEnabled(268, "celestial", true)
+  ns.setRuleEnabled(268, "niuzao", false); ns.setRuleEnabled(268, "blackoxbrew", false)
+  state.known[1265141] = true; talented(1265141, true); state.next = KS
+  cast(BOB); step()   -- a brew (one Celestial charge back), barrel filled
+  expect("Brewmaster: Empty Barrel up -> no Celestial Infusion yet", "icon:121253", nf.icon.texture)
+  cast(KS); step()
+  expect("Brewmaster: Keg Smash threw the barrel -> Celestial Infusion", "icon:1241059", nf.icon.texture)
+  for _, k in ipairs({ "purify", "niuzao", "blackoxbrew" }) do ns.setRuleEnabled(268, k, true) end
+  ns.setRuleEnabled(268, "purify", true); ns.setRuleEnabled(268, "celestial", true)
+  combat(false); state.rp = 10; state.rpmax = nil; state.plates = 1; step()
+end
+
 io.stdout:write(table.concat(printed, "\n"), "\n")
 io.stdout:write(("\n%d passed, %d failed\n"):format(pass, fail))
 os.exit(fail == 0 and 0 or 1)

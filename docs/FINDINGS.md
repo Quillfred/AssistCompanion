@@ -37,6 +37,67 @@ All numbers come from SimulationCraft (`midnight` branch, commit `36e21fe`, game
 
 Health is secret in combat, but `UnitHealthPercent(unit, usePredicted, curve)` evaluates a curve on it, and `Texture:SetAlpha` accepts secret values from addon code, so the low-health icon's alpha is set by the game. Max runic power for Blood is 125 with Ossuary (219786 grants +10), 115 without; `UnitPowerMax` can return a hidden value even out of combat. The highlight's data stores Heart Strike as Rune Strike (316239), which Heart Strike replaces. Blood Boil has 2 charges and a fixed 7.5s recharge (not hasted), so the addon counts charges from your casts. The highlight's Death Strike rules are "≤50% health" or "≥80 runic power"; it casts Blood Boil only to apply Blood Plague, and refreshes Bone Shield on stack count only.
 
+## Brewmaster audit (0.27.0, Nov 10 2026)
+
+**Highlight rules** (game data, steps for 268; SimC `assisted_combat/monk_brewmaster.simc`): Touch of Death, Blackout
+Kick (combo down), Tiger Palm (combo up, no Press the Advantage, <=2 targets), Keg Smash at 2 charges, Chi Burst,
+Breath of Fire, Keg Smash, Exploding Keg, Rushing Jade Wind, Spinning Crane Kick (>3 targets), Tiger Palm, Keg Smash.
+No brew, no Invoke Niuzao (SimC's highlight sims add Niuzao from its own cooldown list).
+
+**Where it loses** (MID2 Master of Harmony profile, 500 iterations): Keg Smash 11 casts vs 58 (Tiger Palm, 50 energy,
+spends the energy Keg Smash, 40, needs as it comes back); Blackout Combo 89% up at 5 targets (only spent on <=2), so
+Blackout Kick 29 vs 72; no Purifying Brew (43 casts optimal), Celestial Infusion (12), Black Ox Brew (5), Niuzao (3).
+With Master of Harmony the brews are damage (Aspect of Harmony 138 hits vs 11, Special Delivery 63 vs 0).
+
+**Talents / timings** (game data): Purifying Brew 2 charges 20s, Celestial Brew / Infusion 1 charge 90s (+1 Endless
+Draught), Light Brewing -20% (category 1562); Black Ox Brew 120s (refills Purifying Brew, one Celestial charge);
+Niuzao 120s. Brews sped up by Tiger Palm 1s (+0.5 Face Palm), Keg Smash 3s (+2 with Blackout Combo), Empty the Cellar
+3s per keg, Anvil & Stave on dodges, Press the Advantage (SimC brews_t::adjust). Empty the Cellar overrides the
+Exploding Keg button for 20s after it.
+
+**Rules sim** (`tools/brewmaster_rules_sim.py`, % vs optimal 1/3/5 targets):
+
+| Build | hl_game | addon (shipped) |
+|---|---|---|
+| Master of Harmony (page: best for optimal rotation) | -32 / -38 / -64 | **-3 / -2 / -6** |
+| Shado-Pan (page: best for highlight) | -22 / -27 / -45 | +4 / 0 / -12 (vs its own optimal) |
+
+Absolute with the addon, Master of Harmony is +7 / +20 / +33% over Shado-Pan, so it's the recommended build.
+Each rule with all the others on (Master of Harmony, 1/3/5): Celestial +17/+19/+36%, Blackout Combo on 3+
+0/+14/+59%, Black Ox Brew +4/+5/+11%, Purifying +4/+4/+6%, Empty the Cellar +2/+1/+3%, Niuzao +2/+2/+2%, energy
+for Keg Smash at 65 +1.2/+2.3/-0.3% (90, or "90 or Keg Smash 3s+ away": no better).
+
+**Opener** (SimC MID2, seeds 1-3 identical): Blackout Kick, Fortifying Brew, Chi Burst, Invoke Niuzao, Tiger Palm,
+Breath of Fire. Shado-Pan (the rankings page's build on the MID2 profile): Blackout Kick, Invoke Niuzao, Breath of Fire,
+Keg Smash (0.27.7: the opener picks by Aspect of Harmony 450508). The other rules are all talent-gated; with the
+Shado-Pan build they take the highlight from -22 / -27 / -45% to +4 / 0 / -12% of its optimal (Black Ox Brew adds nothing).
+
+**Owner's first log (0.27.0, 4 dummies, 32 s):** opener fine (Fortifying Brew and Niuzao skipped, on cooldown from an
+earlier pull); `cb=2` read before the pull (Endless Draught); `combo=y` after Blackout Kick, `n` after Tiger Palm;
+`enemies=4`. Bug: after Black Ox Brew the count read `cb=2` (refilled to max) though it grants one charge, so after the
+next Infusion the icon showed Celestial Infusion with none left for 12 s and the owner waited on it. 0.27.1: Black Ox
+Brew adds one Celestial charge; a brew the game refuses (UNIT_SPELLCAST_FAILED) drops its count to 0.
+Owner: Purifying Brew can't be pressed with no stagger (dummies that don't hit back), so the icon stuck on it; tests
+moved to tanking dummies. 0.27.3: no Purifying Brew at 0 stagger when `UnitStagger` is readable; a refused Purifying
+Brew is hidden 4 s with its charges kept. Whether stagger is readable in combat: `stagger=` / `level=` in the log.
+
+**Owner's tanking-dummy log (0.27.3, 4 dummies, 56 s):** `UnitStagger` is **readable in combat** (`stagger=28719`...);
+the level debuffs read nothing in combat (`level=none`, `light` after combat). Energy is **hidden** (`rp=hidden` even out of
+combat), so the energy-pooling rule never fires (`ctx.power` nil); a curve layer like the runic power one could do it. The
+game glows Purifying Brew (`glow on: Purifying Brew`) at high stagger. Charges matched every cast; one refused Purifying
+Brew at 0 stagger (pressed twice). Empty the Cellar: `keg=1263438` after Exploding Keg, rule fired, cast 1263438.
+Owner: Celestial Infusion came back to back. Simmed (all rules, % vs optimal 1/3/5): whenever ready -2.7 / -2.3 / -6.1;
+not while Empty Barrel is up (SimC's condition) -2.8 / -1.5 / -4.9; only near 2 charges -2.2 / -1.6 / -5.0. 0.27.4
+waits for the barrel (Bring Me Another: brews fill it, Keg Smash throws it; 12 s, 1265307).
+
+**Energy probe (owner's 0.27.5 log, 82 s, 4 tanking dummies):** `UnitPower(player, 3)`, `UnitPower(player)` and
+`UnitPowerPercent(player, 3)` are hidden in and out of combat; `GetPowerRegen` reads 12.7/12.7 out of combat, hidden in
+combat; `C_Spell.IsSpellUsable` and `C_ActionBar.IsUsableAction` for Keg Smash / Tiger Palm read `y,n` all fight
+(readable, but never short in the log, and they can only say "40+", not "65+"). Counting energy from casts isn't reliable
+(Keg Smash and Tiger Palm refund energy with the talents, per SimC). 0.27.6: the energy rule became a hold layer
+(`ns.holdSpender[268]`: Keg Smash over a filler Tiger Palm below 65 energy, alpha from a `UnitPowerPercent` curve),
+option `bmSaveEnergy`.
+
 ## Windwalker audit (0.26.0, Nov 9 2026)
 
 **Highlight rules** (game data, `assisted_combat.inc` steps for 269; SimC `assisted_combat/monk_windwalker.simc`): Touch of

@@ -1,5 +1,56 @@
 # Assist Companion
 
+## 0.27.7
+
+* **Brewmaster opener for Shado-Pan:** Blackout Kick, Invoke Niuzao, Breath of Fire, Keg Smash (SimC's current opener for the rankings page's Shado-Pan build, same for 3 seeds). Master of Harmony keeps Blackout Kick, Fortifying Brew, Chi Burst, Niuzao, Tiger Palm, Breath of Fire. Before, Shado-Pan got Master of Harmony's (Fortifying Brew and Tiger Palm at the pull). All other Brewmaster rules check your talents, so they work for either hero tree (simmed with the Shado-Pan build: 22–45% behind optimal -> +4% to -12%).
+* Confirmed in game (single target): the "save energy for Keg Smash" layer (`hold=on:Keg Smash` exactly on filler Tiger Palms), Celestial Infusion one at a time after Keg Smash, brew counts and Black Ox Brew's sped-up cooldown.
+
+## 0.27.6
+
+* **Brewmaster "save energy for Keg Smash" works now.** Energy is hidden from addons (owner's log: the amount and its percent are hidden in combat and even out of combat; regeneration is readable only out of combat; Keg Smash / Tiger Palm read usable all fight). So it's now a layer the game draws itself, like the Death Knights' runic power icon: when the highlight asks for a filler Tiger Palm below 65 energy, Keg Smash covers it (wait). At 65+ Tiger Palm shows through. Never over the Tiger Palm that spends Blackout Combo. Option "Save energy for Keg Smash" under Brewmaster, on by default. The old rule (which needed readable energy and never fired) is gone.
+* Debug log: `hold=` for Brewmaster (`on:Keg Smash` while the layer is up, `waiting` otherwise).
+
+## 0.27.5
+
+* Brewmaster debug log: an `energy:` check on every status line, trying each way an addon might see energy (`power` / `power0` UnitPower, `pct` UnitPowerPercent, `regen` GetPowerRegen, `ks` / `tp` C_Spell.IsSpellUsable for Keg Smash and Tiger Palm, `ksbar` / `tpbar` the same through your action buttons). Each reads a number, y/n, `hidden`, `nil` or `?`. To find a way to make the "wait for energy" rule work.
+
+## 0.27.4
+
+* **Brewmaster: Celestial Infusion no longer back to back.** It now waits while an Empty Barrel is up (Bring Me Another: any brew fills it, your next Keg Smash throws it), as SimC's optimal list does. Simmed: +0 / +0.9 / +1.2% at 1 / 3 / 5 targets over using it whenever a charge is ready (owner asked).
+* Confirmed in game (tanking dummies): stagger is readable in combat, so Purifying Brew isn't shown at 0 stagger; brew charge counts matched every cast; Empty the Cellar shown and cast from the Exploding Keg button (1263438); Blackout Combo Tiger Palm on 4 targets. Energy is hidden from addons for Brewmaster, so the "wait for energy" rule can't fire yet. Stagger level (light / moderate / heavy) is hidden in combat; the game itself glows Purifying Brew at high stagger.
+* Debug log: `barrel=` (Empty Barrel up).
+
+## 0.27.3
+
+* **Fixed: Brewmaster stuck on Purifying Brew with no stagger** (owner: on dummies that don't hit you it can't be pressed). It's no longer shown at 0 stagger when the game lets the addon read stagger. If the game hides stagger and refuses a Purifying Brew, it stays off the icon for 4 seconds and its charges are kept (0.27.1 wrongly set them to 0).
+
+## 0.27.2
+
+* Brewmaster debug log: `stagger=` (your stagger amount) and `level=` (light / moderate / heavy), or `hidden` if the game hides them in combat. To find out whether a "Purifying Brew at heavy stagger" option is possible.
+
+## 0.27.1
+
+* **Fixed: Brewmaster stuck on Celestial Infusion** (owner's log). Black Ox Brew grants one Celestial Brew / Infusion charge, but the addon refilled both (Endless Draught), so it kept showing Infusion with none left and nothing else came up. Now Black Ox Brew adds one charge and refills Purifying Brew.
+* **Brews correct themselves:** if you press a brew the game says isn't ready, its count drops to 0 and the icon moves on.
+* Confirmed in game: the opener (skipping Fortifying Brew and Niuzao while on cooldown), brew charges read before the pull (Endless Draught: 2), Blackout Combo tracking, enemy count on 4 dummies.
+
+## 0.27.0
+
+**Brewmaster Monk (first test build).** The game's highlight never uses a brew or Invoke Niuzao, spends energy before Keg Smash can come back, and only spends Blackout Combo on 1–2 targets. In the sims it's 32–64% behind SimC's optimal rotation; with these rules, 2–6% (Master of Harmony, `tools/brewmaster_rules_sim.py`). Every rule helps with the others on.
+
+* **Celestial Brew / Celestial Infusion** when a charge is ready: +18 to +36% (Master of Harmony turns it into damage).
+* **Purifying Brew** whenever a charge is ready: +3 to +6%.
+* **Black Ox Brew** when Celestial Brew is out of charges: +4 to +11%.
+* **Invoke Niuzao** when ready: +2 to +4%.
+* **Empty the Cellar** while it's on your Exploding Keg button: +1 to +3%.
+* **Blackout Combo on 3+ targets:** Tiger Palm to spend it (the highlight only does on 1–2): +14% at 3 targets, +58% at 5.
+* **Save energy for Keg Smash:** below 65 energy a filler Tiger Palm or Spinning Crane Kick shows grayed out (wait): +1.5 to +2.5%.
+* Brew charges are counted from your casts, including Tiger Palm (-1s, -1.5s with Face Palm) and Keg Smash (-3s, -5s with Blackout Combo) speeding them up. Dodges also speed them up and can't be seen, so a brew can show a little late, never early.
+* **Opener** (SimC, Master of Harmony): Blackout Kick, Fortifying Brew, Chi Burst, Invoke Niuzao, Tiger Palm, Breath of Fire.
+* Debug log: `pb=` `cb=` (brew charges), `combo=`, `bob=` / `niu=` (seconds until ready), `keg=` (what's on the Exploding Keg button).
+* Recommended build: Master of Harmony (the rankings page's "Best for optimal rotation" build). With these rules it's 7–33% ahead of the page's Shado-Pan "Best for highlight" build.
+* Core: charge counts can take the game's own recharge time (read out of combat) and be sped up or refilled by other casts.
+
 ## 0.26.3
 
 * **Windwalker, 4+ targets: Spinning Crane Kick replaces Rising Sun Kick only at 4+ chi**, so 2 chi stay for Fists of Fury (3 chi). Owner's log: at any chi it looped Tiger Palm / Spinning Crane Kick at 0–2 chi and Fists of Fury went 45 seconds uncast. Simmed: +4% Shado-Pan, +1 to +2% Conduit of the Celestials with season 1 gear (-3% for Conduit only in top raid gear).

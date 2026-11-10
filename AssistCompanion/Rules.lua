@@ -138,6 +138,27 @@ local S = {
   EFFICIENT_TRAINING  = 450989,  -- Shado-Pan: Zenith recharge -10s
   DRINKING_HORN_COVER = 391370,  -- Zenith +5s
   ASCENSION           = 115396,  -- +1 max chi
+  -- Brewmaster Monk (the highlight's steps for spec 268 use these IDs)
+  KEG_SMASH           = 121253,  -- 40 energy, 8s recharge
+  BM_BLACKOUT_KICK    = 205523,
+  BREATH_OF_FIRE      = 115181,
+  EXPLODING_KEG       = 325153,
+  EMPTY_THE_CELLAR    = 1262768, -- on the Exploding Keg button for 20s after it
+  RUSHING_JADE_WIND   = 116847,
+  BM_SPINNING_CRANE_KICK = 322729,
+  BM_CHI_BURST        = 123986,
+  PURIFYING_BREW      = 119582,  -- 2 charges, 20s
+  CELESTIAL_BREW      = 322507,  -- 1 charge, 90s
+  CELESTIAL_INFUSION  = 1241059, -- the choice node's other option, same timing
+  BLACK_OX_BREW       = 115399,  -- 120s: refills Purifying Brew, grants a Celestial Brew / Infusion charge
+  INVOKE_NIUZAO       = 132578,  -- 120s
+  FORTIFYING_BREW     = 115203,
+  BLACKOUT_COMBO      = 196736,
+  FACE_PALM           = 389942,  -- Tiger Palm takes 0.5s more off the brews
+  LIGHT_BREWING       = 325093,  -- brews recharge 20% faster
+  ENDLESS_DRAUGHT     = 450892,  -- Master of Harmony: +1 Celestial Brew / Infusion charge
+  ASPECT_OF_HARMONY   = 450508,  -- Master of Harmony (opener choice)
+  BRING_ME_ANOTHER    = 1265141, -- brews leave an Empty Barrel (12s) that your next Keg Smash throws
 }
 ns.S = S
 
@@ -998,6 +1019,14 @@ ns.debugStatus = {
 
 -- Logged at the start of each fight: which timing-related talents you have.
 ns.debugTalents = {
+  [268] = function(knows)
+    local list = { { 1241059, "Celestial Infusion" }, { 322507, "Celestial Brew" }, { 450892, "Endless Draught" },
+      { 196736, "Blackout Combo" }, { 389942, "Face Palm" }, { 325093, "Light Brewing" }, { 115399, "Black Ox Brew" },
+      { 132578, "Invoke Niuzao" }, { 325153, "Exploding Keg" }, { 450508, "Aspect of Harmony" } }
+    local have = {}
+    for _, t in ipairs(list) do if knows(t[1]) then have[#have + 1] = t[2] end end
+    return #have > 0 and table.concat(have, ", ") or "none of the timing talents"
+  end,
   [269] = function(knows)
     local list = { { 123904, "Invoke Xuen" }, { 1248989, "Celestial Conduit" }, { 392986, "Xuen's Bond" },
       { 280197, "Spiritual Focus" }, { 450989, "Efficient Training" }, { 391370, "Drinking Horn Cover" },
@@ -1094,6 +1123,18 @@ ns.openers[269] = {                     -- Windwalker (SimC optimal, MID2 profil
   { id = S.FISTS_OF_FURY },
   { id = S.RISING_SUN_KICK },
   { id = S.WHIRLING_DRAGON_PUNCH },
+}
+
+ns.openers[268] = {                     -- Brewmaster (SimC optimal, MID2 profile, Nov 2026; same for 3 seeds per hero tree)
+  -- Master of Harmony: Blackout Kick, Fortifying Brew, Chi Burst, Niuzao, Tiger Palm, Breath of Fire.
+  -- Shado-Pan (rankings page build): Blackout Kick, Niuzao, Breath of Fire, Keg Smash.
+  { id = S.BM_BLACKOUT_KICK },
+  { id = S.FORTIFYING_BREW, needs = S.ASPECT_OF_HARMONY },
+  { id = S.BM_CHI_BURST, needs = S.ASPECT_OF_HARMONY },
+  { id = S.INVOKE_NIUZAO },
+  { id = S.TIGER_PALM, needs = S.ASPECT_OF_HARMONY },
+  { id = S.BREATH_OF_FIRE },
+  { id = S.KEG_SMASH, without = S.ASPECT_OF_HARMONY },
 }
 
 ns.openers[250] = {                     -- Blood (SimC optimal, MID2 profiles, Nov 2026)
@@ -1440,6 +1481,259 @@ ns.debugStatus[269] = function(ctx)
 end
 
 ---------------------------------------------------------------------------
+-- Brewmaster Monk (spec 268). Audit: docs/FINDINGS.md "Brewmaster audit"; sims: tools/brewmaster_rules_sim.py.
+-- The highlight never uses a brew or Invoke Niuzao, spends energy on Tiger Palm / Spinning Crane Kick
+-- before Keg Smash can come back (11 Keg Smashes vs 58 optimal), and only spends Blackout Combo on 1-2
+-- targets (89% uptime at 5). All rules together: 32-64% behind optimal -> 2-6% (Master of Harmony).
+-- Brew recharges are hidden in combat: counted from your casts, with what speeds them up that we can
+-- see (Tiger Palm -1s, -1.5s with Face Palm; Keg Smash -3s, -5s with Blackout Combo). Dodges (Anvil &
+-- Stave) and Empty the Cellar's kegs also speed them up but aren't counted, so brews can show late,
+-- never early.
+---------------------------------------------------------------------------
+local BM_COMBO_DURATION = 15
+local BM_PB_RETRY = 4 -- seconds Purifying Brew stays off the icon after the game refused it
+local BM_BARREL_DURATION = 12 -- Empty Barrel (1265307)
+local bm = { combo = nil, cuts = {}, pbBlocked = nil, barrel = nil } -- combo = time Blackout Kick empowered your next ability
+
+-- Your stagger as a number, or nil if the game hides it (owner: Purifying Brew can't be used without stagger).
+local function bmStagger()
+  if type(UnitStagger) ~= "function" then return nil end
+  local ok, v = pcall(UnitStagger, "player")
+  if not ok or type(v) ~= "number" or (issecretvalue and issecretvalue(v)) then return nil end
+  return v
+end
+ns.bmState = bm
+local BM_COMBO_SPENDERS = {}
+for _, k in ipairs({ "TIGER_PALM", "BREATH_OF_FIRE", "KEG_SMASH", "PURIFYING_BREW", "CELESTIAL_BREW", "CELESTIAL_INFUSION" }) do
+  BM_COMBO_SPENDERS[S[k]] = true
+end
+local BM_BREWS = { S.PURIFYING_BREW, S.CELESTIAL_BREW, S.CELESTIAL_INFUSION }
+
+local function bmBarrelUp(ctx)
+  return bm.barrel ~= nil and ctx.now - bm.barrel < BM_BARREL_DURATION
+end
+ns.bmBarrelUp = bmBarrelUp
+
+local function bmComboUp(ctx)
+  return bm.combo ~= nil and ctx.now - bm.combo < BM_COMBO_DURATION
+end
+ns.bmComboUp = bmComboUp
+
+local bmKnows = function() return false end -- set each tick (talents for the cast handler)
+local bmPrevOnCast = ns.onCast
+ns.onCast = function(spec, id, now)
+  if spec ~= 268 then return bmPrevOnCast(spec, id, now) end
+  local cut = 0
+  if id == S.TIGER_PALM then cut = 1 + (bmKnows(S.FACE_PALM) and 0.5 or 0)
+  elseif id == S.KEG_SMASH then cut = 3 + ((bm.combo and now - bm.combo < BM_COMBO_DURATION) and 2 or 0) end
+  if cut > 0 then
+    for _, b in ipairs(BM_BREWS) do if ns.chargeShift then ns.chargeShift(b, cut) end end
+    bm.cuts[#bm.cuts + 1] = { t = now, s = cut }
+    while bm.cuts[1] and now - bm.cuts[1].t > 300 do table.remove(bm.cuts, 1) end
+  end
+  -- Black Ox Brew: Purifying Brew refilled, one Celestial Brew / Infusion charge (talent text; 0.27.0
+  -- refilled both Celestial charges, owner's log: Infusion shown with none left)
+  if id == S.BLACK_OX_BREW and ns.chargeRefill then
+    ns.chargeRefill(S.PURIFYING_BREW)
+    ns.chargeAdd(S.CELESTIAL_BREW); ns.chargeAdd(S.CELESTIAL_INFUSION)
+  end
+  -- Empty Barrel (Bring Me Another): any brew fills it, Keg Smash throws it (SimC sc_monk.cpp)
+  if id == S.PURIFYING_BREW or id == S.CELESTIAL_BREW or id == S.CELESTIAL_INFUSION or id == S.BLACK_OX_BREW
+      or id == S.FORTIFYING_BREW then
+    if bmKnows(S.BRING_ME_ANOTHER) then bm.barrel = now end
+  elseif id == S.KEG_SMASH then
+    bm.barrel = nil
+  end
+  if id == S.BM_BLACKOUT_KICK and bmKnows(S.BLACKOUT_COMBO) then bm.combo = now
+  elseif BM_COMBO_SPENDERS[id] then bm.combo = nil end
+end
+ns.onTick = ns.onTick or {}
+ns.onTick[268] = function(ctx)
+  bmKnows = ctx.knows
+  if not ctx.inCombat then bm.combo, bm.barrel = nil, nil end
+end
+-- A brew the game refused (not ready): our count was high; drop it so the icon moves on.
+local bmPrevFailed = ns.onCastFailed
+ns.onCastFailed = function(spec, id, ctx)
+  if spec ~= 268 then return bmPrevFailed and bmPrevFailed(spec, id, ctx) end
+  -- Purifying Brew is refused with no stagger to purify (a dummy that doesn't hit you), not only when it's
+  -- out of charges: keep the count, keep it off the icon for a few seconds.
+  if id == S.PURIFYING_BREW then
+    bm.pbBlocked = ctx and ctx.now or GetTime()
+    return "Purifying Brew refused (no stagger, or no charge): hidden for a few seconds"
+  end
+  for _, b in ipairs(BM_BREWS) do
+    if id == b and ns.chargeEmpty then
+      ns.chargeEmpty(b)
+      return "Celestial Brew not ready: charge count reset to 0"
+    end
+  end
+end
+-- Black Ox Brew is a brew too: the same casts speed it up.
+ns.cooldownSpeedup[268] = function(ctx, a, b, spell)
+  if spell ~= S.BLACK_OX_BREW then return 0 end
+  local s = 0
+  for _, e in ipairs(bm.cuts) do if e.t > a and e.t <= b then s = s + e.s end end
+  return s
+end
+
+-- Celestial Brew or Celestial Infusion (a choice node): the one you have, and its charges.
+local function bmCelestial(ctx)
+  if ctx.knows(S.CELESTIAL_INFUSION) then return S.CELESTIAL_INFUSION end
+  if ctx.knows(S.CELESTIAL_BREW) then return S.CELESTIAL_BREW end
+end
+
+-- Tiger Palm costs 50 energy and Keg Smash 40: below 65, a filler Tiger Palm leaves Keg Smash short.
+local BM_POOL_AT = 65
+ns.BM_POOL_AT = BM_POOL_AT
+
+local bmRules = {
+  {
+    key = "purify", name = "Purifying Brew", spell = S.PURIFYING_BREW,
+    desc = "Shows Purifying Brew whenever a charge is ready and you have stagger to purify (SimC's optimal list uses it on cooldown; with Pretense of Instability and Special Delivery it's damage as well as defense). If the game hides your stagger and refuses a Purifying Brew, it stays off the icon for a few seconds. The in-game highlight never suggests brews. Simmed: +3 to +6%.",
+    check = function(ctx)
+      if not ctx.inCombat or not ctx.knows(S.PURIFYING_BREW) or ctx.next == S.PURIFYING_BREW then return end
+      local st = bmStagger()
+      if st ~= nil and st <= 0 then return end
+      if bm.pbBlocked and ctx.now - bm.pbBlocked < BM_PB_RETRY then return end
+      local c = ctx.charges(S.PURIFYING_BREW)
+      if c == nil or c < 1 then return end
+      return { spell = S.PURIFYING_BREW, text = "Purifying Brew", sub = c .. " charge" .. (c == 1 and "" or "s") }
+    end,
+  },
+  {
+    key = "celestial", name = "Celestial Brew / Infusion", spell = S.CELESTIAL_BREW,
+    desc = "Shows Celestial Brew (or Celestial Infusion) when a charge is ready and no Empty Barrel is waiting (Bring Me Another: a brew fills it, your next Keg Smash throws it), as SimC's optimal list does, so they don't go back to back. The in-game highlight never suggests it. Simmed: the biggest gain, +18 to +37% with Master of Harmony; the Empty Barrel wait adds up to +1.2%.",
+    check = function(ctx)
+      local cb = bmCelestial(ctx)
+      if not ctx.inCombat or not cb or ctx.next == cb then return end
+      if bmBarrelUp(ctx) then return end
+      local c = ctx.charges(cb)
+      if c == nil or c < 1 then return end
+      return { spell = cb, text = "Celestial Brew", sub = "Ready" }
+    end,
+  },
+  {
+    key = "niuzao", name = "Invoke Niuzao ready", spell = S.INVOKE_NIUZAO,
+    desc = "Shows Invoke Niuzao, the Black Ox when it's ready. The in-game highlight never suggests it. Simmed: +2 to +4%.",
+    check = function(ctx)
+      if not ctx.inCombat or not ctx.knows(S.INVOKE_NIUZAO) or ctx.next == S.INVOKE_NIUZAO then return end
+      if not ns.cooldownReady(ctx, S.INVOKE_NIUZAO, 120) then return end
+      return { spell = S.INVOKE_NIUZAO, iconOnly = true, text = "Invoke Niuzao", sub = "Ready" }
+    end,
+  },
+  {
+    key = "blackoxbrew", name = "Black Ox Brew", spell = S.BLACK_OX_BREW,
+    desc = "Shows Black Ox Brew when it's ready and Celestial Brew / Infusion has no charge (it grants one and refills Purifying Brew). Simmed: +4 to +11%.",
+    check = function(ctx)
+      if not ctx.inCombat or not ctx.knows(S.BLACK_OX_BREW) or ctx.next == S.BLACK_OX_BREW then return end
+      local cb = bmCelestial(ctx)
+      local c = cb and ctx.charges(cb)
+      if c ~= nil and c >= 1 then return end
+      if not ns.cooldownReady(ctx, S.BLACK_OX_BREW, 120) then return end
+      return { spell = S.BLACK_OX_BREW, iconOnly = true, text = "Black Ox Brew", sub = "Ready" }
+    end,
+  },
+  {
+    key = "cellar", name = "Empty the Cellar", spell = S.EXPLODING_KEG,
+    desc = "Shows Empty the Cellar while it's on your Exploding Keg button (20 seconds after Exploding Keg). The highlight doesn't suggest it. Simmed: +1 to +3%.",
+    check = function(ctx)
+      local o = ctx.override(S.EXPLODING_KEG)
+      if not ctx.inCombat or type(o) ~= "number" or o == 0 or o == S.EXPLODING_KEG or ctx.next == o then return end
+      return { spell = o, text = "Empty the Cellar", sub = "Before it runs out" }
+    end,
+  },
+  {
+    key = "combo3", name = "Blackout Combo on 3+ targets", spell = S.TIGER_PALM,
+    desc = "Shows Tiger Palm to spend Blackout Combo on 3 or more targets (the highlight only spends it on 1-2, so on 5 targets the buff sat unused 89% of the time and Blackout Kick, which needs it gone, was cast 29 times instead of 72). Combo tracked from your casts. Simmed: +14% at 3 targets, +58% at 5.",
+    check = function(ctx)
+      if not ctx.enemies or ctx.enemies < 3 or not bmComboUp(ctx) then return end
+      local n = ctx.next
+      if n ~= S.KEG_SMASH and n ~= S.BM_CHI_BURST and n ~= S.BREATH_OF_FIRE and n ~= S.EXPLODING_KEG
+          and n ~= S.RUSHING_JADE_WIND and n ~= S.BM_SPINNING_CRANE_KICK and n ~= S.SPINNING_CRANE_KICK then return end
+      if type(ctx.power) == "number" and ctx.power < 50 then return end
+      return { spell = S.TIGER_PALM, text = "Tiger Palm", sub = "Spend Blackout Combo" }
+    end,
+  },
+}
+ns.rules[268] = ns.rules[268] or {}
+for _, rule in ipairs(bmRules) do table.insert(ns.rules[268], rule) end
+ns.trackCooldowns[268] = { S.INVOKE_NIUZAO, S.BLACK_OX_BREW }
+
+-- Debug status: pb / cb = brew charges (counted), combo = Blackout Combo up (from your casts),
+-- bob / niu = seconds until Black Ox Brew / Invoke Niuzao, cellar = what's on the Exploding Keg button.
+-- Stagger probe (owner's question): is UnitStagger readable in combat, and the level debuffs
+-- (Light 124275, Moderate 124274, Heavy 124273)? "hidden" = secret value, "?" = no API / error.
+local function bmProbe(fn, ...)
+  if type(fn) ~= "function" then return "?" end
+  local ok, v = pcall(fn, ...)
+  if not ok then return "?" end
+  if v ~= nil and issecretvalue and issecretvalue(v) then return "hidden" end
+  return v
+end
+local function bmStaggerText()
+  local amount = bmProbe(UnitStagger, "player")
+  if type(amount) == "number" then amount = ("%.0f"):format(amount) end
+  local level = "none"
+  local get = C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID
+  for _, a in ipairs({ { 124273, "heavy" }, { 124274, "moderate" }, { 124275, "light" } }) do
+    local v = bmProbe(get, a[1])
+    if v == "hidden" or v == "?" then level = v break end
+    if type(v) == "table" then level = a[2] break end
+  end
+  return ("stagger=%s level=%s"):format(tostring(amount), level)
+end
+ns.bmStaggerText = bmStaggerText
+
+-- Energy probe (owner: energy reads "hidden" for Brewmaster). Every way an addon might see energy, as
+-- the game answers it: number, y/n, "hidden" (secret), "nil", "?" (no API / error).
+local function bmShow(v)
+  if v == "hidden" or v == "?" then return v end
+  if v == nil then return "nil" end
+  if type(v) == "number" then return ("%.1f"):format(v) end
+  if type(v) == "boolean" then return v and "y" or "n" end
+  return tostring(v)
+end
+local function bmProbe2(fn, ...)
+  if type(fn) ~= "function" then return "?", "?" end
+  local ok, a, b = pcall(fn, ...)
+  if not ok then return "?", "?" end
+  local function f(v) if v ~= nil and issecretvalue and issecretvalue(v) then return "hidden" end return v end
+  return f(a), f(b)
+end
+local function bmSlot(id)
+  if not (C_ActionBar and C_ActionBar.FindSpellActionButtons) then return nil end
+  local ok, slots = pcall(C_ActionBar.FindSpellActionButtons, id)
+  if ok and type(slots) == "table" then return slots[1] end
+end
+local function bmEnergyText()
+  local up = bmProbe2(UnitPower, "player", 3)
+  local up0 = bmProbe2(UnitPower, "player")
+  local pct = bmProbe2(UnitPowerPercent, "player", 3)
+  local regenOut, regenIn = bmProbe2(GetPowerRegen)
+  local spell = C_Spell and C_Spell.IsSpellUsable
+  local ksU, ksNo = bmProbe2(spell, S.KEG_SMASH)
+  local tpU, tpNo = bmProbe2(spell, S.TIGER_PALM)
+  local bar = C_ActionBar and C_ActionBar.IsUsableAction
+  local ksSlot, tpSlot = bmSlot(S.KEG_SMASH), bmSlot(S.TIGER_PALM)
+  local kbU, kbNo, tbU, tbNo = "noslot", "noslot", "noslot", "noslot"
+  if ksSlot then kbU, kbNo = bmProbe2(bar, ksSlot) end
+  if tpSlot then tbU, tbNo = bmProbe2(bar, tpSlot) end
+  return ("energy: power=%s power0=%s pct=%s regen=%s/%s ks=%s,%s tp=%s,%s ksbar=%s,%s tpbar=%s,%s"):format(
+    bmShow(up), bmShow(up0), bmShow(pct), bmShow(regenOut), bmShow(regenIn), bmShow(ksU), bmShow(ksNo),
+    bmShow(tpU), bmShow(tpNo), bmShow(kbU), bmShow(kbNo), bmShow(tbU), bmShow(tbNo))
+end
+ns.bmEnergyText = bmEnergyText
+
+ns.debugStatus[268] = function(ctx)
+  local cb = bmCelestial(ctx)
+  return ("%s %s pb=%s cb=%s combo=%s barrel=%s bob=%.0f niu=%.0f keg=%s"):format(bmStaggerText(), bmEnergyText(), tostring(ctx.charges(S.PURIFYING_BREW)),
+    cb and tostring(ctx.charges(cb)) or "-", bmComboUp(ctx) and "y" or "n", bmBarrelUp(ctx) and "y" or "n",
+    ns.cooldownLeft(ctx, S.BLACK_OX_BREW, 120), ns.cooldownLeft(ctx, S.INVOKE_NIUZAO, 120),
+    tostring(ctx.override(S.EXPLODING_KEG)))
+end
+
+---------------------------------------------------------------------------
 -- Devastation Evoker (spec 1467)
 -- From the game's highlight rules (assisted_combat.inc) vs SimC's optimal list (docs/FINDINGS.md):
 --   * essence waste 24% vs 8-12% optimal: the highlight keeps generating at max essence;
@@ -1618,6 +1912,12 @@ ns.chargeTrack = {
     return (12 - (knows(S.NOZDORMU_ADEPT) and 2 or 0)) * (knows(S.INTERWOVEN_THREADS) and 0.9 or 1)
   end } },
   [250] = { [S.BLOOD_BOIL] = { max = 2, recharge = 7.5 } }, -- game data: 2 charges, 7.5s, not hasted
+  -- Brewmaster brews: the game's own recharge once read out of combat (haste, Light Brewing); else game data
+  [268] = {
+    [S.PURIFYING_BREW] = { max = 2, useGameRecharge = true, recharge = function(knows) return 20 * (knows(S.LIGHT_BREWING) and 0.8 or 1) end },
+    [S.CELESTIAL_BREW] = { max = 1, useGameRecharge = true, recharge = function(knows) return 90 * (knows(S.LIGHT_BREWING) and 0.8 or 1) end },
+    [S.CELESTIAL_INFUSION] = { max = 1, useGameRecharge = true, recharge = function(knows) return 90 * (knows(S.LIGHT_BREWING) and 0.8 or 1) end },
+  },
   -- Windwalker Zenith: 2 charges, 90s; Spiritual Focus -20s, Efficient Training (Shado-Pan) -10s (game data, category 1592)
   [269] = { [S.ZENITH] = { max = 2, recharge = function(knows)
     return 90 - (knows(S.SPIRITUAL_FOCUS) and 20 or 0) - (knows(S.EFFICIENT_TRAINING) and 10 or 0)
@@ -1640,12 +1940,14 @@ ns.specInfo = {
   { id = 252, class = "DEATHKNIGHT", className = "Death Knight", name = "Unholy" },
   { id = 1467, class = "EVOKER", className = "Evoker", name = "Devastation" },
   { id = 1473, class = "EVOKER", className = "Evoker", name = "Augmentation" },
+  { id = 268, class = "MONK", className = "Monk", name = "Brewmaster" },
   { id = 269, class = "MONK", className = "Monk", name = "Windwalker" },
   { id = 270, class = "MONK", className = "Monk", name = "Mistweaver" },
 }
 
 -- Resource read into ctx.power, if not runic power (Enum.PowerType: Essence = 19).
 ns.powerType = {
+  [268] = 3,   -- energy
   [269] = 12,  -- chi
   [270] = 0,   -- mana
   [1467] = 19,
@@ -1660,6 +1962,8 @@ ns.specOptions = {
               desc = "When the highlight asks for Death Strike, show Blood Boil or Heart Strike instead (gold border) unless you're within 20 runic power of max or at 50% health or lower (then Death Strike, red border at low health). Keeps runic power banked for several Death Strikes after a big hit. The game decides from your hidden runic power and health." },
             { key = "empowerRank", name = "Empower rank on the icon", spell = S.CONSUMPTION,
               desc = "A 1 on Consumption: SimC's optimal list always holds it to rank 1. Shared with the Evokers' setting." } },
+  [268] = { { key = "bmSaveEnergy", name = "Save energy for Keg Smash", spell = S.KEG_SMASH,
+              desc = "When the highlight asks for a filler Tiger Palm below 65 energy, Keg Smash covers it: wait, so Keg Smash (40) isn't left short. The game draws it from your energy, which addons can't read. Not over the Tiger Palm that spends Blackout Combo. Simmed: +1 to +2%." } },
   [251] = { { key = "cooldownReminder", name = "Trinket, potion and racial reminder", spell = S.PILLAR_OF_FROST,
               desc = "Text under the icon for 4 seconds after Pillar of Frost." } },
   [1467] = { { key = "empowerRank", name = "Empower rank on the icon", spell = S.FIRE_BREATH,
@@ -1674,6 +1978,7 @@ ns.specOptions = {
 
 -- Melee spell used for "is my target in melee range?"
 ns.meleeSpell = {
+  [268] = S.TIGER_PALM,
   [269] = S.TIGER_PALM,
   [270] = 100780, -- Tiger Palm (Mistweaver)
   [250] = S.HEART_STRIKE,
@@ -1693,6 +1998,7 @@ ns.countRangeSpell = {
 -- Kick's radius (owner's log: 4 dummies, Tiger Palm's 5 yd counted 2 while the highlight's own 4+ target
 -- Spinning Crane Kick rule fired).
 ns.countMeleeSpell = {
+  [268] = S.KEG_SMASH, -- 15 yd (Brewmaster has no 8 yd spell); Keg Smash and Breath of Fire reach that far
   [269] = S.FISTS_OF_FURY,
 }
 
@@ -1734,6 +2040,16 @@ ns.powerIcon = {
 -- Blood: keeps runic power banked for several Death Strikes after a big hit (owner's request).
 -- Simmed with all Blood rules: -0.4% to +0.6% damage (docs/FINDINGS.md), so it's an option, off by default.
 ns.holdSpender = {
+  -- Brewmaster: energy is hidden from addons (owner's logs), so "save energy for Keg Smash" is a layer the game
+  -- draws: when the highlight asks for a filler Tiger Palm (not the one spending Blackout Combo), Keg Smash
+  -- covers it below 65 energy (Tiger Palm 50 + Keg Smash 40). Simmed: +1.2 / +2.3% at 1 / 3 targets.
+  [268] = {
+    option = "bmSaveEnergy",
+    spell = S.TIGER_PALM,
+    when = function(ctx) return not ns.bmComboUp(ctx) end,
+    at = function() return ns.BM_POOL_AT end,
+    instead = function() return S.KEG_SMASH end,
+  },
   [250] = {
     option = "holdDeathStrike",
     spell = S.DEATH_STRIKE,

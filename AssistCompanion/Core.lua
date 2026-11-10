@@ -27,6 +27,7 @@ local DEFAULTS = {
   tipMacro = false,        -- Augmentation: the player uses a /cancelaura Tip the Scales macro
   empowerRank = true,      -- empower rank badge on Fire Breath / Upheaval (Rules.lua: ns.empowerRank)
   holdDeathStrike = false, -- Blood: hold runic power for Death Strike (Rules.lua: ns.holdSpender)
+  bmSaveEnergy = true,      -- Brewmaster: save energy for Keg Smash (Rules.lua: ns.holdSpender[268])
   healthIcon = true,       -- Blood: Death Strike icon that fades in as your health drops
   healthFull = 35,         -- health % at or below which it's fully visible
   healthNone = 50,         -- health % at or above which it's invisible
@@ -394,8 +395,11 @@ end
 ---------------------------------------------------------------------------
 local chargeState = {} -- id -> { charges, max, nextAt }
 
--- recharge can be a number or a function of knows() (talents that change it)
-local function rechargeOf(t)
+-- recharge can be a number or a function of knows() (talents that change it); the game's own
+-- recharge time (read out of combat, haste and talents included) wins when the spec asks for it
+-- (useGameRecharge, e.g. Brewmaster's brews).
+local function rechargeOf(t, st)
+  if t.useGameRecharge and st and st.duration then return st.duration end
   if type(t.recharge) == "function" then return t.recharge(knows) end
   return t.recharge
 end
@@ -422,6 +426,7 @@ local function syncCharges()
         local cst, cdu = readable(info.cooldownStartTime), readable(info.cooldownDuration)
         if type(cur) == "number" and type(maxc) == "number" then
           st.charges, st.max = cur, maxc
+          if type(cdu) == "number" and cdu > 1.5 then st.duration = cdu end
           st.nextAt = (cur < maxc and type(cst) == "number" and type(cdu) == "number") and (cst + cdu) or nil
         end
       end
@@ -429,15 +434,41 @@ local function syncCharges()
     -- Otherwise advance our own count.
     while st.charges < st.max and st.nextAt and now >= st.nextAt do
       st.charges = st.charges + 1
-      st.nextAt = (st.charges < st.max) and (st.nextAt + rechargeOf(t)) or nil
+      st.nextAt = (st.charges < st.max) and (st.nextAt + rechargeOf(t, st)) or nil
     end
   end
+end
+
+-- For rules (Rules.lua): another cast took `secs` off a tracked charge's recharge (Brewmaster: Tiger
+-- Palm and Keg Smash speed up the brews), or refilled it (Black Ox Brew).
+ns.chargeShift = function(id, secs)
+  local st = chargeInfo(id)
+  if st and st.nextAt then st.nextAt = st.nextAt - secs end
+end
+ns.chargeRefill = function(id)
+  local st = chargeInfo(id)
+  if st then st.charges, st.nextAt = st.max, nil end
+end
+-- One charge more (Black Ox Brew grants a single Celestial Brew charge), up to the max.
+ns.chargeAdd = function(id)
+  local st = chargeInfo(id)
+  if not st then return end
+  st.charges = math.min(st.max, st.charges + 1)
+  if st.charges >= st.max then st.nextAt = nil end
+end
+-- The game refused the spell (not ready): our count was too high. None now; the next one comes when
+-- we expected it, or after `retry` seconds if that time had already passed.
+ns.chargeEmpty = function(id, retry)
+  local st = chargeInfo(id)
+  if not st then return end
+  st.charges = 0
+  if not st.nextAt or st.nextAt <= GetTime() then st.nextAt = GetTime() + (retry or 10) end
 end
 
 local function spendCharge(id)
   local st, t = chargeInfo(id)
   if not st then return end
-  if st.charges >= st.max or not st.nextAt then st.nextAt = GetTime() + rechargeOf(t) end
+  if st.charges >= st.max or not st.nextAt then st.nextAt = GetTime() + rechargeOf(t, st) end
   st.charges = math.max(0, st.charges - 1)
 end
 
@@ -1347,6 +1378,10 @@ local function updateHold(c, mode)
   if not cfg or not db[cfg.option] then return hideHold("off") end
   if not inCombat or not nf:IsShown() or not db.locked then return hideHold("off") end
   if mode ~= "highlight" or c.next ~= cfg.spell then return hideHold("waiting") end
+  if cfg.when then
+    local okW, w = pcall(cfg.when, c)
+    if not okW or not w then return hideHold("waiting") end
+  end
   local okI, instead = pcall(cfg.instead, c)
   if not okI or not instead then return hideHold("nothing else") end
   local okAt, at = pcall(cfg.at, c)
@@ -1354,11 +1389,16 @@ local function updateHold(c, mode)
   if not okAt or type(at) ~= "number" or max <= 0 then return hideHold("off") end
   local key = string.format("%.3f", at / max)
   if holdCurveFor ~= key then holdCurve, holdCurveFor = buildBelowCurve(at / max), key end
-  local lowKey = tostring(cfg.health)
-  if lowCurveFor ~= lowKey then lowCurve, lowCurveFor = buildHealthCurve(cfg.health, cfg.health + 1), lowKey end
-  if not holdCurve or not lowCurve or not UnitPowerPercent or not UnitHealthPercent then return hideHold("no api") end
+  -- The low-health layer (the spender on top at low health) only when the spec gives a threshold.
+  local useLow = cfg.health ~= nil
+  if useLow then
+    local lowKey = tostring(cfg.health)
+    if lowCurveFor ~= lowKey then lowCurve, lowCurveFor = buildHealthCurve(cfg.health, cfg.health + 1), lowKey end
+  end
+  if not holdCurve or (useLow and (not lowCurve or not UnitHealthPercent)) or not UnitPowerPercent then return hideHold("no api") end
   local ok1, a1 = pcall(UnitPowerPercent, "player", powerType(), false, holdCurve)
-  local ok2, a2 = pcall(UnitHealthPercent, "player", true, lowCurve)
+  local ok2, a2 = true, 0
+  if useLow then ok2, a2 = pcall(UnitHealthPercent, "player", true, lowCurve) end
   if not ok1 or a1 == nil or not ok2 or a2 == nil then return hideHold("error") end
   holdLayer.icon:SetTexture(spellIcon(instead))
   holdLayer.key:SetText(keybindFor(instead) or "")
@@ -1498,8 +1538,8 @@ local function tick()
         extra = extra .. " short=" .. shortState
         if ns.powerIcon and specID and ns.powerIcon[specID] then
           extra = extra .. " rpicon=" .. powerIconState .. (powerTest and "(test)" or "")
-          if ns.holdSpender and ns.holdSpender[specID] then extra = extra .. " hold=" .. holdState end
         end
+        if ns.holdSpender and ns.holdSpender[specID] then extra = extra .. " hold=" .. holdState end
         dlog("status: highlight=%s rp=%s/%s%s runes=%s enemies=%s (%s) melee=%s opener=%s%s%s%s",
           ctx.next and (spellName(ctx.next) .. " " .. ctx.next) or "none",
           rpText, tostring(ctx.powerMax), powerMaxCache and "" or "(fb)",
