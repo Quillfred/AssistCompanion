@@ -1581,6 +1581,7 @@ end
 
 -- Tiger Palm costs 50 energy and Keg Smash 40: below 65, a filler Tiger Palm leaves Keg Smash short.
 local BM_POOL_AT = 65
+ns.BM_POOL_AT = BM_POOL_AT
 
 local bmRules = {
   {
@@ -1648,16 +1649,6 @@ local bmRules = {
           and n ~= S.RUSHING_JADE_WIND and n ~= S.BM_SPINNING_CRANE_KICK and n ~= S.SPINNING_CRANE_KICK then return end
       if type(ctx.power) == "number" and ctx.power < 50 then return end
       return { spell = S.TIGER_PALM, text = "Tiger Palm", sub = "Spend Blackout Combo" }
-    end,
-  },
-  {
-    key = "pool", name = "Save energy for Keg Smash", spell = S.KEG_SMASH,
-    desc = "When the highlight asks for a filler Tiger Palm or Spinning Crane Kick below 65 energy, the icon tints red: wait, so Keg Smash (40) isn't left short. The highlight spends energy as soon as it has it and cast Keg Smash 11 times instead of 58. Not for the Tiger Palm that spends Blackout Combo. Simmed: +1.5 to +2.5%.",
-    check = function(ctx)
-      local n = ctx.next
-      local filler = (n == S.TIGER_PALM and not bmComboUp(ctx)) or n == S.BM_SPINNING_CRANE_KICK or n == S.SPINNING_CRANE_KICK
-      if not ctx.inCombat or not filler or type(ctx.power) ~= "number" or ctx.power >= BM_POOL_AT then return end
-      return { spell = n, wait = true, text = "Wait for energy", sub = ("%d/%d: Keg Smash next"):format(ctx.power, BM_POOL_AT) }
     end,
   },
 }
@@ -1967,6 +1958,8 @@ ns.specOptions = {
               desc = "When the highlight asks for Death Strike, show Blood Boil or Heart Strike instead (gold border) unless you're within 20 runic power of max or at 50% health or lower (then Death Strike, red border at low health). Keeps runic power banked for several Death Strikes after a big hit. The game decides from your hidden runic power and health." },
             { key = "empowerRank", name = "Empower rank on the icon", spell = S.CONSUMPTION,
               desc = "A 1 on Consumption: SimC's optimal list always holds it to rank 1. Shared with the Evokers' setting." } },
+  [268] = { { key = "bmSaveEnergy", name = "Save energy for Keg Smash", spell = S.KEG_SMASH,
+              desc = "When the highlight asks for a filler Tiger Palm below 65 energy, Keg Smash covers it: wait, so Keg Smash (40) isn't left short. The game draws it from your energy, which addons can't read. Not over the Tiger Palm that spends Blackout Combo. Simmed: +1 to +2%." } },
   [251] = { { key = "cooldownReminder", name = "Trinket, potion and racial reminder", spell = S.PILLAR_OF_FROST,
               desc = "Text under the icon for 4 seconds after Pillar of Frost." } },
   [1467] = { { key = "empowerRank", name = "Empower rank on the icon", spell = S.FIRE_BREATH,
@@ -2043,6 +2036,16 @@ ns.powerIcon = {
 -- Blood: keeps runic power banked for several Death Strikes after a big hit (owner's request).
 -- Simmed with all Blood rules: -0.4% to +0.6% damage (docs/FINDINGS.md), so it's an option, off by default.
 ns.holdSpender = {
+  -- Brewmaster: energy is hidden from addons (owner's logs), so "save energy for Keg Smash" is a layer the game
+  -- draws: when the highlight asks for a filler Tiger Palm (not the one spending Blackout Combo), Keg Smash
+  -- covers it below 65 energy (Tiger Palm 50 + Keg Smash 40). Simmed: +1.2 / +2.3% at 1 / 3 targets.
+  [268] = {
+    option = "bmSaveEnergy",
+    spell = S.TIGER_PALM,
+    when = function(ctx) return not ns.bmComboUp(ctx) end,
+    at = function() return ns.BM_POOL_AT end,
+    instead = function() return S.KEG_SMASH end,
+  },
   [250] = {
     option = "holdDeathStrike",
     spell = S.DEATH_STRIKE,

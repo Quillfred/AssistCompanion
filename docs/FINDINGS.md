@@ -88,6 +88,14 @@ Owner: Celestial Infusion came back to back. Simmed (all rules, % vs optimal 1/3
 not while Empty Barrel is up (SimC's condition) -2.8 / -1.5 / -4.9; only near 2 charges -2.2 / -1.6 / -5.0. 0.27.4
 waits for the barrel (Bring Me Another: brews fill it, Keg Smash throws it; 12 s, 1265307).
 
+**Energy probe (owner's 0.27.5 log, 82 s, 4 tanking dummies):** `UnitPower(player, 3)`, `UnitPower(player)` and
+`UnitPowerPercent(player, 3)` are hidden in and out of combat; `GetPowerRegen` reads 12.7/12.7 out of combat, hidden in
+combat; `C_Spell.IsSpellUsable` and `C_ActionBar.IsUsableAction` for Keg Smash / Tiger Palm read `y,n` all fight
+(readable, but never short in the log, and they can only say "40+", not "65+"). Counting energy from casts isn't reliable
+(Keg Smash and Tiger Palm refund energy with the talents, per SimC). 0.27.6: the energy rule became a hold layer
+(`ns.holdSpender[268]`: Keg Smash over a filler Tiger Palm below 65 energy, alpha from a `UnitPowerPercent` curve),
+option `bmSaveEnergy`.
+
 ## Windwalker audit (0.26.0, Nov 9 2026)
 
 **Highlight rules** (game data, `assisted_combat.inc` steps for 269; SimC `assisted_combat/monk_windwalker.simc`): Touch of

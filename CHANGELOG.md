@@ -1,5 +1,10 @@
 # Assist Companion
 
+## 0.27.6
+
+* **Brewmaster "save energy for Keg Smash" works now.** Energy is hidden from addons (owner's log: the amount and its percent are hidden in combat and even out of combat; regeneration is readable only out of combat; Keg Smash / Tiger Palm read usable all fight). So it's now a layer the game draws itself, like the Death Knights' runic power icon: when the highlight asks for a filler Tiger Palm below 65 energy, Keg Smash covers it (wait). At 65+ Tiger Palm shows through. Never over the Tiger Palm that spends Blackout Combo. Option "Save energy for Keg Smash" under Brewmaster, on by default. The old rule (which needed readable energy and never fired) is gone.
+* Debug log: `hold=` for Brewmaster (`on:Keg Smash` while the layer is up, `waiting` otherwise).
+
 ## 0.27.5
 
 * Brewmaster debug log: an `energy:` check on every status line, trying each way an addon might see energy (`power` / `power0` UnitPower, `pct` UnitPowerPercent, `regen` GetPowerRegen, `ks` / `tp` C_Spell.IsSpellUsable for Keg Smash and Tiger Palm, `ksbar` / `tpbar` the same through your action buttons). Each reads a number, y/n, `hidden`, `nil` or `?`. To find a way to make the "wait for energy" rule work.
