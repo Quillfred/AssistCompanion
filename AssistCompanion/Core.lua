@@ -394,8 +394,11 @@ end
 ---------------------------------------------------------------------------
 local chargeState = {} -- id -> { charges, max, nextAt }
 
--- recharge can be a number or a function of knows() (talents that change it)
-local function rechargeOf(t)
+-- recharge can be a number or a function of knows() (talents that change it); the game's own
+-- recharge time (read out of combat, haste and talents included) wins when the spec asks for it
+-- (useGameRecharge, e.g. Brewmaster's brews).
+local function rechargeOf(t, st)
+  if t.useGameRecharge and st and st.duration then return st.duration end
   if type(t.recharge) == "function" then return t.recharge(knows) end
   return t.recharge
 end
@@ -422,6 +425,7 @@ local function syncCharges()
         local cst, cdu = readable(info.cooldownStartTime), readable(info.cooldownDuration)
         if type(cur) == "number" and type(maxc) == "number" then
           st.charges, st.max = cur, maxc
+          if type(cdu) == "number" and cdu > 1.5 then st.duration = cdu end
           st.nextAt = (cur < maxc and type(cst) == "number" and type(cdu) == "number") and (cst + cdu) or nil
         end
       end
@@ -429,15 +433,26 @@ local function syncCharges()
     -- Otherwise advance our own count.
     while st.charges < st.max and st.nextAt and now >= st.nextAt do
       st.charges = st.charges + 1
-      st.nextAt = (st.charges < st.max) and (st.nextAt + rechargeOf(t)) or nil
+      st.nextAt = (st.charges < st.max) and (st.nextAt + rechargeOf(t, st)) or nil
     end
   end
+end
+
+-- For rules (Rules.lua): another cast took `secs` off a tracked charge's recharge (Brewmaster: Tiger
+-- Palm and Keg Smash speed up the brews), or refilled it (Black Ox Brew).
+ns.chargeShift = function(id, secs)
+  local st = chargeInfo(id)
+  if st and st.nextAt then st.nextAt = st.nextAt - secs end
+end
+ns.chargeRefill = function(id)
+  local st = chargeInfo(id)
+  if st then st.charges, st.nextAt = st.max, nil end
 end
 
 local function spendCharge(id)
   local st, t = chargeInfo(id)
   if not st then return end
-  if st.charges >= st.max or not st.nextAt then st.nextAt = GetTime() + rechargeOf(t) end
+  if st.charges >= st.max or not st.nextAt then st.nextAt = GetTime() + rechargeOf(t, st) end
   st.charges = math.max(0, st.charges - 1)
 end
 

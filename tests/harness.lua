@@ -2182,6 +2182,71 @@ do
   combat(false); state.rp = 10; state.rpmax = nil; state.plates = 1; step()
 end
 
+-- BREWMASTER -----------------------------------------------------------------
+do
+  local KS, BOK, TP, BOF, EK, ETC, PB, CI, BOB, NIU = 121253, 205523, 100780, 115181, 325153, 1262768, 119582, 1241059, 115399, 132578
+  local BOC, FP = 196736, 389942
+  C_Spell.GetSpellCharges, C_Spell.GetSpellCooldown = nil, nil -- hidden: everything from casts
+  issecretvalue = nil; UnitPowerPercent = nil
+  state.spec = 268; state.overrides = {}; state.target = nil; state.inRange = true; state.usable = {}; state.noPower = {}
+  state.known = { [KS]=true, [BOK]=true, [TP]=true, [BOF]=true, [EK]=true, [PB]=true, [CI]=true, [BOB]=true, [NIU]=true,
+                  [BOC]=true, [FP]=true }
+  state.rp = 100; state.rpmax = 100; state.plates = 1
+  events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+  events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 500
+  local function rules() local t = {} for _, r in ipairs(ns.rules[268]) do t[#t + 1] = r.key end return table.concat(t, ",") end
+  expect("Brewmaster: rule order", "purify,celestial,niuzao,blackoxbrew,cellar,combo3,pool", rules())
+  expect("Brewmaster: listed in the options", true, (function()
+    for _, sp in ipairs(ns.specInfo) do if sp.id == 268 then return true end end return false end)())
+  state.next = KS; step()
+  expect("Brewmaster: out of combat -> highlight", "icon:121253", nf.icon.texture)
+  combat(true); step()
+  expect("Brewmaster: in combat, Purifying Brew charges -> Purifying Brew", "icon:119582", nf.icon.texture)
+  cast(PB); step()
+  expect("Brewmaster: one charge left -> still Purifying Brew", "icon:119582", nf.icon.texture)
+  cast(PB); step()
+  expect("Brewmaster: no charges -> Celestial Infusion", "icon:1241059", nf.icon.texture)
+  cast(CI); step()
+  expect("Brewmaster: -> Invoke Niuzao", "icon:132578", nf.icon.texture)
+  cast(NIU); step()
+  expect("Brewmaster: Celestial Infusion spent -> Black Ox Brew", "icon:115399", nf.icon.texture)
+  cast(BOB); step()
+  expect("Brewmaster: Black Ox Brew refills Purifying Brew", "icon:119582", nf.icon.texture)
+  cast(PB); cast(PB); step()
+  expect("Brewmaster: Black Ox Brew granted Celestial Infusion", "icon:1241059", nf.icon.texture)
+  cast(CI); step()
+  expect("Brewmaster: everything spent -> highlight", "icon:121253", nf.icon.texture)
+  -- brew recharge sped up by Tiger Palm (1.5s with Face Palm) and Keg Smash (3s, 5s with Blackout Combo)
+  now = now + 10; step()
+  expect("Brewmaster: 10s after Purifying Brew -> not back (20s)", "icon:121253", nf.icon.texture)
+  cast(KS); cast(BOK); cast(KS); step()   -- 3 + 5 = 8s off
+  expect("Brewmaster: Keg Smashes took 8s off -> still 2s left", "icon:121253", nf.icon.texture)
+  cast(TP); cast(TP); step()             -- 3s off
+  expect("Brewmaster: Tiger Palms -> Purifying Brew back early", "icon:119582", nf.icon.texture)
+  ns.setRuleEnabled(268, "purify", false); ns.setRuleEnabled(268, "celestial", false)
+  -- Empty the Cellar: on the Exploding Keg button
+  state.overrides = { [EK] = ETC }; step()
+  expect("Brewmaster: Empty the Cellar on the Exploding Keg button -> shown", "icon:1262768", nf.icon.texture)
+  state.overrides = {}; step()
+  -- Blackout Combo on 3+ targets
+  state.plates = 3; cast(BOK); state.next = KS; step()
+  expect("Brewmaster: 3 targets, Blackout Combo up, highlight Keg Smash -> Tiger Palm", "icon:100780", nf.icon.texture)
+  state.plates = 2; step()
+  expect("Brewmaster: 2 targets -> the highlight handles it", "icon:121253", nf.icon.texture)
+  state.plates = 3; cast(TP); step()
+  expect("Brewmaster: combo spent -> Keg Smash", "icon:121253", nf.icon.texture)
+  -- save energy for Keg Smash
+  state.plates = 1; state.next = TP; state.rp = 40; step()
+  expect("Brewmaster: filler Tiger Palm at 40 energy -> keep the icon...", "icon:100780", nf.icon.texture)
+  expect("Brewmaster: ...but wait (desaturated)", true, nf.icon.desat)
+  state.rp = 70; step()
+  expect("Brewmaster: 70 energy -> Tiger Palm, no wait", false, nf.icon.desat)
+  state.rp = 40; cast(BOK); step()
+  expect("Brewmaster: Tiger Palm spending Blackout Combo -> no wait", false, nf.icon.desat)
+  ns.setRuleEnabled(268, "purify", true); ns.setRuleEnabled(268, "celestial", true)
+  combat(false); state.rp = 10; state.rpmax = nil; state.plates = 1; step()
+end
+
 io.stdout:write(table.concat(printed, "\n"), "\n")
 io.stdout:write(("\n%d passed, %d failed\n"):format(pass, fail))
 os.exit(fail == 0 and 0 or 1)

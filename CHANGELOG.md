@@ -1,5 +1,22 @@
 # Assist Companion
 
+## 0.27.0
+
+**Brewmaster Monk (first test build).** The game's highlight never uses a brew or Invoke Niuzao, spends energy before Keg Smash can come back, and only spends Blackout Combo on 1–2 targets. In the sims it's 32–64% behind SimC's optimal rotation; with these rules, 2–6% (Master of Harmony, `tools/brewmaster_rules_sim.py`). Every rule helps with the others on.
+
+* **Celestial Brew / Celestial Infusion** when a charge is ready: +18 to +36% (Master of Harmony turns it into damage).
+* **Purifying Brew** whenever a charge is ready: +3 to +6%.
+* **Black Ox Brew** when Celestial Brew is out of charges: +4 to +11%.
+* **Invoke Niuzao** when ready: +2 to +4%.
+* **Empty the Cellar** while it's on your Exploding Keg button: +1 to +3%.
+* **Blackout Combo on 3+ targets:** Tiger Palm to spend it (the highlight only does on 1–2): +14% at 3 targets, +58% at 5.
+* **Save energy for Keg Smash:** below 65 energy a filler Tiger Palm or Spinning Crane Kick shows grayed out (wait): +1.5 to +2.5%.
+* Brew charges are counted from your casts, including Tiger Palm (-1s, -1.5s with Face Palm) and Keg Smash (-3s, -5s with Blackout Combo) speeding them up. Dodges also speed them up and can't be seen, so a brew can show a little late, never early.
+* **Opener** (SimC, Master of Harmony): Blackout Kick, Fortifying Brew, Chi Burst, Invoke Niuzao, Tiger Palm, Breath of Fire.
+* Debug log: `pb=` `cb=` (brew charges), `combo=`, `bob=` / `niu=` (seconds until ready), `keg=` (what's on the Exploding Keg button).
+* Recommended build: Master of Harmony (the rankings page's "Best for optimal rotation" build). With these rules it's 7–33% ahead of the page's Shado-Pan "Best for highlight" build.
+* Core: charge counts can take the game's own recharge time (read out of combat) and be sped up or refilled by other casts.
+
 ## 0.26.3
 
 * **Windwalker, 4+ targets: Spinning Crane Kick replaces Rising Sun Kick only at 4+ chi**, so 2 chi stay for Fists of Fury (3 chi). Owner's log: at any chi it looped Tiger Palm / Spinning Crane Kick at 0–2 chi and Fists of Fury went 45 seconds uncast. Simmed: +4% Shado-Pan, +1 to +2% Conduit of the Celestials with season 1 gear (-3% for Conduit only in top raid gear).

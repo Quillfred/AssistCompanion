@@ -37,6 +37,39 @@ All numbers come from SimulationCraft (`midnight` branch, commit `36e21fe`, game
 
 Health is secret in combat, but `UnitHealthPercent(unit, usePredicted, curve)` evaluates a curve on it, and `Texture:SetAlpha` accepts secret values from addon code, so the low-health icon's alpha is set by the game. Max runic power for Blood is 125 with Ossuary (219786 grants +10), 115 without; `UnitPowerMax` can return a hidden value even out of combat. The highlight's data stores Heart Strike as Rune Strike (316239), which Heart Strike replaces. Blood Boil has 2 charges and a fixed 7.5s recharge (not hasted), so the addon counts charges from your casts. The highlight's Death Strike rules are "≤50% health" or "≥80 runic power"; it casts Blood Boil only to apply Blood Plague, and refreshes Bone Shield on stack count only.
 
+## Brewmaster audit (0.27.0, Nov 10 2026)
+
+**Highlight rules** (game data, steps for 268; SimC `assisted_combat/monk_brewmaster.simc`): Touch of Death, Blackout
+Kick (combo down), Tiger Palm (combo up, no Press the Advantage, <=2 targets), Keg Smash at 2 charges, Chi Burst,
+Breath of Fire, Keg Smash, Exploding Keg, Rushing Jade Wind, Spinning Crane Kick (>3 targets), Tiger Palm, Keg Smash.
+No brew, no Invoke Niuzao (SimC's highlight sims add Niuzao from its own cooldown list).
+
+**Where it loses** (MID2 Master of Harmony profile, 500 iterations): Keg Smash 11 casts vs 58 (Tiger Palm, 50 energy,
+spends the energy Keg Smash, 40, needs as it comes back); Blackout Combo 89% up at 5 targets (only spent on <=2), so
+Blackout Kick 29 vs 72; no Purifying Brew (43 casts optimal), Celestial Infusion (12), Black Ox Brew (5), Niuzao (3).
+With Master of Harmony the brews are damage (Aspect of Harmony 138 hits vs 11, Special Delivery 63 vs 0).
+
+**Talents / timings** (game data): Purifying Brew 2 charges 20s, Celestial Brew / Infusion 1 charge 90s (+1 Endless
+Draught), Light Brewing -20% (category 1562); Black Ox Brew 120s (refills Purifying Brew, one Celestial charge);
+Niuzao 120s. Brews sped up by Tiger Palm 1s (+0.5 Face Palm), Keg Smash 3s (+2 with Blackout Combo), Empty the Cellar
+3s per keg, Anvil & Stave on dodges, Press the Advantage (SimC brews_t::adjust). Empty the Cellar overrides the
+Exploding Keg button for 20s after it.
+
+**Rules sim** (`tools/brewmaster_rules_sim.py`, % vs optimal 1/3/5 targets):
+
+| Build | hl_game | addon (shipped) |
+|---|---|---|
+| Master of Harmony (page: best for optimal rotation) | -32 / -38 / -64 | **-3 / -2 / -6** |
+| Shado-Pan (page: best for highlight) | -22 / -27 / -45 | +4 / 0 / -12 (vs its own optimal) |
+
+Absolute with the addon, Master of Harmony is +7 / +20 / +33% over Shado-Pan, so it's the recommended build.
+Each rule with all the others on (Master of Harmony, 1/3/5): Celestial +17/+19/+36%, Blackout Combo on 3+
+0/+14/+59%, Black Ox Brew +4/+5/+11%, Purifying +4/+4/+6%, Empty the Cellar +2/+1/+3%, Niuzao +2/+2/+2%, energy
+for Keg Smash at 65 +1.2/+2.3/-0.3% (90, or "90 or Keg Smash 3s+ away": no better).
+
+**Opener** (SimC MID2, seeds 1-3 identical): Blackout Kick, Fortifying Brew, Chi Burst, Invoke Niuzao, Tiger Palm,
+Breath of Fire.
+
 ## Windwalker audit (0.26.0, Nov 9 2026)
 
 **Highlight rules** (game data, `assisted_combat.inc` steps for 269; SimC `assisted_combat/monk_windwalker.simc`): Touch of
