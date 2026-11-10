@@ -87,6 +87,20 @@ emptied chi: likely Tigereye Brew stacks), so the glow is not a ready signal; ig
 `np=4 inrange=2` with Tiger Palm's 5 yd, while the highlight's own ">3 targets" Spinning Crane Kick fired; 0.26.2 counts
 within Fists of Fury's 8 yd (`ns.countMeleeSpell`).
 
+**Owner's third log (0.26.2, Conduit, 3-4 dummies):** `enemies=3`/`4` with `np=4` (Fists of Fury range works); `sck3`
+and `sckaoe` fired. But at 4 targets the rotation looped Tiger Palm -> Spinning Crane Kick at 0-2 chi and Fists of Fury
+(3 chi; its cooldown is mostly reset by Spinning Crane Kicks via Xuen's Battlegear, 8-10s apart earlier in the log)
+went 45s uncast. Sims of a chi floor for the 4+ rule (% DPS vs the rule at any chi, 4T / 5T):
+
+| | MID2 gear | MID1 (season 1) gear |
+|---|---|---|
+| Shado-Pan, 4+ chi | +4.2 / +4.2 | +4.3 / +4.4 |
+| Conduit, 4+ chi | -2.5 / -3.2 | +2.3 / +1.1 |
+| Conduit, 5+ chi | -4.5 / -5.5 | +2.0 / +1.0 |
+| Tiger Palm to 3 chi when Fists of Fury is ready (true cooldown, an upper bound; not observable in game) | +1.1 / +1.3 | +0.5 / +1.2 |
+
+Shipped: 4+ chi for both hero trees (0.26.3).
+
 **To confirm in game:** whether the Dance of Chi-Ji glow events fire with a readable spell ID (`glow on: Spinning Crane
 Kick` lines, `glow=y`); Zenith charges (`zen=`); whether Celestial Conduit replaces the Xuen button (then the keybind may
 show Xuen's); that the highlight really never shows Zenith / Conduit / Xuen.

@@ -1,5 +1,10 @@
 # Assist Companion
 
+## 0.26.3
+
+* **Windwalker, 4+ targets: Spinning Crane Kick replaces Rising Sun Kick only at 4+ chi**, so 2 chi stay for Fists of Fury (3 chi). Owner's log: at any chi it looped Tiger Palm / Spinning Crane Kick at 0–2 chi and Fists of Fury went 45 seconds uncast. Simmed: +4% Shado-Pan, +1 to +2% Conduit of the Celestials with season 1 gear (-3% for Conduit only in top raid gear).
+* Confirmed in game: the enemy count now reads 3–4 on the dummies (Fists of Fury range), and the 3-target and 4+ Spinning Crane Kick rules fire.
+
 ## 0.26.2
 
 * **Windwalker enemy count reaches 8 yards** (Fists of Fury's range, the same as Spinning Crane Kick's radius) instead of Tiger Palm's melee range. Owner's log: on 4 dummies it counted 2 while the game's own highlight saw 4+, so the 3-target and 4+ Spinning Crane Kick rules never fired.

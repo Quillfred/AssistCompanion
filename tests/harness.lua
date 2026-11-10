@@ -2141,7 +2141,9 @@ do
   expect("Windwalker: 2 targets -> Tiger Palm stays", "icon:100780", nf.icon.texture)
   -- 4+ targets: Spinning Crane Kick over Rising Sun Kick
   state.plates = 5; state.next = RSK; step()
-  expect("Windwalker: 5 targets + Rising Sun Kick -> Spinning Crane Kick", "icon:101546", nf.icon.texture)
+  expect("Windwalker: 5 targets + Rising Sun Kick at 3 chi -> Rising Sun Kick (keep chi for Fists of Fury)", "icon:107428", nf.icon.texture)
+  state.rp = 4; step()
+  expect("Windwalker: 5 targets + Rising Sun Kick at 4 chi -> Spinning Crane Kick", "icon:101546", nf.icon.texture)
   state.plates = 3; step()
   expect("Windwalker: 3 targets + Rising Sun Kick -> stays (lost damage in the sims)", "icon:107428", nf.icon.texture)
   -- Dance of Chi-Ji glow, 1-2 targets

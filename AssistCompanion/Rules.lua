@@ -1414,9 +1414,12 @@ local wwRules = {
   },
   {
     key = "sckaoe", name = "Spinning Crane Kick over Rising Sun Kick on 4+", spell = S.SPINNING_CRANE_KICK,
-    desc = "Shows Spinning Crane Kick instead of Rising Sun Kick at 4 or more targets (SimC's optimal list). Simmed: +1.5% (Shado-Pan) to +18% (Conduit of the Celestials) at 5 targets; at 3 it lost damage. Needs enemy nameplates on.",
+    desc = "Shows Spinning Crane Kick instead of Rising Sun Kick at 4 or more targets when you have 4+ chi, so 2 stay for Fists of Fury (3 chi). Simmed: +6 to +23% at 4-5 targets; at 3 it lost damage. Needs enemy nameplates on.",
     check = function(ctx)
       if not ctx.enemies or ctx.enemies < 4 or ctx.next ~= S.RISING_SUN_KICK then return end
+      -- 4+ chi only (owner's log, 0.26.2: at any chi it looped Tiger Palm / Spinning Crane Kick at 0-2 chi and
+      -- Fists of Fury went 45s uncast; sims: +4% Shado-Pan, +1 to +2% Conduit in season 1 gear, -3% Conduit in MID2 gear)
+      if type(ctx.power) ~= "number" or ctx.power < 4 then return end
       if not sckOk(ctx) then return end
       return { spell = S.SPINNING_CRANE_KICK, text = "Spinning Crane Kick", sub = ctx.enemies .. " targets" }
     end,
