@@ -1690,9 +1690,49 @@ local function bmStaggerText()
 end
 ns.bmStaggerText = bmStaggerText
 
+-- Energy probe (owner: energy reads "hidden" for Brewmaster). Every way an addon might see energy, as
+-- the game answers it: number, y/n, "hidden" (secret), "nil", "?" (no API / error).
+local function bmShow(v)
+  if v == "hidden" or v == "?" then return v end
+  if v == nil then return "nil" end
+  if type(v) == "number" then return ("%.1f"):format(v) end
+  if type(v) == "boolean" then return v and "y" or "n" end
+  return tostring(v)
+end
+local function bmProbe2(fn, ...)
+  if type(fn) ~= "function" then return "?", "?" end
+  local ok, a, b = pcall(fn, ...)
+  if not ok then return "?", "?" end
+  local function f(v) if v ~= nil and issecretvalue and issecretvalue(v) then return "hidden" end return v end
+  return f(a), f(b)
+end
+local function bmSlot(id)
+  if not (C_ActionBar and C_ActionBar.FindSpellActionButtons) then return nil end
+  local ok, slots = pcall(C_ActionBar.FindSpellActionButtons, id)
+  if ok and type(slots) == "table" then return slots[1] end
+end
+local function bmEnergyText()
+  local up = bmProbe2(UnitPower, "player", 3)
+  local up0 = bmProbe2(UnitPower, "player")
+  local pct = bmProbe2(UnitPowerPercent, "player", 3)
+  local regenOut, regenIn = bmProbe2(GetPowerRegen)
+  local spell = C_Spell and C_Spell.IsSpellUsable
+  local ksU, ksNo = bmProbe2(spell, S.KEG_SMASH)
+  local tpU, tpNo = bmProbe2(spell, S.TIGER_PALM)
+  local bar = C_ActionBar and C_ActionBar.IsUsableAction
+  local ksSlot, tpSlot = bmSlot(S.KEG_SMASH), bmSlot(S.TIGER_PALM)
+  local kbU, kbNo, tbU, tbNo = "noslot", "noslot", "noslot", "noslot"
+  if ksSlot then kbU, kbNo = bmProbe2(bar, ksSlot) end
+  if tpSlot then tbU, tbNo = bmProbe2(bar, tpSlot) end
+  return ("energy: power=%s power0=%s pct=%s regen=%s/%s ks=%s,%s tp=%s,%s ksbar=%s,%s tpbar=%s,%s"):format(
+    bmShow(up), bmShow(up0), bmShow(pct), bmShow(regenOut), bmShow(regenIn), bmShow(ksU), bmShow(ksNo),
+    bmShow(tpU), bmShow(tpNo), bmShow(kbU), bmShow(kbNo), bmShow(tbU), bmShow(tbNo))
+end
+ns.bmEnergyText = bmEnergyText
+
 ns.debugStatus[268] = function(ctx)
   local cb = bmCelestial(ctx)
-  return ("%s pb=%s cb=%s combo=%s barrel=%s bob=%.0f niu=%.0f keg=%s"):format(bmStaggerText(), tostring(ctx.charges(S.PURIFYING_BREW)),
+  return ("%s %s pb=%s cb=%s combo=%s barrel=%s bob=%.0f niu=%.0f keg=%s"):format(bmStaggerText(), bmEnergyText(), tostring(ctx.charges(S.PURIFYING_BREW)),
     cb and tostring(ctx.charges(cb)) or "-", bmComboUp(ctx) and "y" or "n", bmBarrelUp(ctx) and "y" or "n",
     ns.cooldownLeft(ctx, S.BLACK_OX_BREW, 120), ns.cooldownLeft(ctx, S.INVOKE_NIUZAO, 120),
     tostring(ctx.override(S.EXPLODING_KEG)))

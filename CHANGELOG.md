@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.27.5
+
+* Brewmaster debug log: an `energy:` check on every status line, trying each way an addon might see energy (`power` / `power0` UnitPower, `pct` UnitPowerPercent, `regen` GetPowerRegen, `ks` / `tp` C_Spell.IsSpellUsable for Keg Smash and Tiger Palm, `ksbar` / `tpbar` the same through your action buttons). Each reads a number, y/n, `hidden`, `nil` or `?`. To find a way to make the "wait for energy" rule work.
+
 ## 0.27.4
 
 * **Brewmaster: Celestial Infusion no longer back to back.** It now waits while an Empty Barrel is up (Bring Me Another: any brew fills it, your next Keg Smash throws it), as SimC's optimal list does. Simmed: +0 / +0.9 / +1.2% at 1 / 3 / 5 targets over using it whenever a charge is ready (owner asked).
