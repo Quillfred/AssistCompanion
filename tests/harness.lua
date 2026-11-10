@@ -2264,6 +2264,15 @@ do
   expect("Brewmaster: stagger hidden -> 'hidden'", "stagger=hidden level=hidden", ns.bmStaggerText())
   issecretvalue = nil; UnitStagger = nil; C_UnitAuras = savedAuras
   expect("Brewmaster: no stagger API -> '?'", "stagger=? level=?", ns.bmStaggerText())
+  -- Empty Barrel (Bring Me Another): no Celestial Infusion until Keg Smash throws the barrel
+  ns.setRuleEnabled(268, "purify", false); ns.setRuleEnabled(268, "celestial", true)
+  ns.setRuleEnabled(268, "niuzao", false); ns.setRuleEnabled(268, "blackoxbrew", false); ns.setRuleEnabled(268, "pool", false)
+  state.known[1265141] = true; talented(1265141, true); state.next = KS
+  cast(BOB); step()   -- a brew (one Celestial charge back), barrel filled
+  expect("Brewmaster: Empty Barrel up -> no Celestial Infusion yet", "icon:121253", nf.icon.texture)
+  cast(KS); step()
+  expect("Brewmaster: Keg Smash threw the barrel -> Celestial Infusion", "icon:1241059", nf.icon.texture)
+  for _, k in ipairs({ "purify", "niuzao", "blackoxbrew", "pool" }) do ns.setRuleEnabled(268, k, true) end
   ns.setRuleEnabled(268, "purify", true); ns.setRuleEnabled(268, "celestial", true)
   combat(false); state.rp = 10; state.rpmax = nil; state.plates = 1; step()
 end

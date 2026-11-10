@@ -26,6 +26,9 @@ RULE_LINES = {
     "combo3": ([], {"keg_smash,if=charges>=2": ["tiger_palm,if=buff.blackout_combo.up&active_enemies>2"]}),
     "purify": (["purifying_brew"], {}),
     "celestial": (["celestial_brew"], {}),
+    # spacing variants: not while Empty Barrel is up (Bring Me Another; SimC's optimal), or only near 2 charges
+    "celbarrel": (["celestial_brew,if=!buff.empty_barrel.up"], {}),
+    "cel19": (["celestial_brew,if=cooldown.celestial_brew.charges_fractional>1.9|buff.empty_barrel.down&cooldown.celestial_brew.charges_fractional>=1"], {}),
     "niuzao": (["invoke_niuzao"], {}),
     "bob": (["black_ox_brew,if=cooldown.celestial_brew.charges_fractional<1"], {}),
     "cellar": (["empty_the_cellar"], {}),
@@ -38,7 +41,7 @@ POOL = {
     "poolks": "(energy>=90|cooldown.keg_smash.remains>3)",
 }
 FILLERS = ("tiger_palm,if=!talent.press_the_advantage", "spinning_crane_kick,if=active_enemies>3")
-RULES = [r for r in os.environ.get("BM_RULES", "pool65,combo3,purify,celestial,niuzao,bob,cellar").split(",") if r]
+RULES = [r for r in os.environ.get("BM_RULES", "pool65,combo3,purify,celbarrel,niuzao,bob,cellar").split(",") if r]  # 0.27.4: celbarrel
 MODES = {"hl_game": []}
 if RULES:
     MODES["hl_addon"] = RULES
@@ -47,6 +50,8 @@ if RULES:
         MODES["-" + r] = [x for x in RULES if x != r]
 for extra in ("pool90", "poolks"):
     MODES["all:" + extra] = [extra if x == "pool65" else x for x in RULES]
+for extra in ("celestial", "cel19"):
+    MODES["all:" + extra] = [extra if x == "celbarrel" else x for x in RULES]
 os.makedirs(OUT, exist_ok=True)
 
 

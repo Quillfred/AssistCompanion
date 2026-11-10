@@ -79,6 +79,15 @@ Owner: Purifying Brew can't be pressed with no stagger (dummies that don't hit b
 moved to tanking dummies. 0.27.3: no Purifying Brew at 0 stagger when `UnitStagger` is readable; a refused Purifying
 Brew is hidden 4 s with its charges kept. Whether stagger is readable in combat: `stagger=` / `level=` in the log.
 
+**Owner's tanking-dummy log (0.27.3, 4 dummies, 56 s):** `UnitStagger` is **readable in combat** (`stagger=28719`...);
+the level debuffs read nothing in combat (`level=none`, `light` after combat). Energy is **hidden** (`rp=hidden` even out of
+combat), so the energy-pooling rule never fires (`ctx.power` nil); a curve layer like the runic power one could do it. The
+game glows Purifying Brew (`glow on: Purifying Brew`) at high stagger. Charges matched every cast; one refused Purifying
+Brew at 0 stagger (pressed twice). Empty the Cellar: `keg=1263438` after Exploding Keg, rule fired, cast 1263438.
+Owner: Celestial Infusion came back to back. Simmed (all rules, % vs optimal 1/3/5): whenever ready -2.7 / -2.3 / -6.1;
+not while Empty Barrel is up (SimC's condition) -2.8 / -1.5 / -4.9; only near 2 charges -2.2 / -1.6 / -5.0. 0.27.4
+waits for the barrel (Bring Me Another: brews fill it, Keg Smash throws it; 12 s, 1265307).
+
 ## Windwalker audit (0.26.0, Nov 9 2026)
 
 **Highlight rules** (game data, `assisted_combat.inc` steps for 269; SimC `assisted_combat/monk_windwalker.simc`): Touch of

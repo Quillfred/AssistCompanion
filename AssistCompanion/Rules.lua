@@ -157,6 +157,7 @@ local S = {
   FACE_PALM           = 389942,  -- Tiger Palm takes 0.5s more off the brews
   LIGHT_BREWING       = 325093,  -- brews recharge 20% faster
   ENDLESS_DRAUGHT     = 450892,  -- Master of Harmony: +1 Celestial Brew / Infusion charge
+  BRING_ME_ANOTHER    = 1265141, -- brews leave an Empty Barrel (12s) that your next Keg Smash throws
 }
 ns.S = S
 
@@ -1487,7 +1488,8 @@ end
 ---------------------------------------------------------------------------
 local BM_COMBO_DURATION = 15
 local BM_PB_RETRY = 4 -- seconds Purifying Brew stays off the icon after the game refused it
-local bm = { combo = nil, cuts = {}, pbBlocked = nil } -- combo = time Blackout Kick empowered your next ability
+local BM_BARREL_DURATION = 12 -- Empty Barrel (1265307)
+local bm = { combo = nil, cuts = {}, pbBlocked = nil, barrel = nil } -- combo = time Blackout Kick empowered your next ability
 
 -- Your stagger as a number, or nil if the game hides it (owner: Purifying Brew can't be used without stagger).
 local function bmStagger()
@@ -1502,6 +1504,11 @@ for _, k in ipairs({ "TIGER_PALM", "BREATH_OF_FIRE", "KEG_SMASH", "PURIFYING_BRE
   BM_COMBO_SPENDERS[S[k]] = true
 end
 local BM_BREWS = { S.PURIFYING_BREW, S.CELESTIAL_BREW, S.CELESTIAL_INFUSION }
+
+local function bmBarrelUp(ctx)
+  return bm.barrel ~= nil and ctx.now - bm.barrel < BM_BARREL_DURATION
+end
+ns.bmBarrelUp = bmBarrelUp
 
 local function bmComboUp(ctx)
   return bm.combo ~= nil and ctx.now - bm.combo < BM_COMBO_DURATION
@@ -1526,13 +1533,20 @@ ns.onCast = function(spec, id, now)
     ns.chargeRefill(S.PURIFYING_BREW)
     ns.chargeAdd(S.CELESTIAL_BREW); ns.chargeAdd(S.CELESTIAL_INFUSION)
   end
+  -- Empty Barrel (Bring Me Another): any brew fills it, Keg Smash throws it (SimC sc_monk.cpp)
+  if id == S.PURIFYING_BREW or id == S.CELESTIAL_BREW or id == S.CELESTIAL_INFUSION or id == S.BLACK_OX_BREW
+      or id == S.FORTIFYING_BREW then
+    if bmKnows(S.BRING_ME_ANOTHER) then bm.barrel = now end
+  elseif id == S.KEG_SMASH then
+    bm.barrel = nil
+  end
   if id == S.BM_BLACKOUT_KICK and bmKnows(S.BLACKOUT_COMBO) then bm.combo = now
   elseif BM_COMBO_SPENDERS[id] then bm.combo = nil end
 end
 ns.onTick = ns.onTick or {}
 ns.onTick[268] = function(ctx)
   bmKnows = ctx.knows
-  if not ctx.inCombat then bm.combo = nil end
+  if not ctx.inCombat then bm.combo, bm.barrel = nil, nil end
 end
 -- A brew the game refused (not ready): our count was high; drop it so the icon moves on.
 local bmPrevFailed = ns.onCastFailed
@@ -1584,10 +1598,11 @@ local bmRules = {
   },
   {
     key = "celestial", name = "Celestial Brew / Infusion", spell = S.CELESTIAL_BREW,
-    desc = "Shows Celestial Brew (or Celestial Infusion) whenever a charge is ready. The in-game highlight never suggests it. Simmed: the biggest gain, +18 to +36% with Master of Harmony (Aspect of Harmony).",
+    desc = "Shows Celestial Brew (or Celestial Infusion) when a charge is ready and no Empty Barrel is waiting (Bring Me Another: a brew fills it, your next Keg Smash throws it), as SimC's optimal list does, so they don't go back to back. The in-game highlight never suggests it. Simmed: the biggest gain, +18 to +37% with Master of Harmony; the Empty Barrel wait adds up to +1.2%.",
     check = function(ctx)
       local cb = bmCelestial(ctx)
       if not ctx.inCombat or not cb or ctx.next == cb then return end
+      if bmBarrelUp(ctx) then return end
       local c = ctx.charges(cb)
       if c == nil or c < 1 then return end
       return { spell = cb, text = "Celestial Brew", sub = "Ready" }
@@ -1677,8 +1692,8 @@ ns.bmStaggerText = bmStaggerText
 
 ns.debugStatus[268] = function(ctx)
   local cb = bmCelestial(ctx)
-  return ("%s pb=%s cb=%s combo=%s bob=%.0f niu=%.0f keg=%s"):format(bmStaggerText(), tostring(ctx.charges(S.PURIFYING_BREW)),
-    cb and tostring(ctx.charges(cb)) or "-", bmComboUp(ctx) and "y" or "n",
+  return ("%s pb=%s cb=%s combo=%s barrel=%s bob=%.0f niu=%.0f keg=%s"):format(bmStaggerText(), tostring(ctx.charges(S.PURIFYING_BREW)),
+    cb and tostring(ctx.charges(cb)) or "-", bmComboUp(ctx) and "y" or "n", bmBarrelUp(ctx) and "y" or "n",
     ns.cooldownLeft(ctx, S.BLACK_OX_BREW, 120), ns.cooldownLeft(ctx, S.INVOKE_NIUZAO, 120),
     tostring(ctx.override(S.EXPLODING_KEG)))
 end

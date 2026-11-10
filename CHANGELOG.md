@@ -1,5 +1,11 @@
 # Assist Companion
 
+## 0.27.4
+
+* **Brewmaster: Celestial Infusion no longer back to back.** It now waits while an Empty Barrel is up (Bring Me Another: any brew fills it, your next Keg Smash throws it), as SimC's optimal list does. Simmed: +0 / +0.9 / +1.2% at 1 / 3 / 5 targets over using it whenever a charge is ready (owner asked).
+* Confirmed in game (tanking dummies): stagger is readable in combat, so Purifying Brew isn't shown at 0 stagger; brew charge counts matched every cast; Empty the Cellar shown and cast from the Exploding Keg button (1263438); Blackout Combo Tiger Palm on 4 targets. Energy is hidden from addons for Brewmaster, so the "wait for energy" rule can't fire yet. Stagger level (light / moderate / heavy) is hidden in combat; the game itself glows Purifying Brew at high stagger.
+* Debug log: `barrel=` (Empty Barrel up).
+
 ## 0.27.3
 
 * **Fixed: Brewmaster stuck on Purifying Brew with no stagger** (owner: on dummies that don't hit you it can't be pressed). It's no longer shown at 0 stagger when the game lets the addon read stagger. If the game hides stagger and refuses a Purifying Brew, it stays off the icon for 4 seconds and its charges are kept (0.27.1 wrongly set them to 0).
