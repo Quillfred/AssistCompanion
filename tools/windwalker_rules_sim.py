@@ -44,9 +44,12 @@ for r in RULES:  # each rule's worth with all the others on
 for extra in ("docj1", "sckrsk", "sckrsk4"):  # candidates on top of the full set
     MODES["all+" + extra] = RULES + [extra]
 MODES["all+docj1+sckrsk"] = RULES + ["docj1", "sckrsk"]
-FINAL = RULES + ["sckrsk4", "docj12"]  # what the addon ships
+FINAL = RULES + ["sckrsk4c4", "docj12"]  # what the addon ships (0.26.3: Spinning Crane Kick over Rising Sun Kick at 4+ chi)
 MODES["final"] = FINAL
 MODES["final:conduitz"] = [("conduitz" if x == "conduit" else x) for x in FINAL]
+MODES["final:anychi"] = [("sckrsk4" if x == "sckrsk4c4" else x) for x in FINAL]
+MODES["final:c5"] = [("sckrsk4c5" if x == "sckrsk4c4" else x) for x in FINAL]
+MODES["final+fofpool"] = FINAL + ["fofpool"]
 MODES["final-docj"] = RULES + ["sckrsk4"]  # if the proc can't be seen in game
 for alt, base in (("sck3f", "sck3"), ("sck3n", "sck3"), ("zenithx", "zenith")):  # variants inside the full set
     MODES["all:" + alt] = [alt if x == base else x for x in RULES]
@@ -74,10 +77,16 @@ def apl(rules):
         top.append("spinning_crane_kick,if=buff.dance_of_chiji.up&combo_strike")
     if "docj12" in rules:  # the same at 1-2 targets only
         top.append("spinning_crane_kick,if=buff.dance_of_chiji.up&active_enemies<=2&combo_strike")
+    if "fofpool" in rules:  # Tiger Palm to reach 3 chi when Fists of Fury is ready (true cooldown: an upper bound)
+        top.append("tiger_palm,if=combo_strike&chi<3&!cooldown.fists_of_fury.remains&active_enemies>=3")
     hl = []
     for a in HL_GAME:
         if "sckrsk" in rules and a.startswith("rising_sun_kick,if=combo_strike"):
             hl.append("spinning_crane_kick,if=active_enemies>=3&combo_strike")
+        if "sckrsk4c4" in rules and a.startswith("rising_sun_kick,if=combo_strike"):  # keep 2 chi after it
+            hl.append("spinning_crane_kick,if=active_enemies>=4&combo_strike&chi>=4")
+        if "sckrsk4c5" in rules and a.startswith("rising_sun_kick,if=combo_strike"):  # keep 3 chi (Fists of Fury)
+            hl.append("spinning_crane_kick,if=active_enemies>=4&combo_strike&chi>=5")
         if "sckrsk4" in rules and a.startswith("rising_sun_kick,if=combo_strike"):
             hl.append("spinning_crane_kick,if=active_enemies>=4&combo_strike")
         filler = a.startswith(("tiger_palm,if=combo_strike", "blackout_kick,if=active_enemies<=2"))

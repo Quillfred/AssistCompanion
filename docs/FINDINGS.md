@@ -72,6 +72,35 @@ fired anyway).
 (40 vs 9 casts), Rushing Wind Kick timing, Touch of Karma (a defensive; SimC uses it for damage, 1.7%). Their buffs are
 hidden in combat, so not addon-fixable without a proc glow.
 
+**Owner's first log (0.26.0, Shado-Pan, 1 dummy):** the glow events fire with readable spell IDs (Spinning Crane Kick
+101546 and 322729, Blackout Kick 100784 / 205523 for Combo Breaker, Rising Sun Kick 107428 / Rushing Wind Kick 467307),
+and the Dance of Chi-Ji rule fired twice, both pressed. Chi reads in combat (`rp=2/6`). Bug: SPELLS_CHANGED fires
+mid-combat when Rushing Wind Kick takes the Rising Sun Kick button, and Core wiped its charge counts on it, so Zenith
+went back to 2 charges and was shown on cooldown. Fixed in 0.26.1.
+
+**Owner's second log (0.26.1, Conduit of the Celestials, 1 dummy then 4):** Zenith counted right: the game's own
+cooldown read at the second pull ("ready in 35s") matches the addon's 90s recharge from the first charge's return to
+the second. The game glows the Zenith button 8-17s *before* a charge is back (always right after a chi spender that
+emptied chi: likely Tigereye Brew stacks), so the glow is not a ready signal; ignored. Xuen: opener step, ready prompt at
+90s (Xuen's Bond), skipped in the opener when on cooldown. Celestial Conduit: shown right after Xuen, cast as 443028
+(so its own button / keybind), Unity Within (443591) glows during it. Enemy count: 4 dummies with nameplates on read
+`np=4 inrange=2` with Tiger Palm's 5 yd, while the highlight's own ">3 targets" Spinning Crane Kick fired; 0.26.2 counts
+within Fists of Fury's 8 yd (`ns.countMeleeSpell`).
+
+**Owner's third log (0.26.2, Conduit, 3-4 dummies):** `enemies=3`/`4` with `np=4` (Fists of Fury range works); `sck3`
+and `sckaoe` fired. But at 4 targets the rotation looped Tiger Palm -> Spinning Crane Kick at 0-2 chi and Fists of Fury
+(3 chi; its cooldown is mostly reset by Spinning Crane Kicks via Xuen's Battlegear, 8-10s apart earlier in the log)
+went 45s uncast. Sims of a chi floor for the 4+ rule (% DPS vs the rule at any chi, 4T / 5T):
+
+| | MID2 gear | MID1 (season 1) gear |
+|---|---|---|
+| Shado-Pan, 4+ chi | +4.2 / +4.2 | +4.3 / +4.4 |
+| Conduit, 4+ chi | -2.5 / -3.2 | +2.3 / +1.1 |
+| Conduit, 5+ chi | -4.5 / -5.5 | +2.0 / +1.0 |
+| Tiger Palm to 3 chi when Fists of Fury is ready (true cooldown, an upper bound; not observable in game) | +1.1 / +1.3 | +0.5 / +1.2 |
+
+Shipped: 4+ chi for both hero trees (0.26.3).
+
 **To confirm in game:** whether the Dance of Chi-Ji glow events fire with a readable spell ID (`glow on: Spinning Crane
 Kick` lines, `glow=y`); Zenith charges (`zen=`); whether Celestial Conduit replaces the Xuen button (then the keybind may
 show Xuen's); that the highlight really never shows Zenith / Conduit / Xuen.

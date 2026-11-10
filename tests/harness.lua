@@ -2105,6 +2105,9 @@ do
   events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 500
   local function rules() local t = {} for _, r in ipairs(ns.rules[269]) do t[#t + 1] = r.key end return table.concat(t, ",") end
   expect("Windwalker: rule order", "xuen,conduit,zenith,danceofchiji,sck3,sckaoe", rules())
+  state.rangeAsked = {}; step()
+  expect("Windwalker: enemies counted in Fists of Fury range (8 yd, Spinning Crane Kick's radius)", true, state.rangeAsked[113656] or false)
+  expect("Windwalker: melee check still uses Tiger Palm", true, state.rangeAsked[100780] or false)
   expect("Windwalker: listed in the options", true, (function()
     for _, sp in ipairs(ns.specInfo) do if sp.id == 269 then return true end end return false end)())
   state.next = TP; step()
@@ -2117,6 +2120,8 @@ do
   expect("Windwalker: Zenith over, second charge -> Zenith again", "icon:1249625", nf.icon.texture)
   cast(ZEN); now = now + 17; step()
   expect("Windwalker: no charge left -> highlight", "icon:100780", nf.icon.texture)
+  events.scripts.OnEvent(events, "SPELLS_CHANGED"); step()
+  expect("Windwalker: button swap mid-fight (SPELLS_CHANGED) keeps the charge count -> no Zenith", "icon:100780", nf.icon.texture)
   now = now + 60; step()
   expect("Windwalker: first charge back after 90s -> Zenith", "icon:1249625", nf.icon.texture)
   talented(280197, true); ns.setRuleEnabled(269, "zenith", false); step()
@@ -2136,7 +2141,9 @@ do
   expect("Windwalker: 2 targets -> Tiger Palm stays", "icon:100780", nf.icon.texture)
   -- 4+ targets: Spinning Crane Kick over Rising Sun Kick
   state.plates = 5; state.next = RSK; step()
-  expect("Windwalker: 5 targets + Rising Sun Kick -> Spinning Crane Kick", "icon:101546", nf.icon.texture)
+  expect("Windwalker: 5 targets + Rising Sun Kick at 3 chi -> Rising Sun Kick (keep chi for Fists of Fury)", "icon:107428", nf.icon.texture)
+  state.rp = 4; step()
+  expect("Windwalker: 5 targets + Rising Sun Kick at 4 chi -> Spinning Crane Kick", "icon:101546", nf.icon.texture)
   state.plates = 3; step()
   expect("Windwalker: 3 targets + Rising Sun Kick -> stays (lost damage in the sims)", "icon:107428", nf.icon.texture)
   -- Dance of Chi-Ji glow, 1-2 targets

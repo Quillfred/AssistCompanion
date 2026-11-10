@@ -1,5 +1,20 @@
 # Assist Companion
 
+## 0.26.3
+
+* **Windwalker, 4+ targets: Spinning Crane Kick replaces Rising Sun Kick only at 4+ chi**, so 2 chi stay for Fists of Fury (3 chi). Owner's log: at any chi it looped Tiger Palm / Spinning Crane Kick at 0–2 chi and Fists of Fury went 45 seconds uncast. Simmed: +4% Shado-Pan, +1 to +2% Conduit of the Celestials with season 1 gear (-3% for Conduit only in top raid gear).
+* Confirmed in game: the enemy count now reads 3–4 on the dummies (Fists of Fury range), and the 3-target and 4+ Spinning Crane Kick rules fire.
+
+## 0.26.2
+
+* **Windwalker enemy count reaches 8 yards** (Fists of Fury's range, the same as Spinning Crane Kick's radius) instead of Tiger Palm's melee range. Owner's log: on 4 dummies it counted 2 while the game's own highlight saw 4+, so the 3-target and 4+ Spinning Crane Kick rules never fired.
+* Confirmed in game (Conduit of the Celestials): Invoke Xuen opener step and ready prompt (90s with Xuen's Bond), Celestial Conduit right after Xuen (cast as 443028), Zenith charges now match the game's own cooldown to the second. The Zenith button glows before its charge is back (Tigereye Brew, most likely); the addon ignores it.
+
+## 0.26.1
+
+* **Fixed: Zenith shown while on cooldown** (owner's log). When Rushing Wind Kick took over the Rising Sun Kick button, the game told addons "spells changed", and the addon reset its charge counts mid-fight, so it thought Zenith had 2 charges again. Counts are now kept in combat (this also protects Blood Boil and Prescience).
+* Confirmed in game (Shado-Pan, 1 target): the Dance of Chi-Ji glow is readable and the rule fires; the opener plays in full; chi is readable in combat.
+
 ## 0.26.0
 
 **Windwalker Monk.** The game's highlight in game is 23–52% behind SimC's optimal rotation. With the addon's rules it's 6–16% behind, ahead of SimC's own version of the highlight (which presses every cooldown). Simmed for both hero trees at 1–5 targets (`tools/windwalker_rules_sim.py`).

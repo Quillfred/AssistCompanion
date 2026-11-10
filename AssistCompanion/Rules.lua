@@ -1414,9 +1414,12 @@ local wwRules = {
   },
   {
     key = "sckaoe", name = "Spinning Crane Kick over Rising Sun Kick on 4+", spell = S.SPINNING_CRANE_KICK,
-    desc = "Shows Spinning Crane Kick instead of Rising Sun Kick at 4 or more targets (SimC's optimal list). Simmed: +1.5% (Shado-Pan) to +18% (Conduit of the Celestials) at 5 targets; at 3 it lost damage. Needs enemy nameplates on.",
+    desc = "Shows Spinning Crane Kick instead of Rising Sun Kick at 4 or more targets when you have 4+ chi, so 2 stay for Fists of Fury (3 chi). Simmed: +6 to +23% at 4-5 targets; at 3 it lost damage. Needs enemy nameplates on.",
     check = function(ctx)
       if not ctx.enemies or ctx.enemies < 4 or ctx.next ~= S.RISING_SUN_KICK then return end
+      -- 4+ chi only (owner's log, 0.26.2: at any chi it looped Tiger Palm / Spinning Crane Kick at 0-2 chi and
+      -- Fists of Fury went 45s uncast; sims: +4% Shado-Pan, +1 to +2% Conduit in season 1 gear, -3% Conduit in MID2 gear)
+      if type(ctx.power) ~= "number" or ctx.power < 4 then return end
       if not sckOk(ctx) then return end
       return { spell = S.SPINNING_CRANE_KICK, text = "Spinning Crane Kick", sub = ctx.enemies .. " targets" }
     end,
@@ -1683,6 +1686,14 @@ ns.meleeSpell = {
 ns.countRangeSpell = {
   [1467] = S.DISINTEGRATE, -- 25 yd
   [1473] = S.ERUPTION,
+}
+
+-- Melee specs whose AoE reaches past melee range: count enemies within this spell's range instead of
+-- the melee spell's (still "in combat or in range"). Windwalker: Fists of Fury, 8 yd = Spinning Crane
+-- Kick's radius (owner's log: 4 dummies, Tiger Palm's 5 yd counted 2 while the highlight's own 4+ target
+-- Spinning Crane Kick rule fired).
+ns.countMeleeSpell = {
+  [269] = S.FISTS_OF_FURY,
 }
 
 -- Low-health icon: fades in as your health drops (the game evaluates your hidden health).
