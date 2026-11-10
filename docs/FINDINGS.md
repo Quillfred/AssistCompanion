@@ -37,6 +37,49 @@ All numbers come from SimulationCraft (`midnight` branch, commit `36e21fe`, game
 
 Health is secret in combat, but `UnitHealthPercent(unit, usePredicted, curve)` evaluates a curve on it, and `Texture:SetAlpha` accepts secret values from addon code, so the low-health icon's alpha is set by the game. Max runic power for Blood is 125 with Ossuary (219786 grants +10), 115 without; `UnitPowerMax` can return a hidden value even out of combat. The highlight's data stores Heart Strike as Rune Strike (316239), which Heart Strike replaces. Blood Boil has 2 charges and a fixed 7.5s recharge (not hasted), so the addon counts charges from your casts. The highlight's Death Strike rules are "≤50% health" or "≥80 runic power"; it casts Blood Boil only to apply Blood Plague, and refreshes Bone Shield on stack count only.
 
+## Talent re-check with the addon's rules (Nov 11 2026)
+
+`tools/addon_talent_recheck.py`: for each finished spec and fight, `talent_search.py` with the new **addon**
+rotation (the highlight + the shipped rules, `tools/addon_apl.py`) hill-climbs every choice-node swap from the
+rankings page's optimal-rotation build, its highlight build and SimC's build for each hero tree (800 iterations to
+screen, 4000 final). Builds that beat the page's optimal-rotation build by 1%+ with the addon:
+
+| Spec, fight | Better build with the addon | Gain |
+|---|---|---|
+| Blood, 1 target | Deathbringer (SimC's build), not the page's San'layn | +4.9% |
+| Devastation, 1 target | Flameshaper (SimC's build), Expanded Lungs -> Enkindle | +4.5% |
+| Brewmaster, 1 target | Fluidity of Motion, Charred Passions, Chi Wave, Ironshell Brew | +3.3% |
+| Windwalker, 5 targets | Shado-Pan (the page's highlight build), not Conduit | +2.4% |
+| Devastation, 3 targets | Eye of Infinity -> Event Horizon | +2.0% |
+| Brewmaster, 3 targets | Dragonfire Brew -> Charred Passions | +1.5% |
+| Frost, 1 target | Rider (the page's highlight build), not Deathbringer | +1.0% |
+
+Everything else is within 0.7% (Unholy 1 target +0.65%). Death Knight trees have almost no choice nodes, so for them it
+mostly compares the starting builds. The rankings page now uses these builds in the highlight + Assist Companion column.
+
+## DungeonSlice (Nov 11 2026)
+
+`tools/dungeon_sims.py`: SimC's DungeonSlice fight (~6 min of trash packs and a boss with downtime), every spec on the
+page's 5-target build, 1000 iterations: optimal, the highlight (`use_blizzard_action_list=1`) and, for finished specs,
+the highlight + the addon. **SimC quirk:** DungeonSlice results depend on how the action list is structured (Frost's rules
+as one long default list: -9.1%; the same rules in a sub-list: -1.4%; Patchwerk is unaffected). So the addon's rules are
+written into SimC's own highlight structure (its cooldowns sub-list without the cooldowns SimC adds for the spec, the rules
+as the assisted_combat sub-list; `mirror()`), which reproduces SimC's highlight within 0.3% for every spec, and the estimate
+is SimC's highlight x (addon / the same structure with the highlight's list). Demon Hunters need
+`demonhunter.enable_dungeon_slice=1` (disabled by default). Tanks take no damage in this fight style.
+
+| Spec | highlight (SimC) | highlight + addon |
+|---|---|---|
+| Brewmaster | -34.2% | **-0.1%** |
+| Blood | -19.8% | **-3.1%** |
+| Devastation | -26.6% | **-6.1%** |
+| Windwalker | -25.6% | **-12.5%** |
+| Frost | -2.0% | -1.9% (in game without the addon: -14.9%) |
+| Unholy | -7.6% | -8.5% |
+
+Unholy: the rules cost about 1% in the dungeon (Patchwerk: +0.1 to +2.8% for San'layn), probably the runic power rule on
+short pulls; within reach of noise at 1000 iterations, worth a look if Unholy is revisited.
+
 ## Brewmaster audit (0.27.0, Nov 10 2026)
 
 **Highlight rules** (game data, steps for 268; SimC `assisted_combat/monk_brewmaster.simc`): Touch of Death, Blackout
