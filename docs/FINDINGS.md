@@ -68,7 +68,9 @@ Each rule with all the others on (Master of Harmony, 1/3/5): Celestial +17/+19/+
 for Keg Smash at 65 +1.2/+2.3/-0.3% (90, or "90 or Keg Smash 3s+ away": no better).
 
 **Opener** (SimC MID2, seeds 1-3 identical): Blackout Kick, Fortifying Brew, Chi Burst, Invoke Niuzao, Tiger Palm,
-Breath of Fire.
+Breath of Fire. Shado-Pan (the rankings page's build on the MID2 profile): Blackout Kick, Invoke Niuzao, Breath of Fire,
+Keg Smash (0.27.7: the opener picks by Aspect of Harmony 450508). The other rules are all talent-gated; with the
+Shado-Pan build they take the highlight from -22 / -27 / -45% to +4 / 0 / -12% of its optimal (Black Ox Brew adds nothing).
 
 **Owner's first log (0.27.0, 4 dummies, 32 s):** opener fine (Fortifying Brew and Niuzao skipped, on cooldown from an
 earlier pull); `cb=2` read before the pull (Endless Draught); `combo=y` after Blackout Kick, `n` after Tiger Palm;

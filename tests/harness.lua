@@ -2198,6 +2198,16 @@ do
   expect("Brewmaster: rule order", "purify,celestial,niuzao,blackoxbrew,cellar,combo3", rules())
   expect("Brewmaster: listed in the options", true, (function()
     for _, sp in ipairs(ns.specInfo) do if sp.id == 268 then return true end end return false end)())
+  -- opener by hero tree
+  state.known[115203] = true; state.known[123986] = true; state.known[450508] = true
+  events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+  expect("Brewmaster opener, Master of Harmony: Blackout Kick, Fortifying Brew, Chi Burst, Niuzao, Tiger Palm, Breath of Fire",
+    "icon:205523,icon:115203,icon:123986,icon:132578,icon:100780,icon:115181", openerIcons())
+  state.known[450508] = nil; events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
+  expect("Brewmaster opener, Shado-Pan: Blackout Kick, Niuzao, Breath of Fire, Keg Smash",
+    "icon:205523,icon:132578,icon:115181,icon:121253", openerIcons())
+  state.known[115203] = nil; state.known[123986] = nil
+  events.scripts.OnEvent(events, "TRAIT_CONFIG_UPDATED"); step()
   state.next = KS; step()
   expect("Brewmaster: out of combat -> highlight", "icon:121253", nf.icon.texture)
   combat(true); step()

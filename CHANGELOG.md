@@ -1,5 +1,10 @@
 # Assist Companion
 
+## 0.27.7
+
+* **Brewmaster opener for Shado-Pan:** Blackout Kick, Invoke Niuzao, Breath of Fire, Keg Smash (SimC's current opener for the rankings page's Shado-Pan build, same for 3 seeds). Master of Harmony keeps Blackout Kick, Fortifying Brew, Chi Burst, Niuzao, Tiger Palm, Breath of Fire. Before, Shado-Pan got Master of Harmony's (Fortifying Brew and Tiger Palm at the pull). All other Brewmaster rules check your talents, so they work for either hero tree (simmed with the Shado-Pan build: 22–45% behind optimal -> +4% to -12%).
+* Confirmed in game (single target): the "save energy for Keg Smash" layer (`hold=on:Keg Smash` exactly on filler Tiger Palms), Celestial Infusion one at a time after Keg Smash, brew counts and Black Ox Brew's sped-up cooldown.
+
 ## 0.27.6
 
 * **Brewmaster "save energy for Keg Smash" works now.** Energy is hidden from addons (owner's log: the amount and its percent are hidden in combat and even out of combat; regeneration is readable only out of combat; Keg Smash / Tiger Palm read usable all fight). So it's now a layer the game draws itself, like the Death Knights' runic power icon: when the highlight asks for a filler Tiger Palm below 65 energy, Keg Smash covers it (wait). At 65+ Tiger Palm shows through. Never over the Tiger Palm that spends Blackout Combo. Option "Save energy for Keg Smash" under Brewmaster, on by default. The old rule (which needed readable energy and never fired) is gone.

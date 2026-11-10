@@ -157,6 +157,7 @@ local S = {
   FACE_PALM           = 389942,  -- Tiger Palm takes 0.5s more off the brews
   LIGHT_BREWING       = 325093,  -- brews recharge 20% faster
   ENDLESS_DRAUGHT     = 450892,  -- Master of Harmony: +1 Celestial Brew / Infusion charge
+  ASPECT_OF_HARMONY   = 450508,  -- Master of Harmony (opener choice)
   BRING_ME_ANOTHER    = 1265141, -- brews leave an Empty Barrel (12s) that your next Keg Smash throws
 }
 ns.S = S
@@ -1124,13 +1125,16 @@ ns.openers[269] = {                     -- Windwalker (SimC optimal, MID2 profil
   { id = S.WHIRLING_DRAGON_PUNCH },
 }
 
-ns.openers[268] = {                     -- Brewmaster, Master of Harmony (SimC optimal, MID2 profile, Nov 2026; same for 3 seeds)
+ns.openers[268] = {                     -- Brewmaster (SimC optimal, MID2 profile, Nov 2026; same for 3 seeds per hero tree)
+  -- Master of Harmony: Blackout Kick, Fortifying Brew, Chi Burst, Niuzao, Tiger Palm, Breath of Fire.
+  -- Shado-Pan (rankings page build): Blackout Kick, Niuzao, Breath of Fire, Keg Smash.
   { id = S.BM_BLACKOUT_KICK },
-  { id = S.FORTIFYING_BREW },
-  { id = S.BM_CHI_BURST },
+  { id = S.FORTIFYING_BREW, needs = S.ASPECT_OF_HARMONY },
+  { id = S.BM_CHI_BURST, needs = S.ASPECT_OF_HARMONY },
   { id = S.INVOKE_NIUZAO },
-  { id = S.TIGER_PALM },
+  { id = S.TIGER_PALM, needs = S.ASPECT_OF_HARMONY },
   { id = S.BREATH_OF_FIRE },
+  { id = S.KEG_SMASH, without = S.ASPECT_OF_HARMONY },
 }
 
 ns.openers[250] = {                     -- Blood (SimC optimal, MID2 profiles, Nov 2026)
