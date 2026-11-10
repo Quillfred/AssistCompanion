@@ -1634,9 +1634,32 @@ ns.trackCooldowns[268] = { S.INVOKE_NIUZAO, S.BLACK_OX_BREW }
 
 -- Debug status: pb / cb = brew charges (counted), combo = Blackout Combo up (from your casts),
 -- bob / niu = seconds until Black Ox Brew / Invoke Niuzao, cellar = what's on the Exploding Keg button.
+-- Stagger probe (owner's question): is UnitStagger readable in combat, and the level debuffs
+-- (Light 124275, Moderate 124274, Heavy 124273)? "hidden" = secret value, "?" = no API / error.
+local function bmProbe(fn, ...)
+  if type(fn) ~= "function" then return "?" end
+  local ok, v = pcall(fn, ...)
+  if not ok then return "?" end
+  if v ~= nil and issecretvalue and issecretvalue(v) then return "hidden" end
+  return v
+end
+local function bmStaggerText()
+  local amount = bmProbe(UnitStagger, "player")
+  if type(amount) == "number" then amount = ("%.0f"):format(amount) end
+  local level = "none"
+  local get = C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID
+  for _, a in ipairs({ { 124273, "heavy" }, { 124274, "moderate" }, { 124275, "light" } }) do
+    local v = bmProbe(get, a[1])
+    if v == "hidden" or v == "?" then level = v break end
+    if type(v) == "table" then level = a[2] break end
+  end
+  return ("stagger=%s level=%s"):format(tostring(amount), level)
+end
+ns.bmStaggerText = bmStaggerText
+
 ns.debugStatus[268] = function(ctx)
   local cb = bmCelestial(ctx)
-  return ("pb=%s cb=%s combo=%s bob=%.0f niu=%.0f keg=%s"):format(tostring(ctx.charges(S.PURIFYING_BREW)),
+  return ("%s pb=%s cb=%s combo=%s bob=%.0f niu=%.0f keg=%s"):format(bmStaggerText(), tostring(ctx.charges(S.PURIFYING_BREW)),
     cb and tostring(ctx.charges(cb)) or "-", bmComboUp(ctx) and "y" or "n",
     ns.cooldownLeft(ctx, S.BLACK_OX_BREW, 120), ns.cooldownLeft(ctx, S.INVOKE_NIUZAO, 120),
     tostring(ctx.override(S.EXPLODING_KEG)))

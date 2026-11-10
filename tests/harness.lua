@@ -2247,6 +2247,16 @@ do
   expect("Brewmaster: 70 energy -> Tiger Palm, no wait", false, nf.icon.desat)
   state.rp = 40; cast(BOK); step()
   expect("Brewmaster: Tiger Palm spending Blackout Combo -> no wait", false, nf.icon.desat)
+  -- stagger probe for the debug log
+  local savedAuras = C_UnitAuras
+  C_UnitAuras = { GetPlayerAuraBySpellID = function(id) if id == 124273 then return { applications = 1 } end end }
+  UnitStagger = function() return 12345 end
+  expect("Brewmaster: stagger readable -> amount and level in the debug status", "stagger=12345 level=heavy", ns.bmStaggerText())
+  issecretvalue = function(v) return v == "SECRET" end; UnitStagger = function() return "SECRET" end
+  C_UnitAuras = { GetPlayerAuraBySpellID = function() return "SECRET" end }
+  expect("Brewmaster: stagger hidden -> 'hidden'", "stagger=hidden level=hidden", ns.bmStaggerText())
+  issecretvalue = nil; UnitStagger = nil; C_UnitAuras = savedAuras
+  expect("Brewmaster: no stagger API -> '?'", "stagger=? level=?", ns.bmStaggerText())
   ns.setRuleEnabled(268, "purify", true); ns.setRuleEnabled(268, "celestial", true)
   combat(false); state.rp = 10; state.rpmax = nil; state.plates = 1; step()
 end

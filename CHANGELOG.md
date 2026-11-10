@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.27.2
+
+* Brewmaster debug log: `stagger=` (your stagger amount) and `level=` (light / moderate / heavy), or `hidden` if the game hides them in combat. To find out whether a "Purifying Brew at heavy stagger" option is possible.
+
 ## 0.27.1
 
 * **Fixed: Brewmaster stuck on Celestial Infusion** (owner's log). Black Ox Brew grants one Celestial Brew / Infusion charge, but the addon refilled both (Endless Draught), so it kept showing Infusion with none left and nothing else came up. Now Black Ox Brew adds one charge and refills Purifying Brew.
