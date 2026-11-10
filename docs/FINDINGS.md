@@ -72,6 +72,12 @@ fired anyway).
 (40 vs 9 casts), Rushing Wind Kick timing, Touch of Karma (a defensive; SimC uses it for damage, 1.7%). Their buffs are
 hidden in combat, so not addon-fixable without a proc glow.
 
+**Owner's first log (0.26.0, Shado-Pan, 1 dummy):** the glow events fire with readable spell IDs (Spinning Crane Kick
+101546 and 322729, Blackout Kick 100784 / 205523 for Combo Breaker, Rising Sun Kick 107428 / Rushing Wind Kick 467307),
+and the Dance of Chi-Ji rule fired twice, both pressed. Chi reads in combat (`rp=2/6`). Bug: SPELLS_CHANGED fires
+mid-combat when Rushing Wind Kick takes the Rising Sun Kick button, and Core wiped its charge counts on it, so Zenith
+went back to 2 charges and was shown on cooldown. Fixed in 0.26.1.
+
 **To confirm in game:** whether the Dance of Chi-Ji glow events fire with a readable spell ID (`glow on: Spinning Crane
 Kick` lines, `glow=y`); Zenith charges (`zen=`); whether Celestial Conduit replaces the Xuen button (then the keybind may
 show Xuen's); that the highlight really never shows Zenith / Conduit / Xuen.

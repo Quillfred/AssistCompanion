@@ -1,5 +1,10 @@
 # Assist Companion
 
+## 0.26.1
+
+* **Fixed: Zenith shown while on cooldown** (owner's log). When Rushing Wind Kick took over the Rising Sun Kick button, the game told addons "spells changed", and the addon reset its charge counts mid-fight, so it thought Zenith had 2 charges again. Counts are now kept in combat (this also protects Blood Boil and Prescience).
+* Confirmed in game (Shado-Pan, 1 target): the Dance of Chi-Ji glow is readable and the rule fires; the opener plays in full; chi is readable in combat.
+
 ## 0.26.0
 
 **Windwalker Monk.** The game's highlight in game is 23–52% behind SimC's optimal rotation. With the addon's rules it's 6–16% behind, ahead of SimC's own version of the highlight (which presses every cooldown). Simmed for both hero trees at 1–5 targets (`tools/windwalker_rules_sim.py`).

@@ -2117,6 +2117,8 @@ do
   expect("Windwalker: Zenith over, second charge -> Zenith again", "icon:1249625", nf.icon.texture)
   cast(ZEN); now = now + 17; step()
   expect("Windwalker: no charge left -> highlight", "icon:100780", nf.icon.texture)
+  events.scripts.OnEvent(events, "SPELLS_CHANGED"); step()
+  expect("Windwalker: button swap mid-fight (SPELLS_CHANGED) keeps the charge count -> no Zenith", "icon:100780", nf.icon.texture)
   now = now + 60; step()
   expect("Windwalker: first charge back after 90s -> Zenith", "icon:1249625", nf.icon.texture)
   talented(280197, true); ns.setRuleEnabled(269, "zenith", false); step()

@@ -1556,10 +1556,14 @@ local function refresh(event)
   wipe(knownCache)
   rankCache = nil
   clearBindingCache()
+  local oldSpec = specID
   specID = currentSpecID()
   powerMaxCache = nil -- talents/spec may have changed it; re-read (or fall back) fresh
   cachePowerMax()
-  wipe(chargeState) -- re-read charges for the (possibly new) spec
+  -- Re-read charges for the (possibly new) spec, but never mid-fight for the same spec: the game fires
+  -- SPELLS_CHANGED in combat when a button swaps (Windwalker: Rushing Wind Kick on Rising Sun Kick), and
+  -- charges can't be read back in combat, so wiping them reset Zenith to 2 charges (owner's log, 0.26.0).
+  if not inCombat or specID ~= oldSpec then wipe(chargeState) end
   powerSeenMax = 0  -- talents/spec may have lowered the max
   if event == "PLAYER_SPECIALIZATION_CHANGED" or event == "TRAIT_CONFIG_UPDATED" or event == "PLAYER_LOGIN" then
     dlog("%s: spec %s", event, tostring(specID))
