@@ -11,7 +11,8 @@ class, sorted by node id: selected, purchased, partial rank (6 bits), choice ind
 
 Usage:
   SIMC=<simc checkout> python3 tools/talent_search.py <spec> <rotation> <targets> <start build>...
-  rotation: optimal (SimC's APL) or highlight (use_blizzard_action_list=1)
+  rotation: optimal (SimC's APL), highlight (use_blizzard_action_list=1), or addon (the highlight + Assist
+  Companion's shipped rules, tools/addon_apl.py)
   Augmentation is scored on raid DPS minus the raid with an idle Augmentation (SimC adds 8 simplified
   allies to a lone Augmentation), with deterministic=1 so builds share random numbers.
 Prints the best build and its DPS; results cached in $SIMC/../talentsearch/.
@@ -30,6 +31,11 @@ NOISE = float(os.environ.get("NOISE", "0.25"))  # % a swap must gain to be kept
 SPECS = {  # spec -> (spec id, SimC class index in trait data via a known talent, base profile)
     "devastation": (1467, "Pyre", "profiles/MID1/MID1_Evoker_Devastation.simc"),
     "augmentation": (1473, "Ebon Might", None),
+    "frost": (251, "Frostscythe", "profiles/MID2/MID2_Death_Knight_Frost.simc"),
+    "unholy": (252, "Frostscythe", "profiles/MID2/MID2_Death_Knight_Unholy.simc"),
+    "blood": (250, "Frostscythe", "profiles/MID2/MID2_Death_Knight_Blood.simc"),
+    "windwalker": (269, "Zenith", "profiles/MID2/MID2_Monk_Windwalker.simc"),
+    "brewmaster": (268, "Zenith", "profiles/MID2/MID2_Monk_Brewmaster.simc"),
 }
 
 
@@ -132,6 +138,16 @@ def sim(spec, rotation, targets, talents, iters):
             cmd.append("use_blizzard_action_list=1")
         if rotation == "idle":
             cmd.append("actions=snapshot_stats")
+        if rotation == "addon":
+            # the profile without its own actions (their sub-lists use variables the rules' list doesn't
+            # set), then the highlight + the addon's rules (as each spec's rules sim does)
+            import addon_apl
+            apl = os.path.join(OUT, f"addon_{spec}.simc")
+            if not os.path.exists(apl):
+                src = open(os.path.join(SIMC, prof)).read().splitlines()
+                body = [l for l in src if not l.startswith("actions")]
+                open(apl, "w").write("\n".join(body + addon_apl.actions(spec)) + "\n")
+            cmd[1] = apl
         if spec == "augmentation":
             cmd.append("deterministic=1")  # same random numbers for every build: the raid's noise cancels out
         r = subprocess.run(cmd, cwd=SIMC, capture_output=True, text=True)

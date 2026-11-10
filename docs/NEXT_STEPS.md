@@ -10,7 +10,7 @@ conversation. Current addon version: **0.27.7** (0.13.0-beta1 on CurseForge) (se
   Blood low-health Death Strike icon, optional text alerts (off), saved debug log (`/ac debug`).
   Rules live in `AssistCompanion/Rules.lua`; display, tracking and commands in `Core.lua`.
 * **Tests:** `lua5.1 tests/harness.lua AssistCompanion` (mocked WoW API, ~198 cases). CI runs them on push.
-* **Research:** `docs/FINDINGS.md` (per-rule evidence), `docs/TRIAGE.md` (phase 1, all specs), `docs/pages/` (copies of the published rankings and triage pages), `docs/talents/` (every class/spec/hero talent, mastery and racial from game data, flagged for what can affect the addon; `tools/talent_db.py`).
+* **Research:** `docs/FINDINGS.md` (per-rule evidence), `docs/HIDDEN_RESOURCES.md` (hidden resources playbook), `docs/TRIAGE.md` (phase 1, all specs), `docs/pages/` (copies of the published rankings and triage pages), `docs/talents/` (every class/spec/hero talent, mastery and racial from game data, flagged for what can affect the addon; `tools/talent_db.py`).
 * **Rankings page** (claude.ai artifact, owner's account): sortable table of highlight vs optimal DPS per
   spec. Updated Nov 5, 2026 with the button-override corrections; a copy is in `docs/pages/`.
 
@@ -119,6 +119,10 @@ The owner plays Frost/Unholy/Blood DK, Devastation and Augmentation Evoker, uses
 prefers: 48px icon, text alerts off, HIGH strata (now an option, `db.strata`, 0.17.1), icons always shown (not when dead).
 
 ## Key findings to keep in mind
+
+* **Hidden resources playbook: `docs/HIDDEN_RESOURCES.md`.** What's readable in combat (runic power and energy
+  hidden, chi and stagger readable...), how to probe a new spec in a debug log, and the fix for hidden values: curve-driven
+  layers the game draws (`ns.powerIcon`, `ns.holdSpender`; Blood runic power, Brewmaster energy). Read it before a new spec.
 
 * **SimC button-override limitation:** SimC's base actions refuse to fire in override states (Chaos Strike
   during Metamorphosis -> Annihilation, Raging Blow -> Crushing Blow, Consume -> Devour...), so its
