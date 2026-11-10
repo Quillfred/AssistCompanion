@@ -1,5 +1,11 @@
 # Assist Companion
 
+## 0.27.1
+
+* **Fixed: Brewmaster stuck on Celestial Infusion** (owner's log). Black Ox Brew grants one Celestial Brew / Infusion charge, but the addon refilled both (Endless Draught), so it kept showing Infusion with none left and nothing else came up. Now Black Ox Brew adds one charge and refills Purifying Brew.
+* **Brews correct themselves:** if you press a brew the game says isn't ready, its count drops to 0 and the icon moves on.
+* Confirmed in game: the opener (skipping Fortifying Brew and Niuzao while on cooldown), brew charges read before the pull (Endless Draught: 2), Blackout Combo tracking, enemy count on 4 dummies.
+
 ## 0.27.0
 
 **Brewmaster Monk (first test build).** The game's highlight never uses a brew or Invoke Niuzao, spends energy before Keg Smash can come back, and only spends Blackout Combo on 1–2 targets. In the sims it's 32–64% behind SimC's optimal rotation; with these rules, 2–6% (Master of Harmony, `tools/brewmaster_rules_sim.py`). Every rule helps with the others on.

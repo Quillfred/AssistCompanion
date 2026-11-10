@@ -1511,8 +1511,11 @@ ns.onCast = function(spec, id, now)
     bm.cuts[#bm.cuts + 1] = { t = now, s = cut }
     while bm.cuts[1] and now - bm.cuts[1].t > 300 do table.remove(bm.cuts, 1) end
   end
+  -- Black Ox Brew: Purifying Brew refilled, one Celestial Brew / Infusion charge (talent text; 0.27.0
+  -- refilled both Celestial charges, owner's log: Infusion shown with none left)
   if id == S.BLACK_OX_BREW and ns.chargeRefill then
-    for _, b in ipairs(BM_BREWS) do ns.chargeRefill(b) end
+    ns.chargeRefill(S.PURIFYING_BREW)
+    ns.chargeAdd(S.CELESTIAL_BREW); ns.chargeAdd(S.CELESTIAL_INFUSION)
   end
   if id == S.BM_BLACKOUT_KICK and bmKnows(S.BLACKOUT_COMBO) then bm.combo = now
   elseif BM_COMBO_SPENDERS[id] then bm.combo = nil end
@@ -1521,6 +1524,17 @@ ns.onTick = ns.onTick or {}
 ns.onTick[268] = function(ctx)
   bmKnows = ctx.knows
   if not ctx.inCombat then bm.combo = nil end
+end
+-- A brew the game refused (not ready): our count was high; drop it so the icon moves on.
+local bmPrevFailed = ns.onCastFailed
+ns.onCastFailed = function(spec, id, ctx)
+  if spec ~= 268 then return bmPrevFailed and bmPrevFailed(spec, id, ctx) end
+  for _, b in ipairs(BM_BREWS) do
+    if id == b and ns.chargeEmpty then
+      ns.chargeEmpty(b)
+      return ("%s not ready: charge count reset to 0"):format(b == S.PURIFYING_BREW and "Purifying Brew" or "Celestial Brew")
+    end
+  end
 end
 -- Black Ox Brew is a brew too: the same casts speed it up.
 ns.cooldownSpeedup[268] = function(ctx, a, b, spell)

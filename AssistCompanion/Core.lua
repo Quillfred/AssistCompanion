@@ -448,6 +448,21 @@ ns.chargeRefill = function(id)
   local st = chargeInfo(id)
   if st then st.charges, st.nextAt = st.max, nil end
 end
+-- One charge more (Black Ox Brew grants a single Celestial Brew charge), up to the max.
+ns.chargeAdd = function(id)
+  local st = chargeInfo(id)
+  if not st then return end
+  st.charges = math.min(st.max, st.charges + 1)
+  if st.charges >= st.max then st.nextAt = nil end
+end
+-- The game refused the spell (not ready): our count was too high. None now; the next one comes when
+-- we expected it, or after `retry` seconds if that time had already passed.
+ns.chargeEmpty = function(id, retry)
+  local st = chargeInfo(id)
+  if not st then return end
+  st.charges = 0
+  if not st.nextAt or st.nextAt <= GetTime() then st.nextAt = GetTime() + (retry or 10) end
+end
 
 local function spendCharge(id)
   local st, t = chargeInfo(id)

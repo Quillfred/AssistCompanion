@@ -70,6 +70,12 @@ for Keg Smash at 65 +1.2/+2.3/-0.3% (90, or "90 or Keg Smash 3s+ away": no bette
 **Opener** (SimC MID2, seeds 1-3 identical): Blackout Kick, Fortifying Brew, Chi Burst, Invoke Niuzao, Tiger Palm,
 Breath of Fire.
 
+**Owner's first log (0.27.0, 4 dummies, 32 s):** opener fine (Fortifying Brew and Niuzao skipped, on cooldown from an
+earlier pull); `cb=2` read before the pull (Endless Draught); `combo=y` after Blackout Kick, `n` after Tiger Palm;
+`enemies=4`. Bug: after Black Ox Brew the count read `cb=2` (refilled to max) though it grants one charge, so after the
+next Infusion the icon showed Celestial Infusion with none left for 12 s and the owner waited on it. 0.27.1: Black Ox
+Brew adds one Celestial charge; a brew the game refuses (UNIT_SPELLCAST_FAILED) drops its count to 0.
+
 ## Windwalker audit (0.26.0, Nov 9 2026)
 
 **Highlight rules** (game data, `assisted_combat.inc` steps for 269; SimC `assisted_combat/monk_windwalker.simc`): Touch of

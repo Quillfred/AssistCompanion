@@ -2215,6 +2215,7 @@ do
   cast(PB); cast(PB); step()
   expect("Brewmaster: Black Ox Brew granted Celestial Infusion", "icon:1241059", nf.icon.texture)
   cast(CI); step()
+  expect("Brewmaster: ...only one charge (owner's log: two with Endless Draught counted as refilled)", "icon:121253", nf.icon.texture)
   expect("Brewmaster: everything spent -> highlight", "icon:121253", nf.icon.texture)
   -- brew recharge sped up by Tiger Palm (1.5s with Face Palm) and Keg Smash (3s, 5s with Blackout Combo)
   now = now + 10; step()
@@ -2223,6 +2224,9 @@ do
   expect("Brewmaster: Keg Smashes took 8s off -> still 2s left", "icon:121253", nf.icon.texture)
   cast(TP); cast(TP); step()             -- 3s off
   expect("Brewmaster: Tiger Palms -> Purifying Brew back early", "icon:119582", nf.icon.texture)
+  -- a brew the game refuses: count dropped, the icon moves on
+  events.scripts.OnEvent(events, "UNIT_SPELLCAST_FAILED", "player", "guid", PB); step()
+  expect("Brewmaster: Purifying Brew refused (not ready) -> highlight", "icon:121253", nf.icon.texture)
   ns.setRuleEnabled(268, "purify", false); ns.setRuleEnabled(268, "celestial", false)
   -- Empty the Cellar: on the Exploding Keg button
   state.overrides = { [EK] = ETC }; step()
