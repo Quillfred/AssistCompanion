@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.27.8
+
+* **Health probe (`/ac probe`, with `/ac debug`)**, any spec: finds out what the game lets addons see of your health changing over time. Each debug status line gets `hp:` with your health, max, percent, absorbs and incoming heals (number or `hidden`), how many health events fired since the last line (`UNIT_HEALTH`, max health, absorbs, heal prediction, `UNIT_COMBAT` with its action and whether the amount is readable), the combat log (`blocked`, or events seen and whether a damage amount on you is readable) and Midnight's damage meter API (`C_DamageMeter`, its functions listed once). A small panel next to the icon feeds your hidden health into a bar, a number, a percent and a color swatch; the log says which of them accepted it (`ok` / `err` / `noapi`), and you can see what they show.
+
 ## 0.27.7
 
 * **Brewmaster opener for Shado-Pan:** Blackout Kick, Invoke Niuzao, Breath of Fire, Keg Smash (SimC's current opener for the rankings page's Shado-Pan build, same for 3 seeds). Master of Harmony keeps Blackout Kick, Fortifying Brew, Chi Burst, Niuzao, Tiger Palm, Breath of Fire. Before, Shado-Pan got Master of Harmony's (Fortifying Brew and Tiger Palm at the pull). All other Brewmaster rules check your talents, so they work for either hero tree (simmed with the Shado-Pan build: 22–45% behind optimal -> +4% to -12%).

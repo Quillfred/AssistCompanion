@@ -2,7 +2,7 @@
 ## Title: Assist Companion
 ## Notes: Shows the Assisted Highlight suggestion as one icon with a keybind, corrected where Blizzard's rules are wrong, plus an opener bar. Blood, Frost and Unholy Death Knight, Devastation and Augmentation Evoker, Brewmaster and Windwalker Monk, Mistweaver Monk (in progress).
 ## Author: Quillfred
-## Version: 0.27.7
+## Version: 0.27.8
 ## SavedVariables: AssistCompanionDB
 ## Category: Combat
 ## IconTexture: Interface\AddOns\AssistCompanion\icon
@@ -13,3 +13,4 @@ Rules.lua
 Core.lua
 Options.lua
 Minimap.lua
+Probe.lua

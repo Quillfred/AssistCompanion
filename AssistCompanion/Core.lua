@@ -360,6 +360,7 @@ local function dlog(fmt, ...)
   while #L > LOG_MAX do table.remove(L, 1) end
   if db.debugChat then print("|cff66ccffAC|r " .. line) end
 end
+ns.dlog = dlog
 
 -- Is the current target in melee range? Uses a melee spell of your spec (Rules.lua: ns.meleeSpell).
 -- Returns nil when there's no hostile target or the game won't say.
@@ -1536,6 +1537,10 @@ local function tick()
           rpText = (ok and issecretvalue and issecretvalue(raw)) and "hidden" or (ok and tostring(raw) or "error")
         end
         extra = extra .. " short=" .. shortState
+        if ns.probeStatus then
+          local okP, p = pcall(ns.probeStatus)
+          if okP and p then extra = extra .. " " .. p end
+        end
         if ns.powerIcon and specID and ns.powerIcon[specID] then
           extra = extra .. " rpicon=" .. powerIconState .. (powerTest and "(test)" or "")
         end
@@ -1753,6 +1758,10 @@ SlashCmdList.ASSISTCOMPANION = function(input)
       say("Low-health Death Strike icon " .. (db.healthIcon and "on." or "off."))
     end
     updateHealthIcon()
+  elseif cmd == "probe" then
+    local on = ns.probeToggle and ns.probeToggle()
+    say(on and "Health probe ON: a small panel next to the icon shows your health through widgets fed the hidden value, and /ac debug logs what can be read. /ac probe again to stop."
+      or "Health probe off.")
   elseif cmd == "rptest" then
     powerTest = not powerTest
     say(powerTest and "Runic power icon test ON: it follows your runic power only (blue border, \"RP test\" under it), in or out of combat. /ac rptest again to stop."
@@ -1857,6 +1866,7 @@ SlashCmdList.ASSISTCOMPANION = function(input)
     say("/ac hp  - Blood: toggle the low-health Death Strike icon (/ac hp 35 50 sets full/hidden health %)")
     say("/ac rp <n>  - Unholy: warn at this runic power (now " .. db.unholyRP .. ")")
     say("/ac rptest  - runic power icon test: it follows your runic power only")
+    say("/ac probe  - health probe: what the game lets addons see of your health (with /ac debug)")
     say("/ac cds  - Frost: toggle trinket/potion/racial reminder")
     say("/ac opener  - toggle the opener bar (/ac opener reset to restart it)")
     say("/ac opener icon  - toggle the next-cast icon following the opener")

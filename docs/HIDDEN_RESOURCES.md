@@ -25,6 +25,11 @@ how to build a rule on a value the addon can't read. Use it for every new spec.
 
 Don't assume: the same value can differ by spec or patch (energy was hidden even out of combat). Probe first.
 
+**Pending (0.27.8 health probe, `AssistCompanion/Probe.lua`, `/ac probe`):** whether health changes over time can be seen:
+health events (counts), `UNIT_COMBAT` amounts, the combat log, `C_DamageMeter`, and whether `StatusBar:SetValue`,
+`FontString:SetText` / `SetFormattedText` and a color curve into `SetVertexColor` accept the secret health. Fill the table
+in from the owner's log.
+
 ## Step 1: probe it in a debug log
 
 Before designing a rule, add a probe to the spec's `ns.debugStatus[spec]` (Rules.lua) so the owner's next
