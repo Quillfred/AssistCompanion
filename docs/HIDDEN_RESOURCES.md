@@ -34,14 +34,15 @@ Don't assume: the same value can differ by spec or patch (energy was hidden even
 | `UNIT_HEALTH`, `UNIT_MAXHEALTH`, `UNIT_ABSORB_AMOUNT_CHANGED` events | fire, so their **count** is readable (how often health changed) |
 | `UNIT_COMBAT` | fires; the action is **readable** (`WOUND`, `HEAL`, `PARRY`...), the amount is hidden |
 | Combat log (`COMBAT_LOG_EVENT_UNFILTERED`) | registers, but **0 events** delivered: not available to addons |
-| `C_DamageMeter` (Midnight's meter) | exists: `IsDamageMeterAvailable`, `GetAvailableCombatSessions`, `GetCombatSessionFromType` / `FromID`, `GetCombatSessionSourceFromType` / `FromID`, `GetSessionDurationSeconds`, `ResetAllCombatSessions`. What it returns: pending (0.27.10 `meter:` lines) |
+| `C_DamageMeter` (Midnight's meter; owner's 0.27.10 log) | **Out of combat: fully readable** (damage taken / done, healing, absorbs, per second and per spell, per session). **In combat: amounts hidden** (`totalAmount`, `amountPerSecond`, `maxAmount`, spell IDs, names); still readable in combat: `GetSessionDurationSeconds(sessionType)`, the session list (`GetAvailableCombatSessions`), entry counts, `isLocalPlayer`, `classFilename`, `specIconID`. Calls: `GetCombatSessionFromType(sessionType, type)`, `GetCombatSessionSourceFromType(sessionType, type [, sourceGUID, sourceCreatureID])`; `Enum.DamageMeterSessionType` Overall=0 Current=1 Expired=2; `Enum.DamageMeterType` DamageDone=0 Dps=1 HealingDone=2 Hps=3 Absorbs=4 Interrupts=5 Dispels=6 DamageTaken=7 AvoidableDamageTaken=8 Deaths=9 EnemyDamageTaken=10 |
 | `StatusBar:SetMinMaxValues` + `SetValue` fed secret health | **accepted**, displays live health |
 | `FontString:SetText` fed secret health | **accepted**, shows the number (445,704) |
 | `FontString:SetFormattedText` fed `UnitHealthPercent` through a 0-100 curve | **accepted**, shows the percent (33%) |
 | Color curve (`C_CurveUtil.CreateColorCurve`) through `UnitHealthPercent` into `SetVertexColor` | **accepted**, shows a color by health |
 
 So the addon can **show** health (bar, number, percent, color) and **count** what happens to you (hits, heals,
-avoids, health changes) in combat, but not read amounts. The damage meter is the open lead for amounts over time.
+avoids, health changes) in combat, but not read amounts. The damage meter has the amounts too, but only
+after combat: use it for after-the-pull summaries, not live decisions.
 
 ## Step 1: probe it in a debug log
 
