@@ -1,5 +1,22 @@
 # Assist Companion
 
+## 0.27.11
+
+* **Health probe finished and removed** (`/ac probe`, its panel and the `meter:` log lines). Results, from the owner's logs, in `docs/HIDDEN_RESOURCES.md`: in combat the addon can show your health (bars, numbers, percent, colors accept the hidden value) and count what happens to you (health changes, hits, heals, parries), but not read any amount; the combat log delivers nothing to addons; the damage meter (`C_DamageMeter`) is fully readable out of combat, its amounts hidden in combat. The probe's code is kept in `tools/probes/health_probe.lua` as the template for future probes.
+
+## 0.27.10
+
+* Health probe, part 2: Midnight's damage meter (`C_DamageMeter`) exists for addons (owner's log). With `/ac probe` on, every ~5 seconds the debug log gets `meter:` lines with what its functions return (sessions, durations, damage taken / done and healing, for the session and for you) and which fields are readable, in and out of combat. Each function's first error is logged once, naming the arguments it expects. Its enum tables are listed when the probe starts.
+* Confirmed by the owner's log: in combat, health, health %, absorbs and incoming heals are hidden; max health is readable; health events and `UNIT_COMBAT` fire with readable counts and actions (hit, heal, parry...) but hidden amounts; the combat log delivers nothing to addons. A bar, a number, a percent and a color all accept the hidden health and display it live (docs/HIDDEN_RESOURCES.md).
+
+## 0.27.9
+
+* Health probe panel can be moved: `/ac probe unlock`, drag it, `/ac probe lock` (position saved). Locked, it ignores the mouse.
+
+## 0.27.8
+
+* **Health probe (`/ac probe`, with `/ac debug`)**, any spec: finds out what the game lets addons see of your health changing over time. Each debug status line gets `hp:` with your health, max, percent, absorbs and incoming heals (number or `hidden`), how many health events fired since the last line (`UNIT_HEALTH`, max health, absorbs, heal prediction, `UNIT_COMBAT` with its action and whether the amount is readable), the combat log (`blocked`, or events seen and whether a damage amount on you is readable) and Midnight's damage meter API (`C_DamageMeter`, its functions listed once). A small panel next to the icon feeds your hidden health into a bar, a number, a percent and a color swatch; the log says which of them accepted it (`ok` / `err` / `noapi`), and you can see what they show.
+
 ## 0.27.7
 
 * **Brewmaster opener for Shado-Pan:** Blackout Kick, Invoke Niuzao, Breath of Fire, Keg Smash (SimC's current opener for the rankings page's Shado-Pan build, same for 3 seeds). Master of Harmony keeps Blackout Kick, Fortifying Brew, Chi Burst, Niuzao, Tiger Palm, Breath of Fire. Before, Shado-Pan got Master of Harmony's (Fortifying Brew and Tiger Palm at the pull). All other Brewmaster rules check your talents, so they work for either hero tree (simmed with the Shado-Pan build: 22–45% behind optimal -> +4% to -12%).

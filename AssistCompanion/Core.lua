@@ -360,6 +360,7 @@ local function dlog(fmt, ...)
   while #L > LOG_MAX do table.remove(L, 1) end
   if db.debugChat then print("|cff66ccffAC|r " .. line) end
 end
+ns.dlog = dlog
 
 -- Is the current target in melee range? Uses a melee spell of your spec (Rules.lua: ns.meleeSpell).
 -- Returns nil when there's no hostile target or the game won't say.

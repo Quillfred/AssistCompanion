@@ -25,9 +25,31 @@ how to build a rule on a value the addon can't read. Use it for every new spec.
 
 Don't assume: the same value can differ by spec or patch (energy was hidden even out of combat). Probe first.
 
+**Health probe results (owner's 0.27.9 / 0.27.10 Blood logs on a tanking dummy; the probe shipped in 0.27.8-0.27.10,
+now `tools/probes/health_probe.lua`, the template for the next probe):**
+
+| Value / route | Result |
+|---|---|
+| `UnitHealth`, `UnitHealthPercent` (no curve), `UnitGetTotalAbsorbs`, `UnitGetIncomingHeals` | hidden in combat |
+| `UnitHealthMax` | **readable** (1,325,040; 1,722,552 during Vampiric Blood) |
+| `UNIT_HEALTH`, `UNIT_MAXHEALTH`, `UNIT_ABSORB_AMOUNT_CHANGED` events | fire, so their **count** is readable (how often health changed) |
+| `UNIT_COMBAT` | fires; the action is **readable** (`WOUND`, `HEAL`, `PARRY`...), the amount is hidden |
+| Combat log (`COMBAT_LOG_EVENT_UNFILTERED`) | registers, but **0 events** delivered: not available to addons |
+| `C_DamageMeter` (Midnight's meter; owner's 0.27.10 log) | **Out of combat: fully readable** (damage taken / done, healing, absorbs, per second and per spell, per session). **In combat: amounts hidden** (`totalAmount`, `amountPerSecond`, `maxAmount`, spell IDs, names); still readable in combat: `GetSessionDurationSeconds(sessionType)`, the session list (`GetAvailableCombatSessions`), entry counts, `isLocalPlayer`, `classFilename`, `specIconID`. Calls: `GetCombatSessionFromType(sessionType, type)`, `GetCombatSessionSourceFromType(sessionType, type [, sourceGUID, sourceCreatureID])`; `Enum.DamageMeterSessionType` Overall=0 Current=1 Expired=2; `Enum.DamageMeterType` DamageDone=0 Dps=1 HealingDone=2 Hps=3 Absorbs=4 Interrupts=5 Dispels=6 DamageTaken=7 AvoidableDamageTaken=8 Deaths=9 EnemyDamageTaken=10 |
+| `StatusBar:SetMinMaxValues` + `SetValue` fed secret health | **accepted**, displays live health |
+| `FontString:SetText` fed secret health | **accepted**, shows the number (445,704) |
+| `FontString:SetFormattedText` fed `UnitHealthPercent` through a 0-100 curve | **accepted**, shows the percent (33%) |
+| Color curve (`C_CurveUtil.CreateColorCurve`) through `UnitHealthPercent` into `SetVertexColor` | **accepted**, shows a color by health |
+
+So the addon can **show** health (bar, number, percent, color) and **count** what happens to you (hits, heals,
+avoids, health changes) in combat, but not read amounts. The damage meter has the amounts too, but only
+after combat: use it for after-the-pull summaries, not live decisions.
+
 ## Step 1: probe it in a debug log
 
-Before designing a rule, add a probe to the spec's `ns.debugStatus[spec]` (Rules.lua) so the owner's next
+For a bigger question (several APIs, display widgets), start from `tools/probes/health_probe.lua`: a self-contained
+probe with its own status text, event counters, a movable test panel and a damage meter dump (its header says how to
+plug it back in). For a single value, add a probe to the spec's `ns.debugStatus[spec]` (Rules.lua) so the owner's next
 `/ac debug` log answers the question. Pattern (see `bmEnergyText` / `bmStaggerText` in Rules.lua):
 
 * Call each candidate API in `pcall`; show a number, `y`/`n` for booleans, `hidden` when
