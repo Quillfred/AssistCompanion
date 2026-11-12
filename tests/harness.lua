@@ -2333,6 +2333,8 @@ do
   expect("Probe: counts the player's health events (not the target's)", true, st:find("health:2,", 1, true) ~= nil)
   expect("Probe: UNIT_COMBAT action readable, amount hidden", true, st:find("combat:1(WOUND amt=hidden)", 1, true) ~= nil)
   expect("Probe: counts reset each status line", true, ns.probeStatus():find("health:0,", 1, true) ~= nil)
+  expect("Probe: lock with no panel (test frames lack StatusBar) -> nil", nil, ns.probeLock(false))
+  ns.probeLock(true)
   expect("Probe: toggles off", false, ns.probeToggle())
   UnitHealth, UnitHealthMax = savedUH, savedUHM; issecretvalue = nil
 end

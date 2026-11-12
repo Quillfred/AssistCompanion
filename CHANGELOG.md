@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.27.9
+
+* Health probe panel can be moved: `/ac probe unlock`, drag it, `/ac probe lock` (position saved). Locked, it ignores the mouse.
+
 ## 0.27.8
 
 * **Health probe (`/ac probe`, with `/ac debug`)**, any spec: finds out what the game lets addons see of your health changing over time. Each debug status line gets `hp:` with your health, max, percent, absorbs and incoming heals (number or `hidden`), how many health events fired since the last line (`UNIT_HEALTH`, max health, absorbs, heal prediction, `UNIT_COMBAT` with its action and whether the amount is readable), the combat log (`blocked`, or events seen and whether a damage amount on you is readable) and Midnight's damage meter API (`C_DamageMeter`, its functions listed once). A small panel next to the icon feeds your hidden health into a bar, a number, a percent and a color swatch; the log says which of them accepted it (`ok` / `err` / `noapi`), and you can see what they show.

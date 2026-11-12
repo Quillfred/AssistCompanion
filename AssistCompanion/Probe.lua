@@ -19,7 +19,7 @@
 --   color   a color curve (C_CurveUtil.CreateColorCurve) through UnitHealthPercent into SetVertexColor
 local _, ns = ...
 
-local probe = { on = false, ev = {}, uc = nil, cleu = nil, widgets = {} }
+local probe = { on = false, locked = true, ev = {}, uc = nil, cleu = nil, widgets = {} }
 ns.probe = probe
 
 local function secret(v) return v ~= nil and issecretvalue and issecretvalue(v) end
@@ -76,11 +76,28 @@ local function buildPanel()
   local anchor = _G.AssistCompanionNext or UIParent
   panel = CreateFrame("Frame", "AssistCompanionProbe", UIParent)
   panel:SetSize(140, 64)
-  panel:SetPoint("LEFT", anchor, "RIGHT", 12, 0)
+  local saved = AssistCompanionDB and AssistCompanionDB.probePoint
+  if saved then
+    panel:SetPoint(saved[1], UIParent, saved[2], saved[3], saved[4])
+  else
+    panel:SetPoint("LEFT", anchor, "RIGHT", 12, 0)
+  end
+  -- /ac probe unlock: drag it anywhere (position saved); locked, it ignores the mouse (never blocks clicks)
+  panel:SetMovable(true)
+  panel:SetClampedToScreen(true)
+  panel:RegisterForDrag("LeftButton")
+  panel:SetScript("OnDragStart", function(self) if not probe.locked then self:StartMoving() end end)
+  panel:SetScript("OnDragStop", function(self)
+    self:StopMovingOrSizing()
+    local p, _, rp, x, y = self:GetPoint()
+    if AssistCompanionDB then AssistCompanionDB.probePoint = { p, rp, x, y } end
+  end)
   local bg = panel:CreateTexture(nil, "BACKGROUND")
   bg:SetAllPoints(); bg:SetColorTexture(0, 0, 0, 0.5)
+  panel.bg = bg
   local label = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
   label:SetPoint("TOPLEFT", 4, -3); label:SetText("AC probe: health")
+  panel.label = label
   panel.bar = CreateFrame("StatusBar", nil, panel)
   panel.bar:SetPoint("TOPLEFT", 4, -16); panel.bar:SetSize(132, 10)
   panel.bar:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
@@ -170,7 +187,7 @@ function ns.probeToggle()
       panel = nil
       if ns.dlog then ns.dlog("probe: panel failed: %s", tostring(errB)) end
     end
-    if panel then panel:Show() end
+    if panel then panel:Show(); ns.probeLock(probe.locked) end
     if ns.dlog then
       local names = {}
       if type(C_DamageMeter) == "table" then
@@ -185,6 +202,16 @@ function ns.probeToggle()
     if ns.dlog then ns.dlog("probe off") end
   end
   return probe.on
+end
+
+-- Lock / unlock the panel for moving (true = locked). Returns the new state, or nil if the probe is off.
+function ns.probeLock(locked)
+  probe.locked = locked
+  if not panel then return nil end
+  pcall(panel.EnableMouse, panel, not locked)
+  panel.label:SetText(locked and "AC probe: health" or "AC probe: drag to move")
+  panel.bg:SetColorTexture(locked and 0 or 0.1, locked and 0 or 0.3, locked and 0 or 0.6, locked and 0.5 or 0.7)
+  return locked
 end
 
 function ns.probeStatus()
