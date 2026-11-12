@@ -2333,6 +2333,24 @@ do
   expect("Probe: counts the player's health events (not the target's)", true, st:find("health:2,", 1, true) ~= nil)
   expect("Probe: UNIT_COMBAT action readable, amount hidden", true, st:find("combat:1(WOUND amt=hidden)", 1, true) ~= nil)
   expect("Probe: counts reset each status line", true, ns.probeStatus():find("health:0,", 1, true) ~= nil)
+  -- damage meter probe: what comes back, field by field (secrets as "hidden")
+  local mlog = {}
+  local savedDlog = ns.dlog
+  ns.dlog = function(fmt, ...) mlog[#mlog + 1] = string.format(fmt, ...) end
+  C_DamageMeter = { IsDamageMeterAvailable = function() return true end,
+    GetAvailableCombatSessions = function() return { { sessionID = 1, name = "Current" } } end,
+    GetCombatSessionSourceFromType = function(st, mt, guid) return { totalAmount = "SECRET", amountPerSecond = 12.5 } end,
+    GetCombatSessionFromType = function() error("Usage: GetCombatSessionFromType(sessionType, type)") end,
+    GetSessionDurationSeconds = function() return 42 end }
+  Enum.DamageMeterSessionType = { Current = 1 }
+  Enum.DamageMeterType = { DamageTaken = 2, Interrupts = 5 }
+  ns.probe.meterProbe(true)
+  local all = table.concat(mlog, "\n")
+  expect("Meter probe: availability and sessions described", true, all:find('available=true sessions={1={name="Current" sessionID=1}}', 1, true) ~= nil)
+  expect("Meter probe: my damage taken, hidden total, readable rate", true, all:find("me[Current,DamageTaken]={amountPerSecond=12.50 totalAmount=hidden}", 1, true) ~= nil)
+  expect("Meter probe: an error logged once with Blizzard's usage text", true, all:find("GetCombatSessionFromType error:", 1, true) ~= nil)
+  expect("Meter probe: non-damage types skipped", nil, all:find("Interrupts", 1, true))
+  C_DamageMeter = nil; Enum.DamageMeterSessionType = nil; Enum.DamageMeterType = nil; ns.dlog = savedDlog
   expect("Probe: lock with no panel (test frames lack StatusBar) -> nil", nil, ns.probeLock(false))
   ns.probeLock(true)
   expect("Probe: toggles off", false, ns.probeToggle())

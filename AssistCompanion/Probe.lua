@@ -174,6 +174,96 @@ ticker:SetScript("OnUpdate", function(_, dt)
 end)
 
 ---------------------------------------------------------------------------
+-- Damage meter probe (0.27.10): Midnight's C_DamageMeter exists for addons (owner's 0.27.9 log). Logs what
+-- its functions return and which fields are readable, in and out of combat, as "meter:" lines every 5
+-- status lines. Argument lists are guesses: each function's first error is logged once (Blizzard's errors
+-- usually name the expected arguments).
+---------------------------------------------------------------------------
+local function describe(v, depth, budget)
+  budget = budget or { n = 700 }
+  if budget.n <= 0 then return "..." end
+  local out
+  if v == nil then out = "nil"
+  elseif secret(v) then out = "hidden"
+  elseif type(v) == "number" then out = (v == math.floor(v)) and tostring(v) or ("%.2f"):format(v)
+  elseif type(v) == "string" then out = '"' .. v:sub(1, 24) .. '"'
+  elseif type(v) == "boolean" then out = v and "true" or "false"
+  elseif type(v) == "table" then
+    if (depth or 0) >= 3 then out = "{...}" else
+      local keys = {}
+      for k in pairs(v) do keys[#keys + 1] = k end
+      table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+      local parts, shown = {}, 0
+      for _, k in ipairs(keys) do
+        shown = shown + 1
+        if shown > 12 then parts[#parts + 1] = ("+%d more"):format(#keys - 12) break end
+        if type(k) == "number" and k > 2 then -- arrays: the first two entries are enough
+          parts[#parts + 1] = ("[%d entries]"):format(#v) break
+        end
+        parts[#parts + 1] = tostring(k) .. "=" .. describe(v[k], (depth or 0) + 1, budget)
+      end
+      out = "{" .. table.concat(parts, " ") .. "}"
+    end
+  else out = type(v) end
+  budget.n = budget.n - #out
+  return out
+end
+
+local meterErr = {}
+local function meterCall(name, ...)
+  local fn = type(C_DamageMeter) == "table" and C_DamageMeter[name]
+  if type(fn) ~= "function" then return "noapi" end
+  local ok, a, b = pcall(fn, ...)
+  if not ok then
+    if not meterErr[name] and ns.dlog then meterErr[name] = true; ns.dlog("meter: %s error: %s", name, tostring(a)) end
+    return "err"
+  end
+  return describe(a) .. (b ~= nil and (" / " .. describe(b)) or "")
+end
+
+-- Enum tables the meter uses (names containing "DamageMeter"), as { name = { key = value } }.
+local function meterEnums()
+  local found = {}
+  if type(Enum) == "table" then
+    for name, t in pairs(Enum) do
+      if type(name) == "string" and name:find("DamageMeter") and type(t) == "table" then found[name] = t end
+    end
+  end
+  return found
+end
+
+local function meterProbe(inCombatNow)
+  if not ns.dlog or type(C_DamageMeter) ~= "table" then return end
+  ns.dlog("meter: %s available=%s sessions=%s", inCombatNow and "in combat" or "out of combat",
+    meterCall("IsDamageMeterAvailable"), meterCall("GetAvailableCombatSessions"))
+  local enums = meterEnums()
+  local sessionTypes, meterTypes = {}, {}
+  for name, t in pairs(enums) do
+    for k, v in pairs(t) do
+      if name:find("Session") then sessionTypes[#sessionTypes + 1] = { k, v }
+      elseif name:find("Type") then meterTypes[#meterTypes + 1] = { k, v } end
+    end
+  end
+  table.sort(sessionTypes, function(a, b) return a[2] < b[2] end)
+  table.sort(meterTypes, function(a, b) return a[2] < b[2] end)
+  local guid = UnitGUID and UnitGUID("player")
+  for _, st in ipairs(sessionTypes) do
+    ns.dlog("meter: duration[%s]=%s", st[1], meterCall("GetSessionDurationSeconds", st[2]))
+    for _, mt in ipairs(meterTypes) do
+      if mt[1]:find("Damage") or mt[1]:find("Heal") then -- damage done / taken, healing
+        ns.dlog("meter: session[%s,%s]=%s", st[1], mt[1], meterCall("GetCombatSessionFromType", st[2], mt[2]))
+        ns.dlog("meter: me[%s,%s]=%s", st[1], mt[1], meterCall("GetCombatSessionSourceFromType", st[2], mt[2], guid))
+      end
+    end
+  end
+  if #sessionTypes == 0 then -- no enums found: try plain numbers
+    ns.dlog("meter: session[0,0]=%s", meterCall("GetCombatSessionFromType", 0, 0))
+    ns.dlog("meter: me[0,0]=%s", meterCall("GetCombatSessionSourceFromType", 0, 0, guid))
+  end
+end
+probe.meterProbe = meterProbe
+
+---------------------------------------------------------------------------
 -- On / off and the status text (Core.lua calls ns.probeStatus for each debug status line)
 ---------------------------------------------------------------------------
 function ns.probeToggle()
@@ -195,6 +285,9 @@ function ns.probeToggle()
         table.sort(names)
       end
       ns.dlog("probe on: C_DamageMeter %s", #names > 0 and table.concat(names, ", ") or "none")
+      for name, t in pairs(meterEnums()) do ns.dlog("probe on: Enum.%s = %s", name, describe(t)) end
+      meterErr = {}
+      pcall(meterProbe, false)
     end
   else
     pcall(ef.UnregisterAllEvents, ef)
@@ -225,6 +318,8 @@ function ns.probeStatus()
   local cleu = c.blocked and "blocked" or ("n:" .. (c.n or 0) .. " amt=" .. (c.amt or "none"))
   if probe.cleu then probe.cleu.n = 0 end
   local meter = type(C_DamageMeter) == "table" and "yes" or "none"
+  probe.lines = (probe.lines or 0) + 1
+  if probe.lines % 5 == 0 then pcall(meterProbe, UnitAffectingCombat and UnitAffectingCombat("player")) end
   local w = probe.widgets
   return ("hp: health=%s max=%s pct=%s absorb=%s inc=%s ev=%s%s cleu=%s meter=%s widgets: bar=%s text=%s pcttext=%s color=%s"):format(
     show(read(UnitHealth, "player")), show(read(UnitHealthMax, "player")), show(pct),

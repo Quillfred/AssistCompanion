@@ -25,10 +25,23 @@ how to build a rule on a value the addon can't read. Use it for every new spec.
 
 Don't assume: the same value can differ by spec or patch (energy was hidden even out of combat). Probe first.
 
-**Pending (0.27.8 health probe, `AssistCompanion/Probe.lua`, `/ac probe`):** whether health changes over time can be seen:
-health events (counts), `UNIT_COMBAT` amounts, the combat log, `C_DamageMeter`, and whether `StatusBar:SetValue`,
-`FontString:SetText` / `SetFormattedText` and a color curve into `SetVertexColor` accept the secret health. Fill the table
-in from the owner's log.
+**Health probe results (owner's 0.27.9 Blood log, 91 s on a tanking dummy, `/ac probe`):**
+
+| Value / route | Result |
+|---|---|
+| `UnitHealth`, `UnitHealthPercent` (no curve), `UnitGetTotalAbsorbs`, `UnitGetIncomingHeals` | hidden in combat |
+| `UnitHealthMax` | **readable** (1,325,040; 1,722,552 during Vampiric Blood) |
+| `UNIT_HEALTH`, `UNIT_MAXHEALTH`, `UNIT_ABSORB_AMOUNT_CHANGED` events | fire, so their **count** is readable (how often health changed) |
+| `UNIT_COMBAT` | fires; the action is **readable** (`WOUND`, `HEAL`, `PARRY`...), the amount is hidden |
+| Combat log (`COMBAT_LOG_EVENT_UNFILTERED`) | registers, but **0 events** delivered: not available to addons |
+| `C_DamageMeter` (Midnight's meter) | exists: `IsDamageMeterAvailable`, `GetAvailableCombatSessions`, `GetCombatSessionFromType` / `FromID`, `GetCombatSessionSourceFromType` / `FromID`, `GetSessionDurationSeconds`, `ResetAllCombatSessions`. What it returns: pending (0.27.10 `meter:` lines) |
+| `StatusBar:SetMinMaxValues` + `SetValue` fed secret health | **accepted**, displays live health |
+| `FontString:SetText` fed secret health | **accepted**, shows the number (445,704) |
+| `FontString:SetFormattedText` fed `UnitHealthPercent` through a 0-100 curve | **accepted**, shows the percent (33%) |
+| Color curve (`C_CurveUtil.CreateColorCurve`) through `UnitHealthPercent` into `SetVertexColor` | **accepted**, shows a color by health |
+
+So the addon can **show** health (bar, number, percent, color) and **count** what happens to you (hits, heals,
+avoids, health changes) in combat, but not read amounts. The damage meter is the open lead for amounts over time.
 
 ## Step 1: probe it in a debug log
 
