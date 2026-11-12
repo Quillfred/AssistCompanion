@@ -1,4 +1,9 @@
--- Assist Companion: health probe (/ac probe). Finds out which ways of seeing the player's health change
+-- Assist Companion: health probe (/ac probe). NOT SHIPPED: it was in the addon for 0.27.8-0.27.10 to find out
+-- what addons can see of player health; the results are in docs/HIDDEN_RESOURCES.md. Kept as the template for
+-- the next probe: copy it into AssistCompanion/, add it to the TOC after Minimap.lua, and restore the hooks in
+-- Core.lua (the debug status line calls ns.probeStatus; "/ac probe" calls ns.probeToggle, "/ac probe lock |
+-- unlock" ns.probeLock), then remove it again once the owner's log has answered the question.
+-- Finds out which ways of seeing the player's health change
 -- over time work in combat (owner's question). Health is a secret value in combat: an addon can't read
 -- or compare it, but some widgets may accept it for display.
 --

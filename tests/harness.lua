@@ -147,15 +147,14 @@ function GetCursorPosition() return cursor[1], cursor[2] end
 
 -- load addon files with a shared namespace
 local ns = {}
-for _, file in ipairs({ "Rules.lua", "Core.lua", "Options.lua", "Minimap.lua", "Probe.lua" }) do
+for _, file in ipairs({ "Rules.lua", "Core.lua", "Options.lua", "Minimap.lua" }) do
   local chunk = assert(loadfile(dir .. "/" .. file))
   chunk("AssistCompanion", ns)
 end
 local display, ob, nf = AssistCompanionFrame, AssistCompanionOpener, AssistCompanionNext
 local driver, events
 for _, f in ipairs(frames) do
-  if f.acProbe then -- Probe.lua's own frames
-  elseif f.scripts.OnEvent then events = f elseif f.scripts.OnUpdate and not driver and f ~= nf then driver = f end
+  if f.scripts.OnEvent then events = f elseif f.scripts.OnUpdate and not driver and f ~= nf then driver = f end
 end
 events.scripts.OnEvent(events, "ADDON_LOADED", "AssistCompanion")
 expect_default_text = AssistCompanionDB.showText
@@ -2312,49 +2311,6 @@ do
   for _, k in ipairs({ "purify", "niuzao", "blackoxbrew" }) do ns.setRuleEnabled(268, k, true) end
   ns.setRuleEnabled(268, "purify", true); ns.setRuleEnabled(268, "celestial", true)
   combat(false); state.rp = 10; state.rpmax = nil; state.plates = 1; step()
-end
-
--- HEALTH PROBE -------------------------------------------------------------------
-do
-  issecretvalue = function(v) return v == "SECRET" end
-  local savedUH, savedUHM = UnitHealth, UnitHealthMax
-  UnitHealth = function() return "SECRET" end
-  UnitHealthMax = function() return 400000 end
-  expect("Probe: off -> no status", nil, ns.probeStatus())
-  expect("Probe: toggles on", true, ns.probeToggle())
-  local pe
-  for _, f in ipairs(frames) do if f.acProbe and f.scripts.OnEvent then pe = f end end
-  pe.scripts.OnEvent(pe, "UNIT_HEALTH", "player"); pe.scripts.OnEvent(pe, "UNIT_HEALTH", "player")
-  pe.scripts.OnEvent(pe, "UNIT_HEALTH", "target")
-  pe.scripts.OnEvent(pe, "UNIT_COMBAT", "player", "WOUND", "", "SECRET")
-  local st = ns.probeStatus()
-  expect("Probe: hidden health reads 'hidden', readable max a number", true,
-    st:find("health=hidden max=400000", 1, true) ~= nil)
-  expect("Probe: counts the player's health events (not the target's)", true, st:find("health:2,", 1, true) ~= nil)
-  expect("Probe: UNIT_COMBAT action readable, amount hidden", true, st:find("combat:1(WOUND amt=hidden)", 1, true) ~= nil)
-  expect("Probe: counts reset each status line", true, ns.probeStatus():find("health:0,", 1, true) ~= nil)
-  -- damage meter probe: what comes back, field by field (secrets as "hidden")
-  local mlog = {}
-  local savedDlog = ns.dlog
-  ns.dlog = function(fmt, ...) mlog[#mlog + 1] = string.format(fmt, ...) end
-  C_DamageMeter = { IsDamageMeterAvailable = function() return true end,
-    GetAvailableCombatSessions = function() return { { sessionID = 1, name = "Current" } } end,
-    GetCombatSessionSourceFromType = function(st, mt, guid) return { totalAmount = "SECRET", amountPerSecond = 12.5 } end,
-    GetCombatSessionFromType = function() error("Usage: GetCombatSessionFromType(sessionType, type)") end,
-    GetSessionDurationSeconds = function() return 42 end }
-  Enum.DamageMeterSessionType = { Current = 1 }
-  Enum.DamageMeterType = { DamageTaken = 2, Interrupts = 5 }
-  ns.probe.meterProbe(true)
-  local all = table.concat(mlog, "\n")
-  expect("Meter probe: availability and sessions described", true, all:find('available=true sessions={1={name="Current" sessionID=1}}', 1, true) ~= nil)
-  expect("Meter probe: my damage taken, hidden total, readable rate", true, all:find("me[Current,DamageTaken]={amountPerSecond=12.50 totalAmount=hidden}", 1, true) ~= nil)
-  expect("Meter probe: an error logged once with Blizzard's usage text", true, all:find("GetCombatSessionFromType error:", 1, true) ~= nil)
-  expect("Meter probe: non-damage types skipped", nil, all:find("Interrupts", 1, true))
-  C_DamageMeter = nil; Enum.DamageMeterSessionType = nil; Enum.DamageMeterType = nil; ns.dlog = savedDlog
-  expect("Probe: lock with no panel (test frames lack StatusBar) -> nil", nil, ns.probeLock(false))
-  ns.probeLock(true)
-  expect("Probe: toggles off", false, ns.probeToggle())
-  UnitHealth, UnitHealthMax = savedUH, savedUHM; issecretvalue = nil
 end
 
 io.stdout:write(table.concat(printed, "\n"), "\n")

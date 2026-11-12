@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.27.11
+
+* **Health probe finished and removed** (`/ac probe`, its panel and the `meter:` log lines). Results, from the owner's logs, in `docs/HIDDEN_RESOURCES.md`: in combat the addon can show your health (bars, numbers, percent, colors accept the hidden value) and count what happens to you (health changes, hits, heals, parries), but not read any amount; the combat log delivers nothing to addons; the damage meter (`C_DamageMeter`) is fully readable out of combat, its amounts hidden in combat. The probe's code is kept in `tools/probes/health_probe.lua` as the template for future probes.
+
 ## 0.27.10
 
 * Health probe, part 2: Midnight's damage meter (`C_DamageMeter`) exists for addons (owner's log). With `/ac probe` on, every ~5 seconds the debug log gets `meter:` lines with what its functions return (sessions, durations, damage taken / done and healing, for the session and for you) and which fields are readable, in and out of combat. Each function's first error is logged once, naming the arguments it expects. Its enum tables are listed when the probe starts.

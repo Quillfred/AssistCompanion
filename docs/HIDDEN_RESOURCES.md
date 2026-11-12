@@ -25,7 +25,8 @@ how to build a rule on a value the addon can't read. Use it for every new spec.
 
 Don't assume: the same value can differ by spec or patch (energy was hidden even out of combat). Probe first.
 
-**Health probe results (owner's 0.27.9 Blood log, 91 s on a tanking dummy, `/ac probe`):**
+**Health probe results (owner's 0.27.9 / 0.27.10 Blood logs on a tanking dummy; the probe shipped in 0.27.8-0.27.10,
+now `tools/probes/health_probe.lua`, the template for the next probe):**
 
 | Value / route | Result |
 |---|---|
@@ -46,7 +47,9 @@ after combat: use it for after-the-pull summaries, not live decisions.
 
 ## Step 1: probe it in a debug log
 
-Before designing a rule, add a probe to the spec's `ns.debugStatus[spec]` (Rules.lua) so the owner's next
+For a bigger question (several APIs, display widgets), start from `tools/probes/health_probe.lua`: a self-contained
+probe with its own status text, event counters, a movable test panel and a damage meter dump (its header says how to
+plug it back in). For a single value, add a probe to the spec's `ns.debugStatus[spec]` (Rules.lua) so the owner's next
 `/ac debug` log answers the question. Pattern (see `bmEnergyText` / `bmStaggerText` in Rules.lua):
 
 * Call each candidate API in `pcall`; show a number, `y`/`n` for booleans, `hidden` when
