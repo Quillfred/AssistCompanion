@@ -2104,7 +2104,7 @@ do
   events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
   events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 500
   local function rules() local t = {} for _, r in ipairs(ns.rules[269]) do t[#t + 1] = r.key end return table.concat(t, ",") end
-  expect("Windwalker: rule order", "xuen,conduit,zenith,unbrokenrhythm,danceofchiji,sck3,sckaoe,touchofdeath", rules())
+  expect("Windwalker: rule order", "xuen,conduit,zenith,unbrokenrhythm,danceofchiji,sck3,sckaoe", rules())
   state.rangeAsked = {}; step()
   expect("Windwalker: enemies counted in Fists of Fury range (8 yd, Spinning Crane Kick's radius)", true, state.rangeAsked[113656] or false)
   expect("Windwalker: melee check still uses Tiger Palm", true, state.rangeAsked[100780] or false)
@@ -2351,25 +2351,6 @@ do
   expect("UR: expired after 24 s -> highlight", "icon:" .. RSK, nf.icon.texture)
   state.known[UR] = nil; events.scripts.OnEvent(events, "SPELLS_CHANGED"); cast(TP); cast(FOF); step()
   expect("UR: without the 4-piece -> highlight", "icon:" .. RSK, nf.icon.texture)
-  events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 6.1; step()
-end
-
--- WINDWALKER: Touch of Death it can't cast (0.27.16) ---------------------
-do
-  local TP, BOK, SCK, RSK, TOD = 100780, 100784, 101546, 107428, 322109
-  state.spec = 269; state.overrides = {}; state.usable = {}; state.noPower = {}
-  state.known = { [TP]=true, [BOK]=true, [SCK]=true, [RSK]=true, [TOD]=true }
-  state.rp = 3; state.rpmax = 6; state.plates = 1; state.next = TOD
-  events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
-  events.scripts.OnEvent(events, "PLAYER_REGEN_DISABLED"); cast(RSK); step()
-  expect("ToD: not glowing, 1 target, last Rising Sun Kick -> Blackout Kick", "icon:" .. BOK, nf.icon.texture)
-  cast(BOK); step()
-  expect("ToD: last Blackout Kick -> Tiger Palm", "icon:" .. TP, nf.icon.texture)
-  state.plates = 6; cast(TP); step()
-  expect("ToD: 6 targets -> Spinning Crane Kick", "icon:" .. SCK, nf.icon.texture)
-  events.scripts.OnEvent(events, "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW", TOD); step()
-  expect("ToD: glowing (castable) -> Touch of Death", "icon:" .. TOD, nf.icon.texture)
-  events.scripts.OnEvent(events, "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE", TOD)
   events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 6.1; step()
 end
 

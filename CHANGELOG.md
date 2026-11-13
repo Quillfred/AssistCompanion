@@ -1,9 +1,5 @@
 # Assist Companion
 
-## 0.27.16
-
-* **Windwalker: Touch of Death it can't cast** (new rule `touchofdeath`). Owner's 0.27.14 log on dummies: right after the opener the highlight asked for Touch of Death for 6+ s although it couldn't be cast (target above its health threshold, no proc; pressing did nothing). Its button glows whenever it can be cast, so while it isn't glowing the addon shows a filler instead: Spinning Crane Kick with Dance of Chi-Ji or at 3+ targets, Blackout Kick with Combo Breaker or on 1-2 targets, else Tiger Palm, never repeating your last ability (Combo Strikes).
-
 ## 0.27.15
 
 * Unholy Festering Scythe rule: no prompt when no enemies are left (owner's 0.27.14 log: it asked for Festering Strike after the dummies were gone). The same log confirmed the rule in game (San'layn, single target): the button turns into Festering Scythe (`fsbtn=scythe`, and the game glows it), the 25 s timer starts at each Scythe, and the prompt came at 4 s left each time.

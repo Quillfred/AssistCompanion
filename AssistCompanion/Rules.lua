@@ -1532,29 +1532,6 @@ local wwRules = {
     end,
   },
 }
--- Touch of Death the game won't cast (owner's 0.27.14 log: on dummies above its health threshold, without its
--- proc, the highlight kept asking for it for 6+ s after the opener; pressing it did nothing). Its button glows
--- whenever it can be cast (every earlier log), so while it isn't glowing, show a filler instead.
-local function wwFiller(ctx)
-  local last, chi = wwLastStrike(ctx), ctx.power
-  if ctx.glowing(S.SPINNING_CRANE_KICK) == true and sckOk(ctx) then return S.SPINNING_CRANE_KICK, "Dance of Chi-Ji" end
-  if ctx.glowing(S.BLACKOUT_KICK) == true and last ~= S.BLACKOUT_KICK then return S.BLACKOUT_KICK, "Combo Breaker" end
-  if (ctx.enemies or 1) >= 3 and sckOk(ctx) then return S.SPINNING_CRANE_KICK, ctx.enemies .. " targets" end
-  local bokOk = last ~= S.BLACKOUT_KICK and (type(chi) ~= "number" or chi >= 1)
-  if (ctx.enemies or 1) <= 2 and bokOk then return S.BLACKOUT_KICK, "Filler" end
-  if last ~= S.TIGER_PALM then return S.TIGER_PALM, "Filler" end
-  if bokOk then return S.BLACKOUT_KICK, "Filler" end
-end
-table.insert(wwRules, {
-  key = "touchofdeath", name = "Touch of Death it can't cast", spell = S.TOUCH_OF_DEATH,
-  desc = "When the highlight asks for Touch of Death but its button isn't glowing (the game won't cast it: the target has too much health and no proc), shows a filler instead (Spinning Crane Kick on Dance of Chi-Ji or 3+ targets, Blackout Kick, Tiger Palm), keeping Combo Strikes.",
-  check = function(ctx)
-    if ctx.next ~= S.TOUCH_OF_DEATH or ctx.glowing(S.TOUCH_OF_DEATH) == true then return end
-    local id, why = wwFiller(ctx)
-    if not id then return end
-    return { spell = id, text = "Touch of Death not usable", sub = why }
-  end,
-})
 ns.rules[269] = ns.rules[269] or {}
 for _, rule in ipairs(wwRules) do table.insert(ns.rules[269], rule) end
 ns.trackCooldowns[269] = { S.INVOKE_XUEN, S.CELESTIAL_CONDUIT }
