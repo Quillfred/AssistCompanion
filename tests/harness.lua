@@ -2318,6 +2318,9 @@ do
   expect("Scythe: highlight already says Festering Strike -> no alert", "icon:85948", icon())
   state.next = 77575; step()
   expect("Scythe: highlight says Outbreak -> left alone", "icon:77575", icon())
+  state.next = 55090; state.plates = 0; step()
+  expect("Scythe: no enemies left -> no alert", "icon:55090", icon())
+  state.plates = 1
   state.next = 55090; state.known = { [207317] = true }
   events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 6.1; step()
 end

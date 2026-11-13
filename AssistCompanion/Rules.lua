@@ -289,7 +289,7 @@ ns.rules[252] = {
     -- Unholy gap sims (Nov 2026): optimal keeps it up 99%, the highlight ~53%. This rule alone,
     -- Rider: +8.1% / +8.1% / +8.5% at 1 / 3 / 5 targets (San'layn ~+23%, rougher sim).
     check = function(ctx)
-      if not ctx.inCombat then return end
+      if not ctx.inCombat or ctx.enemies == 0 then return end -- 0: nothing left to hit (owner's 0.27.14 log)
       local onScythe = ctx.override(S.FESTERING_STRIKE) == S.FESTERING_SCYTHE
       if not onScythe and not ctx.knows(S.FESTERING_SCYTHE_TALENT) then return end
       if unholyScytheLeft(ctx) > FESTERING_SCYTHE_REFRESH then return end

@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.27.15
+
+* Unholy Festering Scythe rule: no prompt when no enemies are left (owner's 0.27.14 log: it asked for Festering Strike after the dummies were gone). The same log confirmed the rule in game (San'layn, single target): the button turns into Festering Scythe (`fsbtn=scythe`, and the game glows it), the 25 s timer starts at each Scythe, and the prompt came at 4 s left each time.
+
 ## 0.27.14
 
 * **Windwalker: Spinning Crane Kick after Fists of Fury with the Midnight season 2 4-piece** (new rule `unbrokenrhythm`, on by default). Unbroken Rhythm (1296624) stacks during Fists of Fury and goes on the next Rising Sun Kick / Rushing Wind Kick or Spinning Crane Kick; it's worth much more on Spinning Crane Kick, but the highlight spends it on Rising Sun Kick. Timed from your casts (Fists of Fury, then up to 24 s or until one of those). At 3+ targets, or any count with Conduit of the Celestials. Sims (MID2 gear, on top of the current rules): Conduit +1.9% / +7.5% / +4.7% at 1 / 3 / 5 targets, Shado-Pan +0.0% / +2.1% / +1.0%. Only with the 4-piece (checked as a known spell; the debug status shows `ur=4pc` / `ur=no4pc`, plus `:up` while it's timed as up).
