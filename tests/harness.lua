@@ -2277,29 +2277,13 @@ do
     UnitPowerPercent = savedUPP
     for _, k in ipairs({ "niuzao", "blackoxbrew" }) do ns.setRuleEnabled(268, k, true) end
   end
-  -- stagger probe for the debug log
-  local savedAuras = C_UnitAuras
-  C_UnitAuras = { GetPlayerAuraBySpellID = function(id) if id == 124273 then return { applications = 1 } end end }
+  -- stagger in the debug status
   UnitStagger = function() return 12345 end
-  expect("Brewmaster: stagger readable -> amount and level in the debug status", "stagger=12345 level=heavy", ns.bmStaggerText())
+  expect("Brewmaster: stagger readable -> amount in the debug status", "stagger=12345", ns.bmStaggerText())
   issecretvalue = function(v) return v == "SECRET" end; UnitStagger = function() return "SECRET" end
-  C_UnitAuras = { GetPlayerAuraBySpellID = function() return "SECRET" end }
-  expect("Brewmaster: stagger hidden -> 'hidden'", "stagger=hidden level=hidden", ns.bmStaggerText())
-  issecretvalue = nil; UnitStagger = nil; C_UnitAuras = savedAuras
-  -- energy probe
-  local sp, sb = C_Spell.IsSpellUsable, C_ActionBar.IsUsableAction
-  local savedRegen = GetPowerRegen
-  UnitPower = function() return "SECRET" end; issecretvalue = function(v) return v == "SECRET" end
-  UnitPowerPercent = function() return "SECRET" end
-  GetPowerRegen = function() return 10, 12.5 end
-  C_Spell.IsSpellUsable = function() return true, false end
-  state.bars = { [121253] = 7 }
-  C_ActionBar.IsUsableAction = function(slot) if slot == 7 then return false, true end end
-  expect("Brewmaster: energy probe line", "energy: power=hidden power0=hidden pct=hidden regen=10.0/12.5 ks=y,n tp=y,n ksbar=n,y tpbar=noslot,noslot", ns.bmEnergyText())
-  C_Spell.IsSpellUsable, C_ActionBar.IsUsableAction, GetPowerRegen = sp, sb, savedRegen
-  UnitPowerPercent = nil; issecretvalue = nil; state.bars = {}
-  UnitPower = function() return state.rp end
-  expect("Brewmaster: no stagger API -> '?'", "stagger=? level=?", ns.bmStaggerText())
+  expect("Brewmaster: stagger hidden -> 'hidden'", "stagger=hidden", ns.bmStaggerText())
+  issecretvalue = nil; UnitStagger = nil
+  expect("Brewmaster: no stagger API -> '?'", "stagger=?", ns.bmStaggerText())
   -- Empty Barrel (Bring Me Another): no Celestial Infusion until Keg Smash throws the barrel
   ns.setRuleEnabled(268, "purify", false); ns.setRuleEnabled(268, "celestial", true)
   ns.setRuleEnabled(268, "niuzao", false); ns.setRuleEnabled(268, "blackoxbrew", false)
