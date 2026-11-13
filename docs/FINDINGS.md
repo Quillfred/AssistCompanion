@@ -143,6 +143,8 @@ option `bmSaveEnergy`.
 
 ## Windwalker audit (0.26.0, Nov 9 2026)
 
+**Touch of Death stuck on some dummies (owner's 0.27.14-0.27.16 logs, Nov 13 2026):** on certain training dummies the highlight asks for Touch of Death (not glowing, can't be cast) from before the pull and doesn't move on; other dummies don't do it. The owner expects it not to happen in raids, so no rule. A filler tried in 0.27.16 (Tiger Palm / Blackout Kick / Spinning Crane Kick while it isn't glowing) looped Tiger Palm / Blackout Kick on a single dummy and was reverted: a real replacement would need Rising Sun Kick / Fists of Fury / Whirling Dragon Punch readiness timed from casts (hasted cooldowns).
+
 **Highlight rules** (game data, `assisted_combat.inc` steps for 269; SimC `assisted_combat/monk_windwalker.simc`): Touch of
 Death, Strike of the Windlord, Celestial Conduit*, Zenith*, Flying Serpent Kick (Slicing Winds)*, Spinning Crane Kick at
 2 Dance of Chi-Ji stacks, Rushing Wind Kick, Tiger Palm at 101+ energy, Whirling Dragon Punch, Fists of Fury, Rising Sun
