@@ -1,7 +1,7 @@
 # Next steps (hand-off)
 
 Written at the end of a long working session so a fresh session can pick up without the old
-conversation. Current addon version: **0.27.17** (0.13.0-beta1 on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
+conversation. Current addon version: **0.27.17** (v0.27.17 release on CurseForge) (see `AssistCompanion/AssistCompanion.toc`).
 
 ## Where things stand
 
@@ -196,7 +196,8 @@ only Mistweaver and Discipline, last.
   without asking.
 * **CurseForge releases** (project 1783748, `## X-Curse-Project-ID` in the TOC): add the version's notes to
   `CHANGELOG.md`, bump `## Version:` in the TOC, merge, then start the release workflow
-  (`-beta1` / `-alpha1` suffix = beta / alpha file). Claude sessions can't push tags (pushes are limited to the
+  (`-beta1` / `-alpha1` suffix = beta / alpha file). **Owner, Nov 13 2026: from v0.27.17 on, every CurseForge
+  upload is a release build: tag `vX.Y.Z` with no suffix.** Only publish when the owner asks. Claude sessions can't push tags (pushes are limited to the
   session branch), so trigger `release.yml` with `workflow_dispatch` (GitHub MCP `actions_run_trigger`, input
   `tag`, ref `main`); the job creates and pushes the tag itself. Pushing a `v*` tag by hand also works. `.github/workflows/release.yml` checks the tag matches the
   TOC, runs the tests, and runs the BigWigs packager (`.pkgmeta` ships only the `AssistCompanion` folder) to
