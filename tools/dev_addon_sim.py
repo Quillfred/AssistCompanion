@@ -101,6 +101,26 @@ def highlight_game(ranks, cap):
     return L
 
 
+UF = "unbound_flame,if=buff.unbound_flame.up&buff.essence_burst.stack<=1"
+MD = "disintegrate,if=active_enemies>3&buff.mass_disintegrate_stacks.up"
+
+
+def order1(hl):
+    """0.27.16, single target: Unbound Flame after Disintegrate (only without Essence Burst), Mass Disintegrate
+    stacks spent at 1 target too. Simmed +2.4% single target, 0 at 3 / 5 (docs/FINDINGS.md)."""
+    out = []
+    for a in hl:
+        if a == UF:
+            a = UF.replace("buff.essence_burst.stack<=1",
+                           "(active_enemies>1&buff.essence_burst.stack<=1|active_enemies=1&essence<3&buff.essence_burst.down)")
+        if a == MD:
+            a = "disintegrate,if=(active_enemies>3|active_enemies=1)&buff.mass_disintegrate_stacks.up"
+        out.append(a)
+        if a == "disintegrate":
+            out.append("unbound_flame,if=buff.unbound_flame.up&active_enemies=1&buff.essence_burst.down")
+    return out
+
+
 def apl(mode):
     if mode in ("optimal", "hl_simc"):
         return None
@@ -112,6 +132,8 @@ def apl(mode):
                  "actions+=/tip_the_scales,if=cooldown.fire_breath.ready"]
     acts += ["actions+=/call_action_list,name=hl"]
     hl = highlight_game(mode in ("hl_addon", "hl_ranks"), mode in ("hl_addon", "hl_cap"))
+    if mode == "hl_addon":
+        hl = order1(hl)
     lines += acts + ["actions.hl=" + hl[0]] + ["actions.hl+=/" + a for a in hl[1:]]
     return lines
 

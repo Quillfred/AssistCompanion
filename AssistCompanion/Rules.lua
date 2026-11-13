@@ -1871,6 +1871,47 @@ local devRules = {
     end,
   },
 }
+-- Single target, Scalecommander (0.27.16, docs/FINDINGS.md "Devastation: order fixes"): the highlight presses
+-- Unbound Flame ahead of Disintegrate (10.5 casts vs optimal's 4) and only spends Mass Disintegrate stacks on
+-- 4+ targets. Simmed together +2.4% single target; at 3 and 5 targets they lost, so 1 target only.
+local function devUnboundNext(ctx)
+  return ctx.next == S.UNBOUND_FLAME or (ctx.next == S.DRAGONRAGE and ctx.override(S.DRAGONRAGE) == S.UNBOUND_FLAME)
+end
+local function devCanDisintegrate(ctx)
+  if ctx.usable(S.DISINTEGRATE) == false then return false end
+  if ctx.glowing(S.DISINTEGRATE) == true then return true end -- Essence Burst: free
+  return type(ctx.power) == "number" and ctx.power >= 3
+end
+local DEV_BELOW_MASS = { [S.LIVING_FLAME] = true, [S.AZURE_STRIKE] = true, [S.AZURE_SWEEP] = true, [S.PYRE] = true }
+table.insert(devRules, {
+  key = "devmass1",
+  name = "Mass Disintegrate on 1 target",
+  spell = S.DISINTEGRATE,
+  desc = "Scalecommander, single target: shows Disintegrate while Mass Disintegrate stacks are waiting (counted from your empowers) and you can afford it, instead of a filler or Unbound Flame. The highlight only spends the stacks on 4+ targets. Simmed: +0.8% single target (with the Unbound Flame rule: +2.4%).",
+  check = function(ctx)
+    if ctx.enemies ~= 1 or not ctx.knows(S.MASS_DISINTEGRATE) or dev.mass <= 0 then return end
+    if not (DEV_BELOW_MASS[ctx.next] or devUnboundNext(ctx)) then return end
+    if not devCanDisintegrate(ctx) then return end
+    return { spell = S.DISINTEGRATE, text = "Disintegrate", sub = "Mass Disintegrate" }
+  end,
+})
+table.insert(devRules, {
+  key = "devunbound1",
+  name = "Unbound Flame later on 1 target",
+  spell = S.UNBOUND_FLAME,
+  desc = "Scalecommander, single target: shows Disintegrate instead of Unbound Flame when you can afford it, and Unbound Flame instead of Living Flame when you have no Essence Burst. The highlight presses Unbound Flame ahead of Disintegrate. Simmed: +1.4% single target (with the Mass Disintegrate rule: +2.4%).",
+  check = function(ctx)
+    if ctx.enemies ~= 1 or not ctx.knows(S.MASS_DISINTEGRATE) then return end
+    if devUnboundNext(ctx) then
+      if not devCanDisintegrate(ctx) then return end
+      return { spell = S.DISINTEGRATE, text = "Disintegrate", sub = "Before Unbound Flame" }
+    end
+    if ctx.next == S.LIVING_FLAME and ctx.override(S.DRAGONRAGE) == S.UNBOUND_FLAME
+        and ctx.glowing(S.DISINTEGRATE) ~= true then
+      return { spell = S.UNBOUND_FLAME, text = "Unbound Flame", sub = "No Essence Burst" }
+    end
+  end,
+})
 ns.rules[1467] = ns.rules[1467] or {}
 for _, rule in ipairs(devRules) do table.insert(ns.rules[1467], rule) end
 
