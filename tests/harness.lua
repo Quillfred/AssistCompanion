@@ -2384,6 +2384,23 @@ do
   events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 6.1; step()
 end
 
+-- OPENER: a finished opener stays finished through a short combat drop (0.27.16) --
+do
+  local TP, ZEN, FOF, RSK, WDP = 100780, 1249625, 113656, 107428, 152175
+  state.spec = 269; state.overrides = {}; state.usable = {}; state.noPower = {}
+  state.known = { [TP]=true, [ZEN]=true, [FOF]=true, [RSK]=true, [WDP]=true }
+  state.rp = 3; state.rpmax = 6; state.plates = 1; state.next = TP; state.target = "enemy"
+  events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED"); step()
+  cast(TP); combat(true); for _, id in ipairs({ ZEN, FOF, RSK, WDP }) do cast(id); step() end
+  now = now + 30; step()
+  combat(false, true); step(); step()
+  expect("Opener: finished, short combat drop -> not restarted", "", ob.shown and AssistCompanionDB.locked and openerIcons() or "")
+  combat(true); step()
+  combat(false); step()
+  expect("Opener: real fight end (6s) -> ready for the next pull", true, ob.shown and openerIcons() ~= "")
+  state.target = nil
+end
+
 io.stdout:write(table.concat(printed, "\n"), "\n")
 io.stdout:write(("\n%d passed, %d failed\n"):format(pass, fail))
 os.exit(fail == 0 and 0 or 1)

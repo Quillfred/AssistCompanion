@@ -1110,7 +1110,9 @@ local function renderOpener()
   local steps = opener.steps
   -- Opener spells pressed out of combat (testing on a dummy, a pull that never started):
   -- start over once you've been idle out of combat for a while.
-  if not inCombat and opener.index > 1 and opener.lastAdvance
+  -- Not during a combat drop (pendingReset): that may be the same fight resuming (owner's 0.27.16 log: combat
+  -- dropped for 0.3 s and the finished opener restarted at Living Flame).
+  if not inCombat and not pendingReset and opener.index > 1 and opener.lastAdvance
      and GetTime() - opener.lastAdvance >= OPENER_IDLE_RESET then
     buildOpener() -- opener only; cast history is cleared by real combat drops, deaths and encounter ends
   end
