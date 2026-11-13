@@ -1,5 +1,13 @@
 # Assist Companion
 
+## 0.27.14
+
+* **Windwalker: Spinning Crane Kick after Fists of Fury with the Midnight season 2 4-piece** (new rule `unbrokenrhythm`, on by default). Unbroken Rhythm (1296624) stacks during Fists of Fury and goes on the next Rising Sun Kick / Rushing Wind Kick or Spinning Crane Kick; it's worth much more on Spinning Crane Kick, but the highlight spends it on Rising Sun Kick. Timed from your casts (Fists of Fury, then up to 24 s or until one of those). At 3+ targets, or any count with Conduit of the Celestials. Sims (MID2 gear, on top of the current rules): Conduit +1.9% / +7.5% / +4.7% at 1 / 3 / 5 targets, Shado-Pan +0.0% / +2.1% / +1.0%. Only with the 4-piece (checked as a known spell; the debug status shows `ur=4pc` / `ur=no4pc`, plus `:up` while it's timed as up).
+
+## 0.27.13
+
+* **Unholy: Festering Scythe uptime** (new rule `fescythe`, on by default). Festering Scythe's plague haste lasts 25 s; the highlight only asks for it after it has fallen off (~53% uptime in sims vs 99% optimal). In combat, when it has 4 s or less left (timed from your own Festering Scythe cast), the addon shows Festering Strike, then Festering Scythe once the button turns into it. It leaves Outbreak / Raise Dead and an existing Festering Strike suggestion alone, and waits for 2 runes for Festering Strike (Scythe is free). Rider sims: +8.1% / +8.1% / +8.5% at 1 / 3 / 5 targets; San'layn about +23% (rougher sim). Debug status adds `fs=` (seconds left, `-` before the first Scythe) and `fsbtn=` (what's on the Festering Strike button).
+
 ## 0.27.12
 
 * Brewmaster debug log shortened: `stagger=` now shows just the amount (the light / moderate / heavy level read nothing in combat), and the `energy:` probe is gone (energy is hidden; findings in `docs/HIDDEN_RESOURCES.md`). The Purifying Brew rule still uses the readable stagger.
