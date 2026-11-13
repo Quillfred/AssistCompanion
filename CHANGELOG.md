@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.27.12
+
+* Brewmaster debug log shortened: `stagger=` now shows just the amount (the light / moderate / heavy level read nothing in combat), and the `energy:` probe is gone (energy is hidden; findings in `docs/HIDDEN_RESOURCES.md`). The Purifying Brew rule still uses the readable stagger.
+
 ## 0.27.11
 
 * **Health probe finished and removed** (`/ac probe`, its panel and the `meter:` log lines). Results, from the owner's logs, in `docs/HIDDEN_RESOURCES.md`: in combat the addon can show your health (bars, numbers, percent, colors accept the hidden value) and count what happens to you (health changes, hits, heals, parries), but not read any amount; the combat log delivers nothing to addons; the damage meter (`C_DamageMeter`) is fully readable out of combat, its amounts hidden in combat. The probe's code is kept in `tools/probes/health_probe.lua` as the template for future probes.

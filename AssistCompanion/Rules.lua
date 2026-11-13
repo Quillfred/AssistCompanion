@@ -1662,72 +1662,20 @@ ns.trackCooldowns[268] = { S.INVOKE_NIUZAO, S.BLACK_OX_BREW }
 
 -- Debug status: pb / cb = brew charges (counted), combo = Blackout Combo up (from your casts),
 -- bob / niu = seconds until Black Ox Brew / Invoke Niuzao, cellar = what's on the Exploding Keg button.
--- Stagger probe (owner's question): is UnitStagger readable in combat, and the level debuffs
--- (Light 124275, Moderate 124274, Heavy 124273)? "hidden" = secret value, "?" = no API / error.
-local function bmProbe(fn, ...)
-  if type(fn) ~= "function" then return "?" end
-  local ok, v = pcall(fn, ...)
-  if not ok then return "?" end
-  if v ~= nil and issecretvalue and issecretvalue(v) then return "hidden" end
-  return v
-end
+-- Stagger for the debug log: a number (readable in combat, owner's 0.27.3 log) or "hidden". The level debuffs
+-- and the energy probe (0.27.2-0.27.11) are gone: their findings are in docs/HIDDEN_RESOURCES.md.
 local function bmStaggerText()
-  local amount = bmProbe(UnitStagger, "player")
-  if type(amount) == "number" then amount = ("%.0f"):format(amount) end
-  local level = "none"
-  local get = C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID
-  for _, a in ipairs({ { 124273, "heavy" }, { 124274, "moderate" }, { 124275, "light" } }) do
-    local v = bmProbe(get, a[1])
-    if v == "hidden" or v == "?" then level = v break end
-    if type(v) == "table" then level = a[2] break end
-  end
-  return ("stagger=%s level=%s"):format(tostring(amount), level)
+  if type(UnitStagger) ~= "function" then return "stagger=?" end
+  local ok, v = pcall(UnitStagger, "player")
+  if not ok then return "stagger=?" end
+  if v ~= nil and issecretvalue and issecretvalue(v) then return "stagger=hidden" end
+  return "stagger=" .. (type(v) == "number" and ("%.0f"):format(v) or tostring(v))
 end
 ns.bmStaggerText = bmStaggerText
 
--- Energy probe (owner: energy reads "hidden" for Brewmaster). Every way an addon might see energy, as
--- the game answers it: number, y/n, "hidden" (secret), "nil", "?" (no API / error).
-local function bmShow(v)
-  if v == "hidden" or v == "?" then return v end
-  if v == nil then return "nil" end
-  if type(v) == "number" then return ("%.1f"):format(v) end
-  if type(v) == "boolean" then return v and "y" or "n" end
-  return tostring(v)
-end
-local function bmProbe2(fn, ...)
-  if type(fn) ~= "function" then return "?", "?" end
-  local ok, a, b = pcall(fn, ...)
-  if not ok then return "?", "?" end
-  local function f(v) if v ~= nil and issecretvalue and issecretvalue(v) then return "hidden" end return v end
-  return f(a), f(b)
-end
-local function bmSlot(id)
-  if not (C_ActionBar and C_ActionBar.FindSpellActionButtons) then return nil end
-  local ok, slots = pcall(C_ActionBar.FindSpellActionButtons, id)
-  if ok and type(slots) == "table" then return slots[1] end
-end
-local function bmEnergyText()
-  local up = bmProbe2(UnitPower, "player", 3)
-  local up0 = bmProbe2(UnitPower, "player")
-  local pct = bmProbe2(UnitPowerPercent, "player", 3)
-  local regenOut, regenIn = bmProbe2(GetPowerRegen)
-  local spell = C_Spell and C_Spell.IsSpellUsable
-  local ksU, ksNo = bmProbe2(spell, S.KEG_SMASH)
-  local tpU, tpNo = bmProbe2(spell, S.TIGER_PALM)
-  local bar = C_ActionBar and C_ActionBar.IsUsableAction
-  local ksSlot, tpSlot = bmSlot(S.KEG_SMASH), bmSlot(S.TIGER_PALM)
-  local kbU, kbNo, tbU, tbNo = "noslot", "noslot", "noslot", "noslot"
-  if ksSlot then kbU, kbNo = bmProbe2(bar, ksSlot) end
-  if tpSlot then tbU, tbNo = bmProbe2(bar, tpSlot) end
-  return ("energy: power=%s power0=%s pct=%s regen=%s/%s ks=%s,%s tp=%s,%s ksbar=%s,%s tpbar=%s,%s"):format(
-    bmShow(up), bmShow(up0), bmShow(pct), bmShow(regenOut), bmShow(regenIn), bmShow(ksU), bmShow(ksNo),
-    bmShow(tpU), bmShow(tpNo), bmShow(kbU), bmShow(kbNo), bmShow(tbU), bmShow(tbNo))
-end
-ns.bmEnergyText = bmEnergyText
-
 ns.debugStatus[268] = function(ctx)
   local cb = bmCelestial(ctx)
-  return ("%s %s pb=%s cb=%s combo=%s barrel=%s bob=%.0f niu=%.0f keg=%s"):format(bmStaggerText(), bmEnergyText(), tostring(ctx.charges(S.PURIFYING_BREW)),
+  return ("%s pb=%s cb=%s combo=%s barrel=%s bob=%.0f niu=%.0f keg=%s"):format(bmStaggerText(), tostring(ctx.charges(S.PURIFYING_BREW)),
     cb and tostring(ctx.charges(cb)) or "-", bmComboUp(ctx) and "y" or "n", bmBarrelUp(ctx) and "y" or "n",
     ns.cooldownLeft(ctx, S.BLACK_OX_BREW, 120), ns.cooldownLeft(ctx, S.INVOKE_NIUZAO, 120),
     tostring(ctx.override(S.EXPLODING_KEG)))
