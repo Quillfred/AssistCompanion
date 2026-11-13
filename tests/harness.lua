@@ -1907,7 +1907,7 @@ do
   expect("Wingleader: Concentrated Power, 5 targets -> 4s cut", 4, ns.devState.cuts[#ns.devState.cuts].s)
   talented(1261448, false)
   state.known[436335] = nil; talented(441206, false); state.plates = 1
-  expect("Devastation CD: rule order", "dragonrage,devdeepbreath,devtip,essencecap,pyre3", (function()
+  expect("Devastation CD: rule order", "dragonrage,devdeepbreath,devtip,essencecap,pyre3,devmass1,devunbound1", (function()
     local t = {} for _, r in ipairs(ns.rules[1467]) do t[#t + 1] = r.key end return table.concat(t, ",") end)())
   for _, k in ipairs({ "dragonrage", "devdeepbreath", "devtip" }) do ns.setRuleEnabled(1467, k, false) end
   -- Enemy count for ranged specs: enemies you're fighting (threat), not everything within 25 yd
@@ -2351,6 +2351,36 @@ do
   expect("UR: expired after 24 s -> highlight", "icon:" .. RSK, nf.icon.texture)
   state.known[UR] = nil; events.scripts.OnEvent(events, "SPELLS_CHANGED"); cast(TP); cast(FOF); step()
   expect("UR: without the 4-piece -> highlight", "icon:" .. RSK, nf.icon.texture)
+  events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 6.1; step()
+end
+
+-- DEVASTATION: single-target order fixes (0.27.16) ------------------------
+do
+  local LF, DIS, DR, UF, FB, MASS, AS = 361469, 356995, 375087, 1292321, 357208, 436335, 362969
+  state.spec = 1467; state.overrides = {}; state.usable = {}; state.noPower = {}
+  state.known = { [LF]=true, [DIS]=true, [DR]=true, [MASS]=true, [FB]=true, [AS]=true }
+  state.rp = 1; state.rpmax = 5; state.plates = 1; state.next = LF
+  events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+  for _, k in ipairs({ "dragonrage", "devdeepbreath", "devtip" }) do ns.setRuleEnabled(1467, k, false) end
+  events.scripts.OnEvent(events, "PLAYER_REGEN_DISABLED"); step()
+  expect("Dev 1T: Living Flame, no Unbound Flame -> highlight", "icon:" .. LF, nf.icon.texture)
+  state.overrides = { [DR] = UF }; step()
+  expect("Dev 1T: Living Flame, Unbound Flame on the button, no Essence Burst -> Unbound Flame", "icon:" .. UF, nf.icon.texture)
+  events.scripts.OnEvent(events, "SPELL_ACTIVATION_OVERLAY_GLOW_SHOW", DIS); step()
+  expect("Dev 1T: Essence Burst up -> highlight's Living Flame", "icon:" .. LF, nf.icon.texture)
+  state.next = UF; step()
+  expect("Dev 1T: highlight Unbound Flame + Essence Burst -> Disintegrate", "icon:" .. DIS, nf.icon.texture)
+  events.scripts.OnEvent(events, "SPELL_ACTIVATION_OVERLAY_GLOW_HIDE", DIS); step()
+  expect("Dev 1T: Unbound Flame, 1 essence, no Essence Burst -> Unbound Flame", "icon:" .. UF, nf.icon.texture)
+  state.rp = 3; step()
+  expect("Dev 1T: Unbound Flame, 3 essence -> Disintegrate", "icon:" .. DIS, nf.icon.texture)
+  state.plates = 3; step()
+  expect("Dev 3T: left to the highlight", "icon:" .. UF, nf.icon.texture)
+  state.plates = 1; state.overrides = {}; state.next = AS; cast(FB); step()
+  expect("Dev 1T: Mass Disintegrate stack + 3 essence -> Disintegrate", "icon:" .. DIS, nf.icon.texture)
+  state.rp = 2; step()
+  expect("Dev 1T: Mass Disintegrate stack, 2 essence -> highlight", "icon:" .. AS, nf.icon.texture)
+  for _, k in ipairs({ "dragonrage", "devdeepbreath", "devtip" }) do ns.setRuleEnabled(1467, k, true) end
   events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 6.1; step()
 end
 

@@ -1,5 +1,9 @@
 # Assist Companion
 
+## 0.27.16
+
+* **Devastation, single target, Scalecommander: two order fixes** (new rules `devmass1` and `devunbound1`). The highlight presses Unbound Flame ahead of Disintegrate (10.5 casts vs optimal's 4) and only spends Mass Disintegrate stacks on 4+ targets. On 1 target the addon now shows Disintegrate while Mass Disintegrate stacks are waiting, and instead of Unbound Flame, when you can afford it (3 essence, or Essence Burst glowing); and Unbound Flame instead of Living Flame when you have no Essence Burst. Simmed +2.4% single target together; at 3 and 5 targets they lost (-1% to -4%), so 1 target only. Needs enemy nameplates on.
+
 ## 0.27.15
 
 * Unholy Festering Scythe rule: no prompt when no enemies are left (owner's 0.27.14 log: it asked for Festering Strike after the dummies were gone). The same log confirmed the rule in game (San'layn, single target): the button turns into Festering Scythe (`fsbtn=scythe`, and the game glows it), the 25 s timer starts at each Scythe, and the prompt came at 4 s left each time.
