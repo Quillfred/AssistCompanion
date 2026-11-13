@@ -8,7 +8,8 @@ Rotations per build (MID2 Rider and San'layn profiles) and fight:
   hl_addon   + the addon's Unholy rules: Blightfall when the highlight loops on Outbreak (Blightfall is on
              the Dark Transformation button), Death Coil (1-3 targets) / Epidemic (4+) at 80+ runic power
              (the runic power layer, shown over anything the highlight says except Death Coil / Epidemic).
-  +blightfall / +rpcap: one rule each.
+  +blightfall / +rpcap: one rule each. +fescythe: Blightfall + Festering Scythe uptime (0.27.13: Festering
+             Strike / Scythe when its 25 s plague haste has under 3 GCDs left).
 Usage: SIMC=<simc checkout with build/simc> python3 tools/unholy_rules_sim.py [iterations]
 """
 import json, os, re, subprocess, sys
@@ -26,12 +27,12 @@ HL = [l.split("=", 1)[1].lstrip("/") for l in
       open(os.path.join(SIMC, "ActionPriorityLists/assisted_combat/deathknight_unholy.simc")).read().splitlines()
       if l.startswith("actions.assisted_combat")]
 os.makedirs(OUT, exist_ok=True)
-MODES = {"hl_game": (0, 0), "hl_addon": (1, 1), "+blightfall": (1, 0), "+rpcap": (0, 1)}
+MODES = {"hl_game": (0, 0), "hl_addon": (1, 1), "+blightfall": (1, 0), "+rpcap": (0, 1), "+fescythe": (1, 0, 1)}
 RP_AT = int(os.environ.get("UNHOLY_RP", "80"))  # the addon's default (/ac unholyrp)
 
 
 def apl(flags):
-    bf, rp = flags
+    bf, rp = flags[0], flags[1]
     top = ([f"death_coil,if=runic_power>={RP_AT}&active_enemies<=3",
             f"epidemic,if=runic_power>={RP_AT}&active_enemies>=4"] if rp else [])
     hl = []
@@ -39,6 +40,8 @@ def apl(flags):
         if bf and a == "outbreak,if=buff.blightfall.up":
             hl.append("dark_transformation,if=buff.blightfall.up")  # the button casts Blightfall
         hl.append(a)
+    if len(flags) > 2 and flags[2]:  # 0.27.13: keep Festering Scythe's plague haste up (refresh under 3 GCDs left)
+        top = ["festering_strike,if=buff.festering_scythe_tt.remains<3*gcd.max"] + top
     if bf:  # Blightfall outranks the runic power layer (rule order)
         top = ["dark_transformation,if=buff.blightfall.up"] + top
     return ["actions.precombat=snapshot_stats", "actions.precombat+=/raise_dead", "actions=auto_attack",

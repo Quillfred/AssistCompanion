@@ -16,6 +16,8 @@ Rotations per build (MID2 Shado-Pan and Conduit of the Celestials profiles) and 
     zenith    Zenith when a charge is ready and Zenith isn't running (zenithx: only with Xuen up or 30+ s away).
     conduit   Celestial Conduit when ready (Conduit; usable after Xuen).
     docj1     Spinning Crane Kick at 1 Dance of Chi-Ji stack (the highlight waits for 2).
+    ur        Spinning Crane Kick while Unbroken Rhythm (MID2 4-piece) is up, at 3+ targets or any count with
+              Conduit of the Celestials (shipped in 0.27.14).
     sckrsk    Spinning Crane Kick in place of the highlight's Rising Sun Kick at 3+ targets (sckrsk4: 4+).
 Usage: SIMC=<simc checkout with build/simc> python3 tools/windwalker_rules_sim.py [iterations]
 """
@@ -44,7 +46,7 @@ for r in RULES:  # each rule's worth with all the others on
 for extra in ("docj1", "sckrsk", "sckrsk4"):  # candidates on top of the full set
     MODES["all+" + extra] = RULES + [extra]
 MODES["all+docj1+sckrsk"] = RULES + ["docj1", "sckrsk"]
-FINAL = RULES + ["sckrsk4c4", "docj12"]  # what the addon ships (0.26.3: Spinning Crane Kick over Rising Sun Kick at 4+ chi)
+FINAL = RULES + ["sckrsk4c4", "docj12", "ur"]  # what the addon ships (0.26.3: Spinning Crane Kick over Rising Sun Kick at 4+ chi; 0.27.14: Unbroken Rhythm)
 MODES["final"] = FINAL
 MODES["final:conduitz"] = [("conduitz" if x == "conduit" else x) for x in FINAL]
 MODES["final:anychi"] = [("sckrsk4" if x == "sckrsk4c4" else x) for x in FINAL]
@@ -79,6 +81,8 @@ def apl(rules):
         top.append("spinning_crane_kick,if=buff.dance_of_chiji.up&active_enemies<=2&combo_strike")
     if "fofpool" in rules:  # Tiger Palm to reach 3 chi when Fists of Fury is ready (true cooldown: an upper bound)
         top.append("tiger_palm,if=combo_strike&chi<3&!cooldown.fists_of_fury.remains&active_enemies>=3")
+    if "ur" in rules:  # 0.27.14: Spinning Crane Kick on Unbroken Rhythm (MID2 4-piece) at 3+ targets, any count with Conduit
+        top.append("spinning_crane_kick,if=buff.unbroken_rhythm.up&combo_strike&(active_enemies>=3|talent.celestial_conduit)")
     hl = []
     for a in HL_GAME:
         if "sckrsk" in rules and a.startswith("rising_sun_kick,if=combo_strike"):

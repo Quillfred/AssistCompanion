@@ -2104,7 +2104,7 @@ do
   events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
   events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 500
   local function rules() local t = {} for _, r in ipairs(ns.rules[269]) do t[#t + 1] = r.key end return table.concat(t, ",") end
-  expect("Windwalker: rule order", "xuen,conduit,zenith,danceofchiji,sck3,sckaoe", rules())
+  expect("Windwalker: rule order", "xuen,conduit,zenith,unbrokenrhythm,danceofchiji,sck3,sckaoe", rules())
   state.rangeAsked = {}; step()
   expect("Windwalker: enemies counted in Fists of Fury range (8 yd, Spinning Crane Kick's radius)", true, state.rangeAsked[113656] or false)
   expect("Windwalker: melee check still uses Tiger Palm", true, state.rangeAsked[100780] or false)
@@ -2295,6 +2295,63 @@ do
   for _, k in ipairs({ "purify", "niuzao", "blackoxbrew" }) do ns.setRuleEnabled(268, k, true) end
   ns.setRuleEnabled(268, "purify", true); ns.setRuleEnabled(268, "celestial", true)
   combat(false); state.rp = 10; state.rpmax = nil; state.plates = 1; step()
+end
+
+-- UNHOLY: Festering Scythe uptime (0.27.13) ------------------------------
+do
+  local function icon() return nf.icon.texture end
+  state.spec = 252; state.known = { [207317] = true, [455397] = true }; state.overrides = {}; state.pet = true
+  state.plates = 1; state.rp = 30
+  events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+  state.next = 55090; step()
+  expect("Scythe: out of combat -> no alert", "icon:55090", icon())
+  events.scripts.OnEvent(events, "PLAYER_REGEN_DISABLED"); step()
+  expect("Scythe: in combat, never cast -> Festering Strike", "icon:85948", icon())
+  state.overrides = { [85948] = 458128 }; step()
+  expect("Scythe: button is Festering Scythe -> Festering Scythe", "icon:458128", icon())
+  cast(458128); state.overrides = {}; step()
+  expect("Scythe: just cast -> no alert", "icon:55090", icon())
+  expect("Scythe: debug shows ~25 s left", true, (ns.debugStatus[252]({ override = function() end, lastCast = { [458128] = now - 0.2 }, now = now }):find("fs=25") ~= nil))
+  now = now + 21.5; step()
+  expect("Scythe: 3.3 s left -> Festering Strike", "icon:85948", icon())
+  state.next = 85948; step()
+  expect("Scythe: highlight already says Festering Strike -> no alert", "icon:85948", icon())
+  state.next = 77575; step()
+  expect("Scythe: highlight says Outbreak -> left alone", "icon:77575", icon())
+  state.next = 55090; state.plates = 0; step()
+  expect("Scythe: no enemies left -> no alert", "icon:55090", icon())
+  state.plates = 1
+  state.next = 55090; state.known = { [207317] = true }
+  events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 6.1; step()
+end
+
+-- WINDWALKER: Unbroken Rhythm (MID2 4-piece, 0.27.13) -------------------
+do
+  local TP, SCK, RSK, FOF, UR, CCH = 100780, 101546, 107428, 113656, 1296624, 1248989
+  state.spec = 269; state.overrides = {}; state.usable = {}; state.noPower = {}
+  state.known = { [TP]=true, [SCK]=true, [RSK]=true, [FOF]=true, [UR]=true }
+  state.rp = 4; state.rpmax = 5; state.plates = 3; state.next = RSK
+  events.scripts.OnEvent(events, "PLAYER_SPECIALIZATION_CHANGED")
+  events.scripts.OnEvent(events, "PLAYER_REGEN_DISABLED"); step()
+  cast(TP); step()
+  expect("UR: no Fists of Fury yet -> highlight", "icon:" .. RSK, nf.icon.texture)
+  cast(FOF); step()
+  expect("UR: after Fists of Fury, 3 targets -> Spinning Crane Kick", "icon:" .. SCK, nf.icon.texture)
+  expect("UR: debug shows the set and the buff", true, (ns.debugStatus[269]({ glowing = function() end, charges = function() return nil end,
+    lastCast = { [FOF] = now }, now = now, knows = function(id) return id == UR end }):find("ur=4pc:up") ~= nil))
+  state.plates = 1; step()
+  expect("UR: 1 target, Shado-Pan -> highlight", "icon:" .. RSK, nf.icon.texture)
+  state.known[CCH] = true; events.scripts.OnEvent(events, "SPELLS_CHANGED"); step()
+  expect("UR: 1 target, Conduit -> Spinning Crane Kick", "icon:" .. SCK, nf.icon.texture)
+  cast(SCK); step()
+  expect("UR: used by Spinning Crane Kick -> highlight", "icon:" .. RSK, nf.icon.texture)
+  cast(FOF); state.plates = 3; step(); cast(RSK); step()
+  expect("UR: used by Rising Sun Kick -> highlight", "icon:" .. RSK, nf.icon.texture)
+  cast(FOF); now = now + 25; step()
+  expect("UR: expired after 24 s -> highlight", "icon:" .. RSK, nf.icon.texture)
+  state.known[UR] = nil; events.scripts.OnEvent(events, "SPELLS_CHANGED"); cast(TP); cast(FOF); step()
+  expect("UR: without the 4-piece -> highlight", "icon:" .. RSK, nf.icon.texture)
+  events.scripts.OnEvent(events, "PLAYER_REGEN_ENABLED"); now = now + 6.1; step()
 end
 
 io.stdout:write(table.concat(printed, "\n"), "\n")

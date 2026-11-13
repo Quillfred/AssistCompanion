@@ -29,6 +29,8 @@ local S = {
   SCOURGE_STRIKE      = 55090,
   FESTERING_STRIKE    = 85948,
   PUTREFY             = 1247378,
+  FESTERING_SCYTHE    = 458128,  -- Festering Strike's button after a Festering Strike (talent 455397)
+  FESTERING_SCYTHE_TALENT = 455397,
   SOUL_REAPER         = 343294,
   -- Frost
   PILLAR_OF_FROST     = 51271,
@@ -238,6 +240,15 @@ local function unholyRPRuleApplies(ctx, id)
   return (a ~= nil and id == a) or (b ~= nil and id == b)
 end
 
+-- Festering Scythe (0.27.13): its plague haste lasts 25 s on the targets hit, timed from your own cast.
+local FESTERING_SCYTHE_DEBUFF = 25
+local FESTERING_SCYTHE_REFRESH = 4 -- SimC: refresh with under 3 GCDs left
+local function unholyScytheLeft(ctx)
+  local t = ctx.lastCast and ctx.lastCast[S.FESTERING_SCYTHE]
+  if not t then return 0 end
+  return math.max(0, FESTERING_SCYTHE_DEBUFF - (ctx.now - t))
+end
+
 ns.rules = {}
 
 -- The spell your button actually casts for `id` (talents replace some: Epidemic -> Graveyard,
@@ -267,6 +278,28 @@ ns.rules[252] = {
         spell = S.BLIGHTFALL,
         text = "Press Blightfall",
         sub = "Not Outbreak. It's on your Dark Transformation button.",
+      }
+    end,
+  },
+  {
+    key = "fescythe",
+    name = "Festering Scythe uptime",
+    spell = S.FESTERING_SCYTHE,
+    desc = "Keeps Festering Scythe's plague haste (25 sec) up: shows Festering Strike, then Festering Scythe, when it has 4 sec or less left. The highlight waits until it has fallen off. Tracked from your own Festering Scythe casts.",
+    -- Unholy gap sims (Nov 2026): optimal keeps it up 99%, the highlight ~53%. This rule alone,
+    -- Rider: +8.1% / +8.1% / +8.5% at 1 / 3 / 5 targets (San'layn ~+23%, rougher sim).
+    check = function(ctx)
+      if not ctx.inCombat or ctx.enemies == 0 then return end -- 0: nothing left to hit (owner's 0.27.14 log)
+      local onScythe = ctx.override(S.FESTERING_STRIKE) == S.FESTERING_SCYTHE
+      if not onScythe and not ctx.knows(S.FESTERING_SCYTHE_TALENT) then return end
+      if unholyScytheLeft(ctx) > FESTERING_SCYTHE_REFRESH then return end
+      local n = ctx.next
+      if n == S.FESTERING_STRIKE or n == S.FESTERING_SCYTHE or n == S.OUTBREAK or n == 46584 then return end
+      if not onScythe and ctx.runes and ctx.runes < 2 then return end -- Festering Strike costs 2 runes
+      return {
+        spell = onScythe and S.FESTERING_SCYTHE or S.FESTERING_STRIKE,
+        text = onScythe and "Festering Scythe" or "Festering Strike",
+        sub = onScythe and "Refresh its plague haste before it runs out." or "Sets up Festering Scythe before its plague haste runs out.",
       }
     end,
   },
@@ -1349,6 +1382,13 @@ for spec, list in pairs(ns.readyCooldowns) do
   end
 end
 
+ns.debugStatus[252] = function(ctx)
+  local o = ctx.override(S.FESTERING_STRIKE)
+  return ("fs=%s fsbtn=%s"):format(
+    ctx.lastCast and ctx.lastCast[S.FESTERING_SCYTHE] and ("%.0f"):format(unholyScytheLeft(ctx)) or "-",
+    o == S.FESTERING_SCYTHE and "scythe" or tostring(o))
+end
+
 ---------------------------------------------------------------------------
 -- Windwalker Monk (spec 269). Audit: docs/FINDINGS.md "Windwalker audit"; sims: tools/windwalker_rules_sim.py.
 -- The highlight in game never shows Zenith, Celestial Conduit or Invoke Xuen (Zenith and Conduit are
@@ -1399,6 +1439,21 @@ local function sckOk(ctx)
   return true
 end
 
+-- Unbroken Rhythm (MID2 4-piece set, 1296624): each Fists of Fury tick stacks a buff (20 s) that the next
+-- Rising Sun Kick / Rushing Wind Kick or Spinning Crane Kick uses up; it's worth far more on Spinning Crane
+-- Kick. Hidden in combat, so timed from your casts: up after Fists of Fury until one of those.
+local UNBROKEN_RHYTHM_SET, UNBROKEN_RHYTHM_TIME = 1296624, 24 -- 20 s buff + the ~4 s channel
+local function unbrokenRhythmUp(ctx)
+  local fof = ctx.lastCast[S.FISTS_OF_FURY]
+  if not fof or ctx.now - fof > UNBROKEN_RHYTHM_TIME then return false end
+  for _, id in ipairs({ S.SPINNING_CRANE_KICK, S.RISING_SUN_KICK, S.RUSHING_WIND_KICK }) do
+    local t = ctx.lastCast[id]
+    if t and t > fof then return false end
+  end
+  return true
+end
+ns.wwUnbrokenRhythmUp = unbrokenRhythmUp
+
 local wwRules = {
   {
     key = "xuen", name = "Invoke Xuen ready", spell = S.INVOKE_XUEN,
@@ -1433,6 +1488,17 @@ local wwRules = {
       local c = ctx.charges(S.ZENITH)
       if c ~= nil and c < 1 then return end
       return { spell = S.ZENITH, iconOnly = true, text = "Zenith", sub = "Ready" }
+    end,
+  },
+  {
+    key = "unbrokenrhythm", name = "Spinning Crane Kick after Fists of Fury (4-piece)", spell = S.SPINNING_CRANE_KICK,
+    desc = "With the Midnight season 2 4-piece set (Unbroken Rhythm): shows Spinning Crane Kick right after Fists of Fury at 3+ targets (any count with Conduit of the Celestials), so the bonus goes on Spinning Crane Kick instead of Rising Sun Kick. Timed from your casts. Simmed: Conduit +7.5% / +4.7% at 3 / 5 targets (+1.9% single target), Shado-Pan +2.1% / +1.0%. Needs enemy nameplates on.",
+    check = function(ctx)
+      if not ctx.inCombat or not ctx.knows(UNBROKEN_RHYTHM_SET) or not unbrokenRhythmUp(ctx) then return end
+      local conduit = ctx.knows(S.CELESTIAL_CONDUIT_HERO) or ctx.knows(S.CELESTIAL_CONDUIT)
+      if not conduit and (ctx.enemies or 1) < 3 then return end
+      if not sckOk(ctx) then return end
+      return { spell = S.SPINNING_CRANE_KICK, text = "Spinning Crane Kick", sub = "Unbroken Rhythm" }
     end,
   },
   {
@@ -1475,8 +1541,9 @@ ns.trackCooldowns[269] = { S.INVOKE_XUEN, S.CELESTIAL_CONDUIT }
 ns.debugStatus[269] = function(ctx)
   local g = ctx.glowing(S.SPINNING_CRANE_KICK)
   local last = wwLastStrike(ctx)
-  return ("zen=%s/%.0fs glow=%s last=%s xuen=%s"):format(tostring(ctx.charges(S.ZENITH)), zenithLeft(ctx),
+  return ("zen=%s/%.0fs glow=%s last=%s ur=%s%s xuen=%s"):format(tostring(ctx.charges(S.ZENITH)), zenithLeft(ctx),
     g == nil and "?" or (g and "y" or "n"), last and tostring(last) or "n",
+    ctx.knows(UNBROKEN_RHYTHM_SET) and "4pc" or "no4pc", unbrokenRhythmUp(ctx) and ":up" or "",
     ctx.knows(S.INVOKE_XUEN) and ("%.0f"):format(ns.cooldownLeft(ctx, S.INVOKE_XUEN, 120 - (ctx.knows(S.XUENS_BOND) and 30 or 0))) or "-")
 end
 

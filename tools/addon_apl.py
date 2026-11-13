@@ -37,11 +37,13 @@ def actions(spec):
         # 0.25.0 as shipped: Blightfall fix for both trees; Death Coil / Epidemic at 80+ runic power only in
         # place of the rune spenders and only for San'layn (Vampiric Strike talent).
         m = _mod("unholy_rules_sim")
-        lines = m.apl((1, 0))
+        lines = m.apl((1, 0, 1))  # 0.27.13: + Festering Scythe uptime
         out = []
         for l in lines:
             a = l.split("=", 1)[1].lstrip("/") if l.startswith("actions+=") else None
-            if a and a.startswith(("scourge_strike", "festering_strike", "vampiric_strike", "festering_scythe")):
+            # the Festering Scythe uptime rule comes before the runic power rule in the addon: leave it alone
+            if a and a.startswith(("scourge_strike", "festering_strike", "vampiric_strike", "festering_scythe")) \
+                    and "festering_scythe_tt.remains" not in a:
                 c = a.split(",if=", 1)[1].split(",")[0] if ",if=" in a else ""
                 extra = f"&({c})" if c else ""
                 out.append(f"actions+=/death_coil,if=talent.vampiric_strike&runic_power>=80&active_enemies<=3{extra}")
